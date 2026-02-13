@@ -7,16 +7,16 @@ Usage:
 
 import argparse
 import asyncio
+import multiprocessing
 import os
 import sys
-import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import structlog
 
-from polymarket_pipeline.loaders.parquet import ParquetLoader, list_parquet_files, load_file_fast
+from polymarket_pipeline.loaders.parquet import list_parquet_files, load_file_fast
 from polymarket_pipeline.market_sync import fetch_events
 from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 from polymarket_pipeline.sinks.postgres import PostgresSink
@@ -25,30 +25,36 @@ log = structlog.get_logger()
 
 PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
-# Thread-local ClickHouse connections (one per worker thread)
-_thread_local = threading.local()
+# ---------------------------------------------------------------------------
+# Worker process globals (set once per worker via _init_worker)
+# ---------------------------------------------------------------------------
+
+_worker_token_map: dict[str, tuple[str, str]] = {}
+_worker_sink: ClickHouseSink | None = None
 
 
-def _get_thread_sink() -> ClickHouseSink:
-    if not hasattr(_thread_local, "sink"):
-        _thread_local.sink = ClickHouseSink()
-    return _thread_local.sink
+def _init_worker(token_map: dict[str, tuple[str, str]]) -> None:
+    """Called once per worker process. Stores token_map and creates a CH connection."""
+    global _worker_token_map, _worker_sink
+    _worker_token_map = token_map
+    _worker_sink = ClickHouseSink()
 
 
-def _process_file(
-    path: Path,
-    token_map: dict[str, tuple[str, str]],
-    batch_size: int,
-) -> dict:
-    """Load a single parquet file (vectorized) and insert into ClickHouse."""
+def _process_file(args: tuple[str, int]) -> dict:
+    """Load a single parquet file (vectorized) and insert into ClickHouse.
+
+    Takes (file_path_str, batch_size) to keep pickle overhead minimal.
+    """
+    file_path_str, batch_size = args
+    path = Path(file_path_str)
     file_start = time.monotonic()
 
-    df, total_rows, dropped = load_file_fast(path, token_map)
+    df, total_rows, dropped = load_file_fast(path, _worker_token_map)
     trades = len(df)
 
     if trades > 0:
-        sink = _get_thread_sink()
-        sink.insert_dataframe(df, batch_size=batch_size)
+        assert _worker_sink is not None
+        _worker_sink.insert_dataframe(df, batch_size=batch_size)
 
     elapsed = time.monotonic() - file_start
     return {
@@ -98,15 +104,25 @@ async def run_backfill(
     files = list_parquet_files(parquet_dir)
     log.info("files_found", count=len(files), workers=workers, batch_size=batch_size)
 
-    # 3. Parallel load + insert
+    # 3. Parallel load + insert (ProcessPoolExecutor for true parallelism)
     total_trades = 0
     total_dropped = 0
     completed = 0
     start = time.monotonic()
 
-    with ThreadPoolExecutor(max_workers=workers) as executor:
+    # Use fork on Linux (inherits token_map via COW, no serialization).
+    # On macOS use spawn (default) — token_map is pickled to each worker once.
+    mp_context = multiprocessing.get_context("fork" if sys.platform == "linux" else "spawn")
+
+    with ProcessPoolExecutor(
+        max_workers=workers,
+        mp_context=mp_context,
+        initializer=_init_worker,
+        initargs=(token_map,),
+    ) as executor:
+        # Submit all files — pass (path_str, batch_size) to minimize pickle cost
         futures = {
-            executor.submit(_process_file, path, token_map, batch_size): path
+            executor.submit(_process_file, (str(path), batch_size)): path
             for path in files
         }
 
@@ -155,7 +171,7 @@ def main() -> None:
         "--workers",
         type=int,
         default=min(os.cpu_count() or 4, 6),
-        help="Number of parallel worker threads",
+        help="Number of parallel worker processes",
     )
     parser.add_argument(
         "--no-market-sync",
