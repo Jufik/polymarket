@@ -13,7 +13,7 @@ from typing import Any
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
 
-_EXCHANGE_ADDRS: frozenset[str] = frozenset(
+EXCHANGE_ADDRS: frozenset[str] = frozenset(
     {
         "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
         "0xc5d563a36ae78145c45a50134d48a1215220f80a",
@@ -35,7 +35,7 @@ class GoldskySinkNormalizer:
     def normalize(self, raw: dict[str, Any]) -> NormalizedTrade | None:
         """Normalize a single Parquet row. Returns None for taker-focused duplicates."""
         # 1. Drop taker-focused duplicates
-        if raw["taker"].lower() in _EXCHANGE_ADDRS:
+        if raw["taker"].lower() in EXCHANGE_ADDRS:
             return None
 
         # 2. Determine side and extract amounts
