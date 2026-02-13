@@ -19,6 +19,7 @@ from polymarket_pipeline.exploration.lifecycle import (
     LifecycleCallback,
     ReviewResult,
     RunResult,
+    fix_dq_and_retry,
     generate_stage_lifecycle,
     load_orchestrator_state,
     load_tree,
@@ -31,6 +32,7 @@ from polymarket_pipeline.exploration.tree import (
     ExplorationStage,
     ExplorationTree,
     OrchestratorState,
+    ProposedRefinement,
     StageStatus,
 )
 
@@ -96,6 +98,20 @@ class RichOrchestratorCallback:
             f"[yellow]Retry {attempt}: fixing script after error...[/yellow]"
         )
         self.console.print(f"[dim]{truncated}[/dim]")
+
+    def on_dq_retry(self, stage: ExplorationStage, attempt: int, issues: list) -> None:
+        issues_text = "\n".join(
+            f"  - {dq.description}" for dq in issues
+        )
+        self.console.print(
+            Panel(
+                f"[yellow bold]DQ fix attempt {attempt} for {stage.id}[/yellow bold]\n\n"
+                f"Issues to fix:\n{issues_text}\n\n"
+                "[dim]Regenerating script with DQ feedback...[/dim]",
+                title="Data Quality Self-Heal",
+                border_style="yellow",
+            )
+        )
 
     def on_agent_event(self, entry: dict) -> None:
         """Print a live-streamed agent transcript entry."""
@@ -164,12 +180,14 @@ class StrategyOrchestrator:
         max_stages: int = 10,
         callback: LifecycleCallback | None = None,
         resume: bool = False,
+        max_dq_retries: int = 2,
     ) -> None:
         self.strategy = strategy
         self.max_depth = max_depth
         self.max_stages = max_stages
         self.callback = callback or RichOrchestratorCallback()
         self.resume = resume
+        self.max_dq_retries = max_dq_retries
 
     async def run(self) -> OrchestratorState:
         """Execute the autonomous loop. Returns final state."""
@@ -272,20 +290,39 @@ class StrategyOrchestrator:
                 callback=self.callback,
             )
 
-            # Step 7: Check for critical DQ issues
+            # Step 7: Check for critical DQ issues -> attempt self-healing
             if review_result.has_critical_dq_issues:
-                # Set stage to PAUSED
-                tree = load_tree(self.strategy)
-                paused_stage = tree.get_stage(new_stage.id)
-                if paused_stage:
-                    paused_stage.status = StageStatus.PAUSED
-                    save_tree(self.strategy, tree)
+                if self.max_dq_retries > 0 and review_result.analysis:
+                    critical_issues = [
+                        dq for dq in review_result.analysis.data_quality_issues
+                        if dq.severity == "critical"
+                    ]
+                    tree = load_tree(self.strategy)
+                    new_stage = tree.get_stage(gen_result.stage.id) or new_stage
+                    review_result = await fix_dq_and_retry(
+                        strategy=self.strategy,
+                        tree=tree,
+                        stage=new_stage,
+                        parent=parent,
+                        refinement=refinement,
+                        dq_issues=critical_issues,
+                        callback=self.callback,
+                        max_dq_retries=self.max_dq_retries,
+                    )
 
-                state.paused = True
-                state.pause_reason = "Critical data quality issues detected"
-                state.paused_at_stage = new_stage.id
-                save_orchestrator_state(self.strategy, state)
-                return state
+                # Still has critical DQ after retries (or retries disabled) -> PAUSE
+                if review_result.has_critical_dq_issues:
+                    tree = load_tree(self.strategy)
+                    paused_stage = tree.get_stage(new_stage.id)
+                    if paused_stage:
+                        paused_stage.status = StageStatus.PAUSED
+                        save_tree(self.strategy, tree)
+
+                    state.paused = True
+                    state.pause_reason = "Critical data quality issues detected"
+                    state.paused_at_stage = new_stage.id
+                    save_orchestrator_state(self.strategy, state)
+                    return state
 
             if not review_result.success:
                 self.callback.on_error(f"Review failed, stopping: {review_result.error}")
@@ -321,18 +358,56 @@ class StrategyOrchestrator:
                 reviewed = True
 
                 if review_result.has_critical_dq_issues:
-                    tree = load_tree(self.strategy)
-                    paused_stage = tree.get_stage(stage.id)
-                    if paused_stage:
-                        paused_stage.status = StageStatus.PAUSED
-                        save_tree(self.strategy, tree)
+                    # Attempt DQ self-healing
+                    if self.max_dq_retries > 0 and review_result.analysis:
+                        critical_issues = [
+                            dq for dq in review_result.analysis.data_quality_issues
+                            if dq.severity == "critical"
+                        ]
+                        # Look up parent and refinement for regeneration
+                        parent_stage = (
+                            tree.get_stage(stage.parent_id) if stage.parent_id else None
+                        )
+                        stage_refinement = self._find_refinement(parent_stage, stage)
+                        tree = load_tree(self.strategy)
+                        stage = tree.get_stage(stage.id) or stage
+                        review_result = await fix_dq_and_retry(
+                            strategy=self.strategy,
+                            tree=tree,
+                            stage=stage,
+                            parent=parent_stage,
+                            refinement=stage_refinement,
+                            dq_issues=critical_issues,
+                            callback=self.callback,
+                            max_dq_retries=self.max_dq_retries,
+                        )
 
-                    state.paused = True
-                    state.pause_reason = "Critical data quality issues detected"
-                    state.paused_at_stage = stage.id
-                    save_orchestrator_state(self.strategy, state)
-                    return True
+                    if review_result.has_critical_dq_issues:
+                        tree = load_tree(self.strategy)
+                        paused_stage = tree.get_stage(stage.id)
+                        if paused_stage:
+                            paused_stage.status = StageStatus.PAUSED
+                            save_tree(self.strategy, tree)
+
+                        state.paused = True
+                        state.pause_reason = "Critical data quality issues detected"
+                        state.paused_at_stage = stage.id
+                        save_orchestrator_state(self.strategy, state)
+                        return True
         return reviewed
+
+    @staticmethod
+    def _find_refinement(
+        parent: ExplorationStage | None,
+        stage: ExplorationStage,
+    ) -> ProposedRefinement | None:
+        """Find the refinement that produced *stage* from *parent*'s analysis."""
+        if not parent or not parent.analysis:
+            return None
+        for ref in parent.analysis.proposed_refinements:
+            if ref.name == stage.name:
+                return ref
+        return None
 
     def _print_summary(self, state: OrchestratorState) -> None:
         """Print a summary table of the orchestrator run."""

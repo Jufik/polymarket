@@ -320,6 +320,7 @@ async def generate_stage_script(
     output_path: Path,
     on_event: Callable[[dict], None] | None = None,
     previous_error: str | None = None,
+    previous_dq_issues: list[DataQualityIssue] | None = None,
 ) -> AgentResult:
     """Have Claude generate a stage script."""
     prompt_parts = [
@@ -358,6 +359,25 @@ async def generate_stage_script(
             "- Always alias columns with table prefix after JOINs (e.g. t.condition_id AS condition_id)\n"
             "- Avoid SELECT * FROM large tables with FINAL — select only needed columns, or drop FINAL\n"
             "- Don't reuse CTE column names as outer aliases (causes nested aggregation errors)"
+        )
+    elif previous_dq_issues:
+        issues_desc = "\n".join(
+            f"- [{dq.severity.upper()}] {dq.description}"
+            + (f"\n  Suggested fix: {dq.suggested_fix}" if dq.suggested_fix else "")
+            + (f"\n  Affected metric: {dq.affected_metric}" if dq.affected_metric else "")
+            for dq in previous_dq_issues
+        )
+        prompt_parts.append(
+            f"\nPREVIOUS ATTEMPT had DATA QUALITY issues detected by the reviewer:\n"
+            f"{issues_desc}\n\n"
+            f"Read the existing script at {output_path}, diagnose the data quality problems, "
+            f"and write a fixed version.\n"
+            "Common data quality causes:\n"
+            "- Missing FINAL keyword on ReplacingMergeTree tables (trades_raw) causing duplicates\n"
+            "- Wrong JOIN keys producing fanout or zero rows\n"
+            "- Filtering on NULL columns without COALESCE/isNotNull\n"
+            "- Incorrect date/timestamp filtering excluding valid data\n"
+            "- Not handling Nullable columns in aggregations"
         )
     else:
         prompt_parts.append(
