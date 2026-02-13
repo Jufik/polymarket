@@ -1,0 +1,9 @@
+<clickhouse>
+    <max_server_memory_usage>0</max_server_memory_usage>
+    <max_server_memory_usage_to_ram_ratio>0.95</max_server_memory_usage_to_ram_ratio>
+    <profiles>
+        <default>
+            <max_memory_usage>0</max_memory_usage>
+        </default>
+    </profiles>
+</clickhouse>

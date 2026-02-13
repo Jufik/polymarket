@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Data
+order_filled/
+
+# Tools
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Local experiments
+.local/
+
+# IDE / editor
+.claude/
+.serena/
