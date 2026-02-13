@@ -1,0 +1,31 @@
+"""Deterministic trade_id generation for cross-source deduplication."""
+
+from hashlib import sha256
+
+
+def make_trade_id_chain(*, tx_hash: str, order_hash: str) -> str:
+    """Generate trade_id for on-chain sources (Sink/Subgraph).
+
+    Same tx_hash + order_hash from Sink and Subgraph produce identical IDs,
+    enabling automatic deduplication via ClickHouse ReplacingMergeTree.
+    """
+    raw = f"{tx_hash}:{order_hash}"
+    digest = sha256(raw.encode()).hexdigest()[:16]
+    return f"chain:{digest}"
+
+
+def make_trade_id_ws(
+    *,
+    asset_id: str,
+    timestamp_ms: int,
+    price: str,
+    size: str,
+) -> str:
+    """Generate trade_id for off-chain sources (Market WS / RTDS).
+
+    Uses composite key since WS sources don't have order_hash.
+    RTDS and Market WS for the same trade produce identical IDs.
+    """
+    raw = f"{asset_id}:{timestamp_ms}:{price}:{size}"
+    digest = sha256(raw.encode()).hexdigest()[:16]
+    return f"ws:{digest}"
