@@ -116,7 +116,7 @@ src/polymarket_pipeline/
 
 | Service | Port | Purpose |
 |---------|------|---------|
-| ClickHouse 24.8 | 8123 (HTTP), 9000 (native) | Trade storage (OLAP) |
-| CH-UI | 5521 | ClickHouse web UI |
-| PostgreSQL 16 | 5432 | Metadata (user: polymarket, pass: polymarket) |
+| ClickHouse 24.8 | 18123 (HTTP), 19000 (native) | Trade storage (OLAP) |
+| CH-UI | 15521 | ClickHouse web UI |
+| PostgreSQL 16 | 15432 | Metadata (user: polymarket, pass: polymarket) |
 | MLflow 2.19.0 | 5050 | Experiment tracking |

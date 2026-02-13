@@ -12,7 +12,7 @@ from polymarket_pipeline.models import Event, Market, Tag, TokenMarketEntry
 class PostgresSink:
     """Async PostgreSQL sink using asyncpg connection pool."""
 
-    def __init__(self, dsn: str = "postgresql://polymarket:polymarket@localhost:5432/polymarket"):
+    def __init__(self, dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"):
         self._dsn = dsn
         self._pool: asyncpg.Pool | None = None
 
@@ -177,6 +177,16 @@ class PostgresSink:
 
         async with self._pool.acquire() as conn:
             await conn.executemany(sql, rows)
+
+    async def fetch_token_market_map(self) -> dict[str, tuple[str, str]]:
+        """Load asset_id -> (condition_id, outcome) map from token_market_map table."""
+        if not self._pool:
+            return {}
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT asset_id, condition_id, outcome FROM token_market_map"
+            )
+            return {r["asset_id"]: (r["condition_id"], r["outcome"]) for r in rows}
 
     async def query(self, sql: str, *args: Any) -> list[dict[str, Any]]:
         """Execute a query and return results as list of dicts."""
