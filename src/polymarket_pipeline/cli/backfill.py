@@ -8,6 +8,7 @@ Usage:
 import argparse
 import asyncio
 import multiprocessing
+import multiprocessing.synchronize
 import os
 import sys
 import time
@@ -29,15 +30,21 @@ PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 # Worker process globals (set once per worker via _init_worker)
 # ---------------------------------------------------------------------------
 
-_worker_token_map: dict[str, tuple[str, str]] = {}
+_worker_cond_map: dict[str, str] = {}
 _worker_sink: ClickHouseSink | None = None
+_worker_ch_sem: multiprocessing.synchronize.Semaphore | None = None
 
 
-def _init_worker(token_map: dict[str, tuple[str, str]]) -> None:
-    """Called once per worker process. Stores token_map and creates a CH connection."""
-    global _worker_token_map, _worker_sink
-    _worker_token_map = token_map
+def _init_worker(
+    token_map: dict[str, tuple[str, str]],
+    ch_sem: multiprocessing.synchronize.Semaphore,
+) -> None:
+    """Called once per worker process. Pre-computes cond_map and creates a CH connection."""
+    global _worker_cond_map, _worker_sink, _worker_ch_sem
+    # Pre-compute once per worker — avoids rebuilding 943K-entry dict on every file
+    _worker_cond_map = {k: v[0] for k, v in token_map.items()}
     _worker_sink = ClickHouseSink()
+    _worker_ch_sem = ch_sem
 
 
 def _process_file(args: tuple[str, int]) -> dict:
@@ -49,12 +56,17 @@ def _process_file(args: tuple[str, int]) -> dict:
     path = Path(file_path_str)
     file_start = time.monotonic()
 
-    df, total_rows, dropped = load_file_fast(path, _worker_token_map)
+    df, total_rows, dropped = load_file_fast(path, _worker_cond_map)
     trades = len(df)
 
     if trades > 0:
         assert _worker_sink is not None
-        _worker_sink.insert_dataframe(df, batch_size=batch_size)
+        assert _worker_ch_sem is not None
+        _worker_ch_sem.acquire()
+        try:
+            _worker_sink.insert_dataframe(df, batch_size=batch_size)
+        finally:
+            _worker_ch_sem.release()
 
     elapsed = time.monotonic() - file_start
     return {
@@ -70,6 +82,7 @@ async def run_backfill(
     parquet_dir: Path,
     batch_size: int = 100_000,
     workers: int = 4,
+    ch_concurrency: int = 3,
     no_market_sync: bool = False,
     pg_dsn: str = PG_DSN_DEFAULT,
 ) -> None:
@@ -113,12 +126,13 @@ async def run_backfill(
     # Use fork on Linux (inherits token_map via COW, no serialization).
     # On macOS use spawn (default) — token_map is pickled to each worker once.
     mp_context = multiprocessing.get_context("fork" if sys.platform == "linux" else "spawn")
+    ch_sem = mp_context.Semaphore(ch_concurrency)
 
     with ProcessPoolExecutor(
         max_workers=workers,
         mp_context=mp_context,
         initializer=_init_worker,
-        initargs=(token_map,),
+        initargs=(token_map, ch_sem),
     ) as executor:
         # Submit all files — pass (path_str, batch_size) to minimize pickle cost
         futures = {
@@ -131,6 +145,7 @@ async def run_backfill(
             completed += 1
             total_trades += result["trades"]
             total_dropped += result["dropped"]
+            wall = time.monotonic() - start
 
             log.info(
                 "file_complete",
@@ -139,6 +154,7 @@ async def run_backfill(
                 trades=result["trades"],
                 elapsed_s=f"{result['elapsed_s']:.1f}",
                 total_trades=total_trades,
+                trades_per_sec=f"{total_trades / max(wall, 1):.0f}",
             )
 
     total_elapsed = time.monotonic() - start
@@ -167,11 +183,18 @@ def main() -> None:
         default=100_000,
         help="ClickHouse insert batch size (default: 100k)",
     )
+    cpu = os.cpu_count() or 4
     parser.add_argument(
         "--workers",
         type=int,
-        default=min(os.cpu_count() or 4, 6),
-        help="Number of parallel worker processes",
+        default=max(cpu - 4, 4),
+        help=f"Number of parallel worker processes (default: {max(cpu - 4, 4)})",
+    )
+    parser.add_argument(
+        "--ch-concurrency",
+        type=int,
+        default=min(max(cpu // 4, 3), 8),
+        help=f"Max concurrent ClickHouse inserts (default: {min(max(cpu // 4, 3), 8)})",
     )
     parser.add_argument(
         "--no-market-sync",
@@ -200,6 +223,7 @@ def main() -> None:
             args.parquet_dir,
             args.batch_size,
             args.workers,
+            args.ch_concurrency,
             args.no_market_sync,
             args.pg_dsn,
         )

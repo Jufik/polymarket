@@ -561,6 +561,9 @@ def orchestrate(
     max_depth: int = typer.Option(3, "--max-depth", help="Maximum tree depth"),
     max_stages: int = typer.Option(10, "--max-stages", help="Maximum stages to run"),
     resume: bool = typer.Option(False, "--resume", help="Resume from paused state"),
+    max_dq_retries: int = typer.Option(
+        2, "--max-dq-retries", help="Max DQ self-heal attempts before pausing (0 to disable)"
+    ),
 ) -> None:
     """Run autonomous exploration loop.
 
@@ -593,6 +596,7 @@ def orchestrate(
         max_stages=max_stages,
         callback=callback,
         resume=resume,
+        max_dq_retries=max_dq_retries,
     )
 
     console.print(
@@ -601,6 +605,7 @@ def orchestrate(
             f"Strategy: {strategy}\n"
             f"Max depth: {max_depth}\n"
             f"Max stages: {max_stages}\n"
+            f"Max DQ retries: {max_dq_retries}\n"
             f"Resume: {resume}",
             title="Orchestrator Starting",
         )

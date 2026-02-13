@@ -1,0 +1,32 @@
+{
+  "sample_size": 14214,
+  "unique_traders": 14214,
+  "unique_markets": 4482054,
+  "custom": {
+    "lookback_start": "2025-08-01",
+    "min_resolved_markets": 20,
+    "min_resolved_volume_usd": 10000,
+    "resolution_confidence_threshold": 0.95,
+    "sigma_threshold": 2.0,
+    "population_mean_pnl": 4393.16,
+    "population_std_pnl": 137127.96,
+    "significance_threshold_pnl": 278649.07,
+    "n_skilled_traders": 93,
+    "n_consistent_across_periods": 56,
+    "consistency_rate": 0.6022,
+    "sub_periods": [
+      [
+        "2025-08-01",
+        "2025-09-30"
+      ],
+      [
+        "2025-10-01",
+        "2025-11-30"
+      ],
+      [
+        "2025-12-01",
+        "2026-01-31"
+      ]
+    ]
+  }
+}

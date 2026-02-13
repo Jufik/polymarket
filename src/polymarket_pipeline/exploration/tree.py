@@ -123,6 +123,7 @@ class ExplorationStage(BaseModel):
 
     last_error: str | None = None
     run_attempts: int = 0
+    dq_fix_attempts: int = 0
 
 
 class OrchestratorState(BaseModel):
