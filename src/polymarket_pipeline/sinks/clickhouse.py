@@ -72,6 +72,17 @@ class ClickHouseSink:
 
         self._client.insert("trades_raw", rows, column_names=columns)
 
+    def insert_dataframe(self, df: Any, batch_size: int = 100_000) -> None:
+        """Insert a pandas DataFrame into trades_raw in batches.
+
+        Column names in the DataFrame must match the table schema.
+        Much faster than insert_trades for bulk loading.
+        """
+        columns = list(df.columns)
+        for start in range(0, len(df), batch_size):
+            chunk = df.iloc[start : start + batch_size]
+            self._client.insert_df("trades_raw", chunk, column_names=columns)
+
     def query(self, sql: str, parameters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Execute a query and return results as list of dicts."""
         result = self._client.query(sql, parameters=parameters or {})
