@@ -2,7 +2,9 @@
   "paused": false,
   "pause_reason": null,
   "paused_at_stage": null,
-  "stages_completed": 0,
-  "completed_stage_ids": [],
-  "last_updated": "2026-02-13T09:35:45.369052"
+  "stages_completed": 1,
+  "completed_stage_ids": [
+    "01b_pnl_based_skill_scoring"
+  ],
+  "last_updated": "2026-02-13T15:43:06.073093"
 }

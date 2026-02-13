@@ -15,6 +15,7 @@ from typing import Protocol
 
 from polymarket_pipeline.exploration.tree import (
     ClaudeAnalysis,
+    DataQualityIssue,
     ExplorationStage,
     ExplorationTree,
     OrchestratorState,
@@ -45,6 +46,7 @@ class LifecycleCallback(Protocol):
     def on_data_quality_alert(self, stage: ExplorationStage, issues: list) -> None: ...
     def on_agent_event(self, entry: dict) -> None: ...
     def on_retry(self, stage: ExplorationStage, attempt: int, error: str) -> None: ...
+    def on_dq_retry(self, stage: ExplorationStage, attempt: int, issues: list) -> None: ...
 
 
 class SilentCallback:
@@ -75,6 +77,9 @@ class SilentCallback:
         pass
 
     def on_retry(self, stage: ExplorationStage, attempt: int, error: str) -> None:
+        pass
+
+    def on_dq_retry(self, stage: ExplorationStage, attempt: int, issues: list) -> None:
         pass
 
 
@@ -367,6 +372,105 @@ async def review_stage_lifecycle(
     except Exception as e:
         cb.on_error(f"Review failed: {e}")
         return ReviewResult(success=False, stage=stage, error=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Fix DQ and retry (self-healing)
+# ---------------------------------------------------------------------------
+
+
+async def fix_dq_and_retry(
+    strategy: str,
+    tree: ExplorationTree,
+    stage: ExplorationStage,
+    parent: ExplorationStage | None,
+    refinement: ProposedRefinement | None,
+    dq_issues: list[DataQualityIssue],
+    callback: LifecycleCallback | None = None,
+    max_dq_retries: int = 2,
+) -> ReviewResult:
+    """Regenerate a stage script with DQ feedback, re-run, and re-review.
+
+    Loop up to *max_dq_retries* times:
+      1. Regenerate script with previous DQ issues as context
+      2. Reset stage to PENDING
+      3. run_stage_with_retry() (execution self-healing nests inside)
+      4. review_stage_lifecycle() to re-review
+      5. If still critical DQ -> extract new issues, loop
+      6. Return final ReviewResult (caller decides whether to pause)
+    """
+    cb = callback or SilentCallback()
+    strategy_path = get_strategy_path(strategy)
+    current_issues = dq_issues
+
+    for attempt in range(1, max_dq_retries + 1):
+        cb.on_dq_retry(stage, attempt, current_issues)
+
+        # 1. Regenerate script with DQ context
+        from polymarket_pipeline.exploration.agent import generate_stage_script
+
+        script_path = strategy_path / (stage.script_path or f"stages/{stage.id}/stage.py")
+        await generate_stage_script(
+            stage=stage,
+            parent=parent,
+            refinement=refinement,
+            strategy_root=strategy_path,
+            output_path=script_path,
+            on_event=cb.on_agent_event,
+            previous_dq_issues=current_issues,
+        )
+
+        # 2. Reset stage to PENDING, clear stale analysis
+        tree = load_tree(strategy)
+        stage = tree.get_stage(stage.id) or stage
+        stage.status = StageStatus.PENDING
+        stage.analysis = None
+        stage.dq_fix_attempts = attempt
+        save_tree(strategy, tree)
+
+        # 3. Run with execution self-healing
+        run_result = await run_stage_with_retry(
+            strategy=strategy,
+            tree=tree,
+            stage=stage,
+            parent=parent,
+            refinement=refinement,
+            callback=cb,
+            max_retries=3,
+        )
+        if not run_result.success:
+            return ReviewResult(
+                success=False,
+                stage=stage,
+                error=f"Run failed during DQ retry {attempt}: {run_result.error}",
+            )
+
+        # 4. Re-review
+        tree = load_tree(strategy)
+        stage = tree.get_stage(stage.id) or stage
+        review_result = await review_stage_lifecycle(
+            strategy=strategy,
+            tree=tree,
+            stage=stage,
+            callback=cb,
+        )
+
+        if not review_result.success:
+            return review_result
+
+        # 5. If no more critical DQ issues, we're done
+        if not review_result.has_critical_dq_issues:
+            return review_result
+
+        # Still has critical DQ — extract new issues for next iteration
+        if review_result.analysis:
+            current_issues = [
+                dq for dq in review_result.analysis.data_quality_issues
+                if dq.severity == "critical"
+            ]
+
+    # Exhausted retries, return the last review result (still has DQ issues)
+    return review_result
 
 
 # ---------------------------------------------------------------------------

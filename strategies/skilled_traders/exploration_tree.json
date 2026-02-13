@@ -2,7 +2,7 @@
   "strategy_name": "skilled_traders",
   "description": "Identify and copy-trade skilled Polymarket traders",
   "created_at": "2026-02-13T07:13:05.785024",
-  "updated_at": "2026-02-13T09:38:16.975813",
+  "updated_at": "2026-02-13T15:43:06.073694",
   "mlflow_experiment_id": null,
   "stages": {
     "00_initial": {
@@ -12,7 +12,8 @@
       "parent_id": null,
       "children_ids": [
         "01a_pnl_based_skill_scoring",
-        "01b_pnl_based_skill_scoring"
+        "01b_pnl_based_skill_scoring",
+        "01c_pnl_based_skill_scoring"
       ],
       "depth": 0,
       "refinement_type": null,
@@ -188,7 +189,299 @@
       "outputs_path": "stages/00_initial/outputs",
       "analysis_path": "stages/00_initial/analysis.md",
       "last_error": null,
-      "run_attempts": 0
+      "run_attempts": 0,
+      "dq_fix_attempts": 0
+    },
+    "01a_pnl_based_skill_scoring": {
+      "id": "01a_pnl_based_skill_scoring",
+      "name": "pnl_based_skill_scoring",
+      "description": "Replace volume-based skill identification with proper PnL computation using token_market_map for YES/NO direction and inferred resolution from last trade prices on closed markets",
+      "parent_id": "00_initial",
+      "children_ids": [],
+      "depth": 1,
+      "refinement_type": "feature",
+      "hypothesis": "Token-aware PnL will identify a distinct set of 'skilled' traders who differ from high-volume traders, with top PnL traders showing consistent positive returns across time periods",
+      "status": "reviewing",
+      "created_at": "2026-02-13T14:52:37.290675",
+      "started_at": "2026-02-13T14:56:26.601958",
+      "completed_at": "2026-02-13T14:57:10.811802",
+      "metrics": {
+        "sample_size": 14214,
+        "unique_traders": 14214,
+        "unique_markets": 4482054,
+        "date_range_days": null,
+        "sharpe_ratio": null,
+        "total_return": null,
+        "win_rate": null,
+        "max_drawdown": null,
+        "profit_factor": null,
+        "p_value": null,
+        "effect_size": null,
+        "confidence_interval": null,
+        "custom": {
+          "lookback_start": "2025-08-01",
+          "min_resolved_markets": 20,
+          "min_resolved_volume_usd": 10000,
+          "resolution_confidence_threshold": 0.95,
+          "sigma_threshold": 2.0,
+          "population_mean_pnl": 4393.16,
+          "population_std_pnl": 137127.96,
+          "significance_threshold_pnl": 278649.07,
+          "n_skilled_traders": 93,
+          "n_consistent_across_periods": 56,
+          "consistency_rate": 0.6022,
+          "sub_periods": [
+            [
+              "2025-08-01",
+              "2025-09-30"
+            ],
+            [
+              "2025-10-01",
+              "2025-11-30"
+            ],
+            [
+              "2025-12-01",
+              "2026-01-31"
+            ]
+          ]
+        }
+      },
+      "analysis": {
+        "summary": "The PnL-based skill scoring stage identifies 93 skilled traders from 14,214 qualifying makers using a token-aware PnL methodology. However, two critical data quality issues undermine the results: (1) the analysis only considers maker-side trades, missing ~40% of each trader's volume (median taker share is 40%), which means PnL estimates are systematically incomplete; (2) trading fees are not aggregated despite 16% of trades having positive fees. The core hypothesis that skilled traders differ from high-volume traders is partially supported (Jaccard overlap of 0.21), but the 60% consistency rate across periods with 4x volume growth is difficult to interpret.",
+        "key_insights": [
+          "Token-aware PnL methodology correctly accounts for unrealized gains from holding tokens to resolution - validated against specific positions",
+          "Only 34.4% of top-PnL traders overlap with top-volume traders (Jaccard=0.21), supporting the hypothesis that PnL skill differs from volume",
+          "Top skilled traders are predominantly buy-and-hold-to-resolution strategists - the #1 trader has 2,598 all-long positions with near-zero sell activity as maker",
+          "Win rates cluster near 50% even for top PnL traders (mean 56.5%), suggesting PnL is driven by position sizing and price edge rather than directional accuracy",
+          "Resolution confidence filter at 0.95 retains 94.3% of resolved markets, so this threshold is not overly restrictive",
+          "668,266 traders appear only as takers and are completely invisible to this analysis, potentially missing an entire class of skilled traders"
+        ],
+        "concerns": [
+          "2-sigma threshold on heavily right-skewed PnL distribution may not be appropriate - consider rank-based or log-transformed thresholds",
+          "93 skilled traders is a thin sample; statistical power for downstream analyses (e.g., strategy classification) will be limited",
+          "Consistency metric uses 3 periods with dramatically different volume (P1: $1.1B, P2: $3.0B, P3: $4.7B) and active traders (112K to 298K), making cross-period comparison non-stationary",
+          "Mean Sharpe ratio of 0.10 among skilled traders is very low, suggesting the PnL signal may be noisy and hard to exploit in a copy-trading strategy",
+          "The analysis does not account for survivorship bias - traders who lost heavily may have stopped trading and not appear in later periods",
+          "Multiple of the top-10 skilled traders have win rates below 50% but massive PnL - while potentially valid (large winning positions), this pattern should be verified as not a PnL calculation artifact"
+        ],
+        "proposed_refinements": [
+          {
+            "name": "maker_taker_unified_pnl",
+            "description": "Combine maker and taker trades per wallet to compute complete position-level PnL, fixing the critical data quality gap where ~40% of trading volume is ignored",
+            "refinement_type": "filter",
+            "hypothesis": "Unifying maker+taker trades will change the skilled trader set by >30%, as some traders appear skilled only because their losing taker-side trades are invisible, while others appear unskilled because their profitable taker trades are missed",
+            "expected_outcome": "A revised set of skilled traders with more accurate PnL estimates, potentially different composition, and higher confidence in the skill signal",
+            "priority": 1,
+            "estimated_complexity": 4,
+            "filter_conditions": {
+              "trade_source": "maker AND taker unified per wallet"
+            },
+            "new_features": [
+              "maker_volume_pct",
+              "taker_volume_pct",
+              "unified_pnl"
+            ],
+            "model_config_extra": {}
+          },
+          {
+            "name": "pnl_per_dollar_ranking",
+            "description": "Use PnL-per-dollar-invested (capital efficiency) instead of absolute PnL as the primary skill metric, to reduce bias toward large-capital traders",
+            "refinement_type": "feature",
+            "hypothesis": "Ranking by PnL/dollar will identify a distinct set of skilled traders with higher consistency rates (>70%) because capital-efficient traders are more likely to have repeatable edge rather than just large bankrolls",
+            "expected_outcome": "Higher consistency rate among skilled traders, lower overlap with volume-based ranking, and identification of smaller but consistently profitable traders",
+            "priority": 2,
+            "estimated_complexity": 2,
+            "filter_conditions": {},
+            "new_features": [
+              "pnl_per_dollar_zscore",
+              "capital_efficiency_rank"
+            ],
+            "model_config_extra": {
+              "ranking_metric": "pnl_per_dollar"
+            }
+          },
+          {
+            "name": "volume_adjusted_consistency",
+            "description": "Normalize sub-period PnL by period-specific market conditions (total volume, number of markets resolved) to account for the 4x volume growth across the analysis window",
+            "refinement_type": "parameter",
+            "hypothesis": "Volume-adjusted consistency will produce a more reliable consistency metric, with the rate changing by >10pp compared to the raw metric, because the current approach conflates market growth with trader skill",
+            "expected_outcome": "A consistency metric that is more stable across different time periods and better discriminates between traders who are consistently skilled vs those who benefited from market expansion",
+            "priority": 2,
+            "estimated_complexity": 3,
+            "filter_conditions": {},
+            "new_features": [
+              "period_normalized_pnl",
+              "period_market_adjusted_return"
+            ],
+            "model_config_extra": {
+              "normalization": "period_volume_weighted"
+            }
+          },
+          {
+            "name": "log_pnl_skill_threshold",
+            "description": "Replace the 2-sigma threshold on raw PnL with a threshold on log-transformed or rank-percentile PnL to better handle the heavy right skew of the PnL distribution",
+            "refinement_type": "parameter",
+            "hypothesis": "Using log-PnL or percentile-based thresholds will identify 20-40% more skilled traders who are obscured by the extreme right skew (std=$137K driven by outliers), producing a larger and more diverse skilled set",
+            "expected_outcome": "A larger skilled trader pool (150-200+) with more diverse trading styles, enabling better downstream strategy classification",
+            "priority": 3,
+            "estimated_complexity": 2,
+            "filter_conditions": {},
+            "new_features": [
+              "log_pnl",
+              "pnl_percentile_rank"
+            ],
+            "model_config_extra": {
+              "sigma_threshold": "percentile_99 or log_2sigma"
+            }
+          },
+          {
+            "name": "position_sizing_skill_decomposition",
+            "description": "Decompose PnL into prediction accuracy (win rate) and position sizing skill (avg win size vs avg loss size) to distinguish between traders who pick winners vs traders who size bets well",
+            "refinement_type": "feature",
+            "hypothesis": "Top PnL traders with sub-50% win rates derive their edge from position sizing (Kelly-like behavior), while those with high win rates derive edge from prediction accuracy. These two skill types will show different consistency profiles and tradeable signal characteristics.",
+            "expected_outcome": "Two distinct clusters of skilled traders: 'predictors' (high win rate, moderate sizing) and 'sizers' (moderate win rate, large asymmetric payoffs), each requiring different copy-trading approaches",
+            "priority": 3,
+            "estimated_complexity": 3,
+            "filter_conditions": {},
+            "new_features": [
+              "avg_win_size",
+              "avg_loss_size",
+              "win_loss_ratio",
+              "kelly_fraction",
+              "prediction_skill_score",
+              "sizing_skill_score"
+            ],
+            "model_config_extra": {}
+          }
+        ],
+        "data_quality_issues": [
+          {
+            "severity": "critical",
+            "description": "Analysis only considers maker-side trades, but the median qualifying trader has 40% of their volume as taker. PnL is calculated only from maker trades, systematically missing buy/sell activity on the taker side. This means position sizes, entry prices, and net exposure are all incorrect.",
+            "affected_metric": "estimated_pnl, pnl_per_dollar, win_rate_by_position, total_volume_usd",
+            "suggested_fix": "Combine maker and taker trades for each wallet address (UNION of maker-side and taker-side activity with appropriate side mapping) before computing positions and PnL"
+          },
+          {
+            "severity": "critical",
+            "description": "total_fees_paid is 0.0 for ALL 14,214 traders despite 27.9 million trades (16%) having positive fee_usd values. Fee aggregation is broken or was never implemented. For the top trader specifically, fees are genuinely $0 (maker fees may be zero), but this is not true for the population.",
+            "affected_metric": "total_fees_paid, estimated_pnl (if fees should be subtracted)",
+            "suggested_fix": "Aggregate fee_usd per trader and subtract from PnL. Separately track maker fees vs taker fees to understand fee structure."
+          },
+          {
+            "severity": "warning",
+            "description": "unique_markets metric reports 4,482,054 which is actually the count of trader-market pairs, not unique markets. The actual number of distinct condition_ids traded in the period is 245,012. This is a labeling/reporting error.",
+            "affected_metric": "unique_markets",
+            "suggested_fix": "Rename to 'trader_market_pairs' or fix the aggregation to use count(DISTINCT condition_id)"
+          },
+          {
+            "severity": "warning",
+            "description": "668,266 taker-only traders are completely excluded from the analysis. Some may be highly skilled but never appear as makers. The qualifying trader count (14,214) represents only maker-side traders.",
+            "affected_metric": "sample_size, n_skilled_traders",
+            "suggested_fix": "Include taker-only traders in the population by unioning maker and taker addresses"
+          },
+          {
+            "severity": "info",
+            "description": "Markets table has no status='resolved' - resolved markets have status='closed' with non-null resolved_at. The analysis appears to use resolved_at correctly, but the schema assumption should be documented.",
+            "affected_metric": "resolved_markets count",
+            "suggested_fix": "Document that resolution is determined by resolved_at IS NOT NULL, not by status field"
+          }
+        ],
+        "confidence": 0.45,
+        "generated_at": "2026-02-13T15:03:25.520368"
+      },
+      "mlflow_run_id": "4d5fe620b6e4484a908ad8fa45c734fc",
+      "script_path": "stages/01a_pnl_based_skill_scoring/stage.py",
+      "config_path": null,
+      "outputs_path": "stages/01a_pnl_based_skill_scoring/outputs",
+      "analysis_path": "stages/01a_pnl_based_skill_scoring/analysis.md",
+      "last_error": null,
+      "run_attempts": 0,
+      "dq_fix_attempts": 0
+    },
+    "01b_pnl_based_skill_scoring": {
+      "id": "01b_pnl_based_skill_scoring",
+      "name": "pnl_based_skill_scoring",
+      "description": "Replace volume-based skill identification with proper PnL computation using token_market_map for YES/NO direction and inferred resolution from last trade prices on closed markets",
+      "parent_id": "00_initial",
+      "children_ids": [],
+      "depth": 1,
+      "refinement_type": "feature",
+      "hypothesis": "Token-aware PnL will identify a distinct set of 'skilled' traders who differ from high-volume traders, with top PnL traders showing consistent positive returns across time periods",
+      "status": "reviewing",
+      "created_at": "2026-02-13T15:20:11.225451",
+      "started_at": "2026-02-13T15:31:19.489304",
+      "completed_at": "2026-02-13T15:32:39.055543",
+      "metrics": {
+        "sample_size": 266,
+        "unique_traders": 266,
+        "unique_markets": 413740,
+        "date_range_days": null,
+        "sharpe_ratio": null,
+        "total_return": null,
+        "win_rate": null,
+        "max_drawdown": null,
+        "profit_factor": null,
+        "p_value": null,
+        "effect_size": null,
+        "confidence_interval": null,
+        "custom": {
+          "total_qualifying_traders": 20779,
+          "traders_above_z_threshold": 621,
+          "consistent_skilled_traders": 266,
+          "population_mean_pnl_per_dollar": -0.0008492613972177427,
+          "population_std_pnl_per_dollar": 0.13521052062340821,
+          "z_score_threshold": 2.0,
+          "volume_vs_pnl_jaccard": 0.326,
+          "lookback_start": "2025-08-01",
+          "min_resolved_markets": 20,
+          "min_resolved_volume_usd": 10000
+        }
+      },
+      "analysis": {
+        "summary": "\n\n**CRITICAL CONFIRMED**: `FINAL` on the view does NOT work - `trades_view_final` returns 5,958 (same as no FINAL), while `trades_raw_final` returns 4,839. The stage code uses `polymarket.trades AS tr FINAL` which does NOT deduplicate. This means the entire PnL calculation is inflated by duplicate trades (~12% system-wide, up to 23% for individual traders).\n\nLet me also verify the resolution inference approach:",
+        "key_insights": [
+          "Failed to parse structured response"
+        ],
+        "concerns": [
+          "Agent did not return valid JSON"
+        ],
+        "proposed_refinements": [],
+        "data_quality_issues": [],
+        "confidence": 0.0,
+        "generated_at": "2026-02-13T15:43:06.020436"
+      },
+      "mlflow_run_id": "dbb35dd84d52440899bed22e87f2fe81",
+      "script_path": "stages/01b_pnl_based_skill_scoring/stage.py",
+      "config_path": null,
+      "outputs_path": "stages/01b_pnl_based_skill_scoring/outputs",
+      "analysis_path": "stages/01b_pnl_based_skill_scoring/analysis.md",
+      "last_error": "column with name 'maker_right' already exists\n\nYou may want to try:\n- renaming the column prior to joining\n- using the `suffix` parameter to specify a suffix different to the default one ('_right')",
+      "run_attempts": 1,
+      "dq_fix_attempts": 0
+    },
+    "01c_pnl_based_skill_scoring": {
+      "id": "01c_pnl_based_skill_scoring",
+      "name": "pnl_based_skill_scoring",
+      "description": "Replace volume-based skill identification with proper PnL computation using token_market_map for YES/NO direction and inferred resolution from last trade prices on closed markets",
+      "parent_id": "00_initial",
+      "children_ids": [],
+      "depth": 1,
+      "refinement_type": "feature",
+      "hypothesis": "Token-aware PnL will identify a distinct set of 'skilled' traders who differ from high-volume traders, with top PnL traders showing consistent positive returns across time periods",
+      "status": "failed",
+      "created_at": "2026-02-13T15:43:06.073682",
+      "started_at": "2026-02-13T15:58:09.929127",
+      "completed_at": null,
+      "metrics": null,
+      "analysis": null,
+      "mlflow_run_id": null,
+      "script_path": "stages/01c_pnl_based_skill_scoring/stage.py",
+      "config_path": null,
+      "outputs_path": "stages/01c_pnl_based_skill_scoring/outputs",
+      "analysis_path": "stages/01c_pnl_based_skill_scoring/analysis.md",
+      "last_error": "Received ClickHouse exception, code: 241, server response: Code: 241. DB::Exception: Memory limit (total) exceeded: would use 22.80 GiB (attempt to allocate chunk of 4483298 bytes), maximum: 22.80 GiB. OvercommitTracker decision: Query was selected to stop by OvercommitTracker.: (while reading column asset_id): (while reading from part /var/lib/clickhouse/store/602/6024324e-d255-497e-a764-0b35ca3746fd/202512_7279_7376_2/ in table polymarket.trades_raw (6024324e-d255-497e-a764-0b35ca3746fd) located on disk default of type local, from mark 236 with max_rows_to_read = 8190): While executing MergeTreeSelect(pool: ReadPoolInOrder, algorithm: InOrder). (MEMORY_LIMIT_EXCEEDED) (version 24.8.14.39 (official build)) (for url http://localhost:18123)",
+      "run_attempts": 3,
+      "dq_fix_attempts": 0
     }
   },
   "root_id": "00_initial"

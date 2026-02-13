@@ -75,16 +75,42 @@ class ParquetLoader:
 # ---------------------------------------------------------------------------
 
 
-def list_parquet_files(directory: Path) -> list[Path]:
-    """List all Parquet files in directory, sorted by name."""
-    return sorted(directory.glob("*.parquet"))
+def list_parquet_files(directory: Path, by_size: bool = True) -> list[Path]:
+    """List all Parquet files in directory.
+
+    When *by_size* is True (default), files are sorted smallest-first so that
+    large files are spread across the processing timeline rather than all
+    landing on workers simultaneously.
+    """
+    files = list(directory.glob("*.parquet"))
+    if by_size:
+        return sorted(files, key=lambda p: p.stat().st_size)
+    return sorted(files)
+
+
+_NEEDED_COLS = [
+    "taker",
+    "maker",
+    "maker_asset_id",
+    "taker_asset_id",
+    "maker_amount_filled",
+    "taker_amount_filled",
+    "fee",
+    "transaction_hash",
+    "order_hash",
+    "timestamp",
+]
 
 
 def load_file_fast(
     path: Path,
-    token_market_map: dict[str, tuple[str, str]],
+    cond_map: dict[str, str],
 ) -> tuple[Any, int, int]:
     """Vectorized parquet loading — ~20-50x faster than iterrows.
+
+    Args:
+        path: Parquet file to load.
+        cond_map: Pre-computed asset_id → condition_id mapping.
 
     Returns (dataframe, total_rows, dropped_count) where dataframe has
     columns matching the trades_raw ClickHouse schema.
@@ -94,7 +120,7 @@ def load_file_fast(
     import pandas as pd
 
     pf = fastparquet.ParquetFile(str(path))
-    df = pf.to_pandas()
+    df = pf.to_pandas(columns=_NEEDED_COLS)
     total_rows = len(df)
 
     # 1. Filter taker-focused duplicates (vectorized string match)
@@ -124,25 +150,27 @@ def load_file_fast(
     price = np.where(tokens > 0, np.round(usdc / tokens, 4), 0.0)
     fee = df["fee"].values.astype(np.float64) / 1e6
 
-    # 5. Hex encode byte columns
-    tx_hashes = np.array(["0x" + h.hex() for h in df["transaction_hash"].values])
-    order_hashes = np.array(["0x" + h.hex() for h in df["order_hash"].values])
+    # 5+6. Hex encode + trade IDs in a single pass (avoid 3 separate loops)
+    tx_raw = df["transaction_hash"].values
+    oh_raw = df["order_hash"].values
+    n = len(df)
+    tx_hashes = np.empty(n, dtype=object)
+    order_hashes = np.empty(n, dtype=object)
+    trade_ids = np.empty(n, dtype=object)
+    for i in range(n):
+        tx = "0x" + tx_raw[i].hex()
+        oh = "0x" + oh_raw[i].hex()
+        tx_hashes[i] = tx
+        order_hashes[i] = oh
+        trade_ids[i] = "chain:" + sha256((tx + ":" + oh).encode()).digest()[:8].hex()
 
-    # 6. Trade IDs (sha256 bulk)
-    trade_ids = np.array([
-        "chain:" + sha256(f"{tx}:{oh}".encode()).hexdigest()[:16]
-        for tx, oh in zip(tx_hashes, order_hashes)
-    ])
-
-    # 7. Map token -> condition_id (vectorized lookup)
-    cond_map = {k: v[0] for k, v in token_market_map.items()}
-    condition_ids = np.array([cond_map.get(a, "unknown") for a in token_asset_id])
+    # 7. Map token -> condition_id (pandas C-level hash lookup, cond_map pre-computed)
+    condition_ids = pd.Series(token_asset_id).map(cond_map).fillna("unknown").values
 
     # 8. Timestamps (vectorized)
     timestamps = pd.to_datetime(df["timestamp"].values, unit="s", utc=True)
 
     # 9. Build output DataFrame matching trades_raw schema
-    n = len(df)
     result = pd.DataFrame({
         "trade_id": trade_ids,
         "condition_id": condition_ids,
