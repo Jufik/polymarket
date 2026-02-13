@@ -17,13 +17,13 @@ from pathlib import Path
 import structlog
 
 from polymarket_pipeline.loaders.parquet import ParquetLoader, list_parquet_files, load_file_fast
-from polymarket_pipeline.market_sync import fetch_events, fetch_token_market_map
+from polymarket_pipeline.market_sync import fetch_events
 from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 from polymarket_pipeline.sinks.postgres import PostgresSink
 
 log = structlog.get_logger()
 
-PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:5432/polymarket"
+PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
 # Thread-local ClickHouse connections (one per worker thread)
 _thread_local = threading.local()
@@ -69,11 +69,12 @@ async def run_backfill(
 ) -> None:
     """Run the full backfill pipeline."""
 
-    # 1. Build token-market map from Gamma API (optionally persist to PG)
+    # 1. Build token-market map (from PG if skipping sync, else from Gamma API)
     if no_market_sync:
-        log.info("building_token_market_map")
-        token_map = await fetch_token_market_map()
-        log.info("token_market_map_ready", tokens=len(token_map))
+        log.info("loading_token_map_from_postgres")
+        async with PostgresSink(dsn=pg_dsn) as pg:
+            token_map = await pg.fetch_token_market_map()
+        log.info("token_map_loaded", tokens=len(token_map))
     else:
         log.info("fetching_events_with_sync")
         result = await fetch_events()

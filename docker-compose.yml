@@ -2,8 +2,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
     ports:
-      - "8123:8123"   # HTTP
-      - "9000:9000"   # Native
+      - "18123:8123"   # HTTP
+      - "19000:9000"   # Native
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./docker/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -23,7 +23,7 @@ services:
   ch-ui:
     image: ghcr.io/caioricciuti/ch-ui:latest
     ports:
-      - "5521:5521"
+      - "15521:5521"
     command: ["node", "./node_modules/.bin/serve", "-s", "-l", "tcp://0.0.0.0:5521", "/app"]
     environment:
       VITE_CLICKHOUSE_URL: http://clickhouse:8123
@@ -35,7 +35,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql

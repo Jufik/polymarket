@@ -10,7 +10,7 @@ import pytest
 from polymarket_pipeline.models import Event, Market, MarketStatus, Tag, TokenMarketEntry
 from polymarket_pipeline.sinks.postgres import PostgresSink
 
-DSN = "postgresql://polymarket:polymarket@localhost:5432/polymarket"
+DSN = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
 TEST_EVENT_ID = 999999
 TEST_TAG_ID = 888888

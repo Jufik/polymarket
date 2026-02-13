@@ -19,7 +19,7 @@ from polymarket_pipeline.market_sync import fetch_events
 
 log = structlog.get_logger()
 
-PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:5432/polymarket"
+PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
 
 async def run_market_sync(

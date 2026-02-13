@@ -19,7 +19,7 @@ class ExplorationDataSource:
     def __init__(
         self,
         host: str = "localhost",
-        port: int = 8123,
+        port: int = 18123,
         database: str = "polymarket",
     ) -> None:
         self._client = clickhouse_connect.get_client(
