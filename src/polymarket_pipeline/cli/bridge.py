@@ -54,11 +54,56 @@ def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
 
+def query_clickhouse(sql: str) -> list[dict[str, Any]]:
+    """Execute read-only SQL against ClickHouse, return list of dicts."""
+    from polymarket_pipeline.exploration.data import ExplorationDataSource
+
+    db = ExplorationDataSource()
+    return db.query_raw(sql)
+
+
+def get_schema(table: str) -> list[dict[str, str]]:
+    """Get column schema (name, type, comment) for a ClickHouse table."""
+    from polymarket_pipeline.exploration.data import ExplorationDataSource
+
+    db = ExplorationDataSource()
+    return db.get_schema(table)
+
+
+def read_parquet(
+    path: str,
+    columns: list[str] | None = None,
+    n_rows: int = 100,
+) -> list[dict[str, Any]]:
+    """Read rows from a Parquet file, return as list of dicts."""
+    import polars as pl
+
+    df = pl.read_parquet(path, columns=columns, n_rows=n_rows)
+    return df.to_dicts()
+
+
+def describe_parquet(path: str) -> dict[str, Any]:
+    """Describe a Parquet file: shape, dtypes, null counts, summary stats."""
+    import polars as pl
+
+    df = pl.read_parquet(path)
+    return {
+        "shape": {"rows": df.height, "columns": df.width},
+        "dtypes": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
+        "null_counts": {col: df[col].null_count() for col in df.columns},
+        "describe": df.describe().to_dicts(),
+    }
+
+
 _BRIDGE_HELPERS: dict[str, Any] = {
     "list_strategies": list_strategies,
     "read_json_file": read_json_file,
     "read_text_file": read_text_file,
     "_sleep": _sleep,
+    "query_clickhouse": query_clickhouse,
+    "get_schema": get_schema,
+    "read_parquet": read_parquet,
+    "describe_parquet": describe_parquet,
 }
 
 
