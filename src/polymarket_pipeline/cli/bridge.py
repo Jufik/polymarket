@@ -47,10 +47,18 @@ def read_text_file(path: str) -> str | None:
     return p.read_text()
 
 
+def _sleep(seconds: float) -> None:
+    """Sleep helper for testing timeout behavior."""
+    import time
+
+    time.sleep(seconds)
+
+
 _BRIDGE_HELPERS: dict[str, Any] = {
     "list_strategies": list_strategies,
     "read_json_file": read_json_file,
     "read_text_file": read_text_file,
+    "_sleep": _sleep,
 }
 
 
