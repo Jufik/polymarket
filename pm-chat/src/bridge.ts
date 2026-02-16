@@ -44,6 +44,7 @@ export async function callPython(
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
 
     proc.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
@@ -53,11 +54,15 @@ export async function callPython(
     });
 
     const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       proc.kill("SIGTERM");
       reject(new Error(`Python bridge timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
     proc.on("close", (code) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       if (code !== 0) {
         reject(
@@ -77,6 +82,8 @@ export async function callPython(
     });
 
     proc.on("error", (err) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       reject(new Error(`Failed to spawn Python bridge: ${err.message}`));
     });
