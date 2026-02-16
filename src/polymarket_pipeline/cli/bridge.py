@@ -96,6 +96,45 @@ def describe_parquet(path: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Code server bridge helpers
+# ---------------------------------------------------------------------------
+
+
+def run_python_code(code: str) -> str:
+    """Execute Python code in a subprocess and capture stdout."""
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        cwd=str(STRATEGIES_ROOT.parent),
+    )
+    output = result.stdout
+    if result.stderr:
+        output += f"\n[stderr]: {result.stderr}"
+    if result.returncode != 0:
+        output += f"\n[exit code: {result.returncode}]"
+    return output
+
+
+def run_registered_tool(handler_path: str, args: dict[str, Any]) -> object:
+    """Execute a registered tool's Python handler."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("tool_handler", handler_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load handler from {handler_path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if not hasattr(mod, "run"):
+        raise AttributeError(f"Handler {handler_path} must define a run() function")
+    result: object = mod.run(**args)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator bridge helpers
 # ---------------------------------------------------------------------------
 
@@ -334,6 +373,8 @@ _BRIDGE_HELPERS: dict[str, Any] = {
     "get_schema": get_schema,
     "read_parquet": read_parquet,
     "describe_parquet": describe_parquet,
+    "run_python_code": run_python_code,
+    "run_registered_tool": run_registered_tool,
     "tree_status": tree_status,
     "suggest_next": suggest_next,
     "compare_stages": compare_stages,
