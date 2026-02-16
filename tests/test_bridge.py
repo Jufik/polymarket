@@ -2,9 +2,10 @@
 import json
 import subprocess
 import sys
+from typing import Any
 
 
-def _run_bridge(module: str, func: str, args: dict) -> dict:
+def _run_bridge(module: str, func: str, args: dict[str, Any]) -> Any:
     """Call bridge.py as subprocess, return parsed JSON output."""
     result = subprocess.run(
         [
