@@ -231,3 +231,69 @@ def test_metrics_with_baseline_daily_pnl() -> None:
     assert "base_adjusted_sharpe" in result
     # Excess series: [5, -2, 4, -1, 3] -> mean=1.8, should give positive adjusted sharpe
     assert result["base_adjusted_sharpe"] > 0
+
+
+# --------------------------------------------------------------------------
+# Sweep + base rate integration tests
+# --------------------------------------------------------------------------
+
+from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
+
+
+def _make_signal_table() -> pl.DataFrame:
+    """Minimal signal table with 25 rows to pass min_bets=20."""
+    from datetime import datetime, timedelta
+
+    rows = []
+    base = datetime(2025, 12, 1)
+    for m in range(25):
+        cid = f"mkt_{m:02d}"
+        rows.append({
+            "condition_id": cid,
+            "arrival_idx": 1,
+            "trigger_time": base + timedelta(hours=m),
+            "resolved_at": base + timedelta(days=m % 10 + 1),
+            "resolution_value": 1,
+            "n_traders": 5,
+            "n_yes": 1 if m % 3 == 0 else 4,
+            "n_no": 4 if m % 3 == 0 else 1,
+            "agreement_frac": 0.80,
+            "signal_direction": "YES" if m % 3 == 0 else "NO",
+            "trigger_entry_price": 0.40 + (m % 5) * 0.05,
+            "avg_pool_entry": 0.40,
+            "trader": f"t_{m % 5}",
+            "mvf": 0.05,
+            "yes_won": m % 2 == 0,
+        })
+    return pl.DataFrame(rows)
+
+
+def test_sweep_with_base_rates_adds_excess_metrics() -> None:
+    st = _make_signal_table()
+    cfg = SweepConfig(
+        min_traders_values=[5],
+        agreement_pct_values=[0.80],
+        direction_values=["NO-only"],
+        entry_price_bands=[(0.05, 0.95)],
+        sizing_strategies=["fixed"],
+        min_bets=10,
+    )
+    result = run_sweep(st, cfg, base_bet=1.0, base_rates={"NO": 0.60, "YES": 0.40})
+    assert result.height > 0
+    assert "excess_hr" in result.columns
+    assert "base_adjusted_sharpe" in result.columns
+
+
+def test_sweep_without_base_rates_no_excess_metrics() -> None:
+    st = _make_signal_table()
+    cfg = SweepConfig(
+        min_traders_values=[5],
+        agreement_pct_values=[0.80],
+        direction_values=["NO-only"],
+        entry_price_bands=[(0.05, 0.95)],
+        sizing_strategies=["fixed"],
+        min_bets=10,
+    )
+    result = run_sweep(st, cfg, base_bet=1.0)
+    assert result.height > 0
+    assert "excess_hr" not in result.columns
