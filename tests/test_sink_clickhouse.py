@@ -41,7 +41,7 @@ def _make_trade(trade_id: str = "chain:test123", **overrides) -> NormalizedTrade
 def sink():
     """Create a ClickHouse sink connected to local Docker instance."""
     try:
-        s = ClickHouseSink(host="localhost", port=18123, database="polymarket")
+        s = ClickHouseSink(host="192.168.0.148", port=18123, database="polymarket")
         # Clean up test data before each test
         s.execute("DELETE FROM trades_raw WHERE condition_id = '0xtest'")
         yield s

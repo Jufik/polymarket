@@ -9,9 +9,10 @@ Three agent roles:
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any
 
 from claude_agent_sdk import (
@@ -28,9 +29,12 @@ from claude_agent_sdk import (
 )
 
 from polymarket_pipeline.exploration.data import ExplorationDataSource
+from polymarket_pipeline.exploration.prompts.registry import PromptRegistry
 from polymarket_pipeline.exploration.tree import (
+    BranchRecommendation,
     ClaudeAnalysis,
     DataQualityIssue,
+    ExplorationContext,
     ExplorationStage,
     ExplorationTree,
     ProposedRefinement,
@@ -43,12 +47,15 @@ from polymarket_pipeline.exploration.tree import (
 # ---------------------------------------------------------------------------
 
 _db: ExplorationDataSource | None = None
+_db_lock = threading.Lock()
 
 
 def _get_db() -> ExplorationDataSource:
     global _db
     if _db is None:
-        _db = ExplorationDataSource()
+        with _db_lock:
+            if _db is None:  # double-checked locking
+                _db = ExplorationDataSource()
     return _db
 
 
@@ -137,9 +144,28 @@ async def write_file(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# System prompts
+# MCP server and agent options
 # ---------------------------------------------------------------------------
 
+# Module-level registry cache
+_registry: PromptRegistry | None = None
+
+
+def _get_registry(strategy: str | None = None) -> PromptRegistry:
+    """Get or create the prompt registry, loading from disk if available."""
+    global _registry
+    if _registry is None:
+        _registry = PromptRegistry.load(strategy or "skilled_traders")
+    return _registry
+
+
+def set_registry(registry: PromptRegistry) -> None:
+    """Set the module-level prompt registry (used by orchestrator)."""
+    global _registry
+    _registry = registry
+
+
+# Keep legacy constants for backward compatibility
 _BASE_SYSTEM = """You are an expert quantitative researcher specializing in Polymarket prediction markets.
 
 Key facts about the data:
@@ -207,11 +233,23 @@ The JSON must match this exact structure:
             "model_config_extra": {}
         }
     ],
-    "confidence": 0.75
+    "confidence": 0.75,
+    "branch_recommendation": "continue",
+    "information_gain": 0.8
 }
 
 You MUST include at least 3 proposed refinements. Priority is 1-5 (1=highest).
 The "data_quality_issues" array may be empty if there are no data issues.
+
+branch_recommendation values:
+- "continue": More refinements along this direction are promising
+- "pivot": This approach is failing, suggest a fundamentally different direction
+- "converge": Findings are stable, no more refinements needed on this branch
+- "reject": Hypothesis is definitively rejected, stop exploring this branch
+
+information_gain (0.0-1.0): How much genuinely NEW information this stage produced
+vs what was already known from parent/sibling stages. 1.0 = entirely novel findings,
+0.0 = redundant with prior work.
 """
 
 _GENERATOR_SYSTEM = _BASE_SYSTEM + """
@@ -251,16 +289,27 @@ def _build_mcp_server():
 
 
 def _build_options(
-    system_prompt: str,
-    tool_names: list[str],
+    system_prompt: str | None = None,
+    tool_names: list[str] | None = None,
     max_turns: int = 20,
+    *,
+    role: str | None = None,
+    strategy: str | None = None,
 ) -> ClaudeAgentOptions:
+    # New path: use registry-based prompt for a given role
+    if role is not None:
+        registry = _get_registry(strategy)
+        prompt = registry.render_for_role(role)
+    elif system_prompt is not None:
+        prompt = system_prompt
+    else:
+        raise ValueError("Either 'role' or 'system_prompt' must be provided")
     server = _build_mcp_server()
     return ClaudeAgentOptions(
-        system_prompt=system_prompt,
+        system_prompt=prompt,
         model="claude-opus-4-6",
         mcp_servers={"exploration": server},
-        allowed_tools=[f"mcp__exploration__{t}" for t in tool_names],
+        allowed_tools=[f"mcp__exploration__{t}" for t in (tool_names or [])],
         max_turns=max_turns,
     )
 
@@ -274,6 +323,8 @@ async def review_stage(
     stage: ExplorationStage,
     strategy_root: Path,
     on_event: Callable[[dict], None] | None = None,
+    context: ExplorationContext | None = None,
+    tree: ExplorationTree | None = None,
 ) -> tuple[ClaudeAnalysis, AgentResult]:
     """Have Claude review a completed stage and produce analysis.
 
@@ -299,17 +350,91 @@ async def review_stage(
             f"\nReported metrics: {json.dumps(stage.metrics.model_dump(exclude_none=True), default=str)}"
         )
 
+    # Enrich with exploration context so the reviewer sees what siblings found
+    if tree is not None and context is not None:
+        prompt_parts.append(_build_context_section(stage, tree, context))
+
     prompt = "\n".join(prompt_parts)
 
     options = _build_options(
-        system_prompt=_REVIEWER_SYSTEM,
+        role="reviewer",
         tool_names=["query_clickhouse", "get_schema", "read_file"],
-        max_turns=30,
+        max_turns=130,
     )
 
     agent_result = await _run_agent(prompt, options, on_event=on_event)
     analysis = _parse_analysis(agent_result.last_text)
     return analysis, agent_result
+
+
+def _build_context_section(
+    stage: ExplorationStage,
+    tree: ExplorationTree,
+    context: ExplorationContext,
+) -> str:
+    """Build exploration context section for the reviewer prompt."""
+    parts: list[str] = ["\n--- EXPLORATION CONTEXT ---"]
+
+    # 1. Exploration path (root to current stage)
+    path = tree.get_path_to_root(stage.id)
+    if path:
+        path_lines = []
+        for s in path:
+            conf = f" (confidence={s.analysis.confidence:.0%})" if s.analysis else ""
+            rec = (
+                f", recommendation={s.analysis.branch_recommendation.value}"
+                if s.analysis
+                else ""
+            )
+            path_lines.append(f"  {s.id}: {s.name}{conf}{rec}")
+        parts.append("Exploration path (root -> current):\n" + "\n".join(path_lines))
+
+    # 2. Sibling stage summaries (max 5)
+    if stage.parent_id:
+        siblings = [
+            s
+            for s in tree.get_children(stage.parent_id)
+            if s.id != stage.id and s.analysis
+        ]
+        if siblings:
+            sib_lines = []
+            for s in siblings[:5]:
+                assert s.analysis is not None
+                finding = s.analysis.summary[:120] if s.analysis.summary else "N/A"
+                sib_lines.append(
+                    f"  {s.id} ({s.name}): confidence={s.analysis.confidence:.0%}, "
+                    f"finding: {finding}"
+                )
+            parts.append(
+                f"Sibling stages already explored under {stage.parent_id} "
+                f"({len(siblings)} total):\n" + "\n".join(sib_lines)
+            )
+
+    # 3. Established facts (max 10)
+    if context.established_facts:
+        facts = context.established_facts[:10]
+        parts.append(
+            "Established facts from prior stages:\n"
+            + "\n".join(f"  - {f}" for f in facts)
+        )
+
+    # 4. Rejected directions (max 10)
+    if context.rejected_directions:
+        rejected = context.rejected_directions[:10]
+        parts.append(
+            "Rejected directions (do NOT re-propose):\n"
+            + "\n".join(f"  - {r}" for r in rejected)
+        )
+
+    # 5. Already-explored refinement names
+    if context.executed_refinement_names:
+        parts.append(
+            "Refinement names already explored (propose DIFFERENT names):\n"
+            + "\n".join(f"  - {n}" for n in sorted(context.executed_refinement_names))
+        )
+
+    parts.append("--- END EXPLORATION CONTEXT ---")
+    return "\n\n".join(parts)
 
 
 async def generate_stage_script(
@@ -389,7 +514,7 @@ async def generate_stage_script(
     prompt = "\n".join(prompt_parts)
 
     options = _build_options(
-        system_prompt=_GENERATOR_SYSTEM,
+        role="generator",
         tool_names=["query_clickhouse", "get_schema", "read_file", "write_file"],
         max_turns=15,
     )
@@ -400,28 +525,101 @@ async def generate_stage_script(
 async def explore(prompt: str, max_turns: int = 30) -> AgentResult:
     """Free-form exploration of the dataset."""
     options = _build_options(
-        system_prompt=_EXPLORER_SYSTEM,
+        role="explorer",
         tool_names=["query_clickhouse", "get_schema", "read_file"],
         max_turns=max_turns,
     )
     return await _run_agent(prompt, options)
 
 
+@dataclass
+class FilteredRefinement:
+    """A refinement that was filtered out, with reason."""
+
+    parent_id: str
+    refinement_name: str
+    reason: str
+
+
 def suggest_next_stages(
     tree: ExplorationTree,
     max_suggestions: int = 3,
-) -> list[tuple[ExplorationStage, ProposedRefinement]]:
-    """Rank pending refinements across the tree. No API call needed."""
+    context: ExplorationContext | None = None,
+) -> tuple[list[tuple[ExplorationStage, ProposedRefinement]], list[FilteredRefinement]]:
+    """Rank pending refinements across the tree with dedup and pruning.
+
+    Returns (suggestions, filtered) where filtered contains refinements
+    that were skipped and the reason why.
+    """
     suggestions: list[tuple[float, ExplorationStage, ProposedRefinement]] = []
+    filtered: list[FilteredRefinement] = []
+
+    consumed_keys = context.consumed_refinement_keys if context else set()
+    executed_names = context.executed_refinement_names if context else set()
+    branch_statuses = context.branch_statuses if context else {}
 
     for stage in tree.get_active_stages():
-        if stage.analysis:
+        if not stage.analysis:
+            continue
+
+        # Branch pruning: skip stages whose branch is rejected or converged
+        rec = branch_statuses.get(stage.id, BranchRecommendation.CONTINUE)
+        if rec in (BranchRecommendation.REJECT, BranchRecommendation.CONVERGE):
             for ref in stage.analysis.proposed_refinements:
-                score = ref.priority + (ref.estimated_complexity * 0.5)
-                suggestions.append((score, stage, ref))
+                filtered.append(FilteredRefinement(
+                    parent_id=stage.id,
+                    refinement_name=ref.name,
+                    reason=f"branch {rec.value}",
+                ))
+            continue
+
+        # Skip low-confidence parents
+        if stage.analysis.confidence < 0.3:
+            for ref in stage.analysis.proposed_refinements:
+                filtered.append(FilteredRefinement(
+                    parent_id=stage.id,
+                    refinement_name=ref.name,
+                    reason=f"parent confidence {stage.analysis.confidence:.0%} < 30%",
+                ))
+            continue
+
+        info_gain = stage.analysis.information_gain
+
+        for ref in stage.analysis.proposed_refinements:
+            # Consumed refinement filtering: skip if already has a child
+            ref_key = f"{stage.id}::{ref.name}"
+            if ref_key in consumed_keys:
+                filtered.append(FilteredRefinement(
+                    parent_id=stage.id,
+                    refinement_name=ref.name,
+                    reason="already consumed (child exists)",
+                ))
+                continue
+
+            # Global name dedup: skip if name exists anywhere as a stage name
+            if ref.name in executed_names:
+                filtered.append(FilteredRefinement(
+                    parent_id=stage.id,
+                    refinement_name=ref.name,
+                    reason="name already used globally",
+                ))
+                continue
+
+            # Path-aware scoring: lower is better
+            score = (
+                ref.priority
+                + ref.estimated_complexity * 0.5
+                - stage.analysis.confidence * 2.0
+                + stage.depth * 0.5
+                - info_gain * 1.0
+            )
+            suggestions.append((score, stage, ref))
 
     suggestions.sort(key=lambda x: x[0])
-    return [(stage, ref) for _, stage, ref in suggestions[:max_suggestions]]
+    return (
+        [(stage, ref) for _, stage, ref in suggestions[:max_suggestions]],
+        filtered,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -567,6 +765,13 @@ def _parse_analysis(response_text: str) -> ClaudeAnalysis:
         for dq in data.get("data_quality_issues", [])
     ]
 
+    # Parse branch recommendation
+    raw_rec = data.get("branch_recommendation", "continue")
+    try:
+        branch_rec = BranchRecommendation(raw_rec)
+    except ValueError:
+        branch_rec = BranchRecommendation.CONTINUE
+
     return ClaudeAnalysis(
         summary=data.get("summary", ""),
         key_insights=data.get("key_insights", []),
@@ -574,4 +779,6 @@ def _parse_analysis(response_text: str) -> ClaudeAnalysis:
         proposed_refinements=refinements,
         data_quality_issues=dq_issues,
         confidence=data.get("confidence", 0.5),
+        branch_recommendation=branch_rec,
+        information_gain=float(data.get("information_gain", 1.0)),
     )

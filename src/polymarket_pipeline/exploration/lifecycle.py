@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from typing import Protocol
 from polymarket_pipeline.exploration.tree import (
     ClaudeAnalysis,
     DataQualityIssue,
+    ExplorationContext,
     ExplorationStage,
     ExplorationTree,
     OrchestratorState,
@@ -173,8 +175,10 @@ def run_stage(
     cb.on_stage_start(stage)
 
     try:
-        spec = importlib.util.spec_from_file_location(f"stage_{stage.id}", script_path)
+        mod_name = f"stage_{stage.id}"
+        spec = importlib.util.spec_from_file_location(mod_name, script_path)
         module = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = module  # Python 3.14: dataclass needs this
         spec.loader.exec_module(module)
 
         if not hasattr(module, "run"):
@@ -312,6 +316,7 @@ async def review_stage_lifecycle(
     tree: ExplorationTree,
     stage: ExplorationStage,
     callback: LifecycleCallback | None = None,
+    context: ExplorationContext | None = None,
 ) -> ReviewResult:
     """Run Claude review, save transcript and analysis, check DQ issues."""
     cb = callback or SilentCallback()
@@ -324,6 +329,7 @@ async def review_stage_lifecycle(
 
         analysis, agent_result = await review_stage(
             stage, strategy_path, on_event=cb.on_agent_event,
+            context=context, tree=tree,
         )
 
         # Save transcript
@@ -493,7 +499,7 @@ async def generate_stage_lifecycle(
     existing_children = tree.get_children(parent.id)
     index = chr(ord("a") + len(existing_children))
 
-    new_stage = create_refinement_stage(parent, refinement, index)
+    new_stage = create_refinement_stage(parent, refinement, index, tree=tree)
     new_stage.script_path = f"stages/{new_stage.id}/stage.py"
     new_stage.outputs_path = f"stages/{new_stage.id}/outputs"
     new_stage.analysis_path = f"stages/{new_stage.id}/analysis.md"

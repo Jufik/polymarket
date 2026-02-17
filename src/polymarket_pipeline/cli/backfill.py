@@ -3,6 +3,9 @@
 Usage:
     uv run python -m polymarket_pipeline.cli.backfill --parquet-dir order_filled/
     uv run python -m polymarket_pipeline.cli.backfill --parquet-dir order_filled/ --workers 6
+
+    # Compact mode (pre-compressed parquet, streaming, constant memory):
+    uv run python -m polymarket_pipeline.cli.backfill --compact --compact-dir order_filled_compact/
 """
 
 import argparse
@@ -24,7 +27,7 @@ from polymarket_pipeline.sinks.postgres import PostgresSink
 
 log = structlog.get_logger()
 
-PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
+PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@192.168.0.148:15432/polymarket"
 
 # ---------------------------------------------------------------------------
 # Worker process globals (set once per worker via _init_worker)
@@ -169,6 +172,60 @@ async def run_backfill(
     )
 
 
+async def run_backfill_compact(
+    compact_dir: Path,
+) -> None:
+    """Stream compact parquet files into ClickHouse with constant memory.
+
+    No token map needed (data is pre-normalized). No ProcessPoolExecutor needed
+    (streaming is I/O-bound). Iterates compact files, streams row groups via
+    iter_row_groups_arrow(), inserts via insert_arrow().
+    """
+    from polymarket_pipeline.loaders.parquet import iter_row_groups_arrow, list_compact_files
+
+    files = list_compact_files(compact_dir)
+    if not files:
+        log.error("no_compact_files_found", dir=str(compact_dir))
+        sys.exit(1)
+
+    log.info("compact_backfill_start", files=len(files))
+    sink = ClickHouseSink()
+
+    total_rows = 0
+    start = time.monotonic()
+
+    for i, path in enumerate(files, 1):
+        file_rows = 0
+        file_start = time.monotonic()
+
+        for table in iter_row_groups_arrow(path):
+            sink.insert_arrow(table)
+            file_rows += table.num_rows
+
+        total_rows += file_rows
+        elapsed = time.monotonic() - file_start
+        wall = time.monotonic() - start
+
+        log.info(
+            "compact_file_complete",
+            file=path.name,
+            progress=f"{i}/{len(files)}",
+            rows=file_rows,
+            elapsed_s=f"{elapsed:.1f}",
+            total_rows=total_rows,
+            rows_per_sec=f"{total_rows / max(wall, 1):.0f}",
+        )
+
+    total_elapsed = time.monotonic() - start
+    log.info(
+        "compact_backfill_complete",
+        total_rows=total_rows,
+        total_files=len(files),
+        elapsed_min=f"{total_elapsed / 60:.1f}",
+        rows_per_sec=f"{total_rows / max(total_elapsed, 1):.0f}",
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill Goldsky Sink data")
     parser.add_argument(
@@ -206,6 +263,17 @@ def main() -> None:
         default=PG_DSN_DEFAULT,
         help="PostgreSQL DSN for market metadata",
     )
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help="Use pre-normalized compact parquet (streaming, constant memory)",
+    )
+    parser.add_argument(
+        "--compact-dir",
+        type=Path,
+        default=Path("order_filled_compact"),
+        help="Directory with compact parquet files (default: order_filled_compact/)",
+    )
     args = parser.parse_args()
 
     structlog.configure(
@@ -214,20 +282,25 @@ def main() -> None:
         ],
     )
 
-    if not args.parquet_dir.exists():
-        log.error("parquet_dir_not_found", path=str(args.parquet_dir))
-        sys.exit(1)
-
-    asyncio.run(
-        run_backfill(
-            args.parquet_dir,
-            args.batch_size,
-            args.workers,
-            args.ch_concurrency,
-            args.no_market_sync,
-            args.pg_dsn,
+    if args.compact:
+        if not args.compact_dir.exists():
+            log.error("compact_dir_not_found", path=str(args.compact_dir))
+            sys.exit(1)
+        asyncio.run(run_backfill_compact(args.compact_dir))
+    else:
+        if not args.parquet_dir.exists():
+            log.error("parquet_dir_not_found", path=str(args.parquet_dir))
+            sys.exit(1)
+        asyncio.run(
+            run_backfill(
+                args.parquet_dir,
+                args.batch_size,
+                args.workers,
+                args.ch_concurrency,
+                args.no_market_sync,
+                args.pg_dsn,
+            )
         )
-    )
 
 
 if __name__ == "__main__":
