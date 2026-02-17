@@ -24,7 +24,11 @@ def _max_streak(signs: list[bool]) -> int:
     return max_run
 
 
-def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
+def compute_metrics(
+    daily_pnl: pl.DataFrame,
+    base_rate: float | None = None,
+    baseline_daily_pnl: list[float] | None = None,
+) -> dict:
     """Compute summary metrics from a daily PnL DataFrame.
 
     Parameters
@@ -32,6 +36,12 @@ def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
     daily_pnl
         DataFrame with columns: resolved_date (Date), daily_pnl (Float64),
         n_bets (Int64), n_wins (Int64).
+    base_rate
+        Optional base hit rate. When provided, adds ``excess_hr`` and
+        ``base_adjusted_sharpe`` to the returned dict.
+    baseline_daily_pnl
+        Optional list of daily PnL values for the baseline strategy, used to
+        compute ``base_adjusted_sharpe``.
 
     Returns
     -------
@@ -39,10 +49,11 @@ def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
         Dictionary with keys: total_pnl, total_bets, total_wins, hit_rate,
         sharpe, max_drawdown, max_drawdown_pct, profit_factor, avg_daily_pnl,
         pnl_per_bet, n_days, win_days, loss_days, best_day, worst_day,
-        max_win_streak, max_loss_streak.
+        max_win_streak, max_loss_streak.  When *base_rate* is provided, also
+        includes excess_hr and base_adjusted_sharpe.
     """
     if daily_pnl.height == 0:
-        return {
+        result = {
             "total_pnl": 0,
             "total_bets": 0,
             "total_wins": 0,
@@ -61,6 +72,10 @@ def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
             "max_win_streak": 0,
             "max_loss_streak": 0,
         }
+        if base_rate is not None:
+            result["excess_hr"] = 0.0
+            result["base_adjusted_sharpe"] = 0.0
+        return result
 
     # Sort by date to ensure correct temporal ordering
     df = daily_pnl.sort("resolved_date")
@@ -121,7 +136,7 @@ def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
     max_win_streak = _max_streak(win_signs)
     max_loss_streak = _max_streak(loss_signs)
 
-    return {
+    result = {
         "total_pnl": total_pnl,
         "total_bets": total_bets,
         "total_wins": total_wins,
@@ -140,3 +155,28 @@ def compute_metrics(daily_pnl: pl.DataFrame) -> dict:
         "max_win_streak": max_win_streak,
         "max_loss_streak": max_loss_streak,
     }
+
+    if base_rate is not None:
+        result["excess_hr"] = hit_rate - base_rate
+
+        # Base-adjusted Sharpe: Sharpe of the excess series vs baseline
+        if baseline_daily_pnl is not None and n_days >= 2:
+            excess_series = [
+                actual - baseline
+                for actual, baseline in zip(pnl_series, baseline_daily_pnl)
+            ]
+            mean_excess = sum(excess_series) / len(excess_series)
+            var_excess = sum(
+                (x - mean_excess) ** 2 for x in excess_series
+            ) / (len(excess_series) - 1)
+            std_excess = math.sqrt(var_excess)
+            if std_excess == 0:
+                result["base_adjusted_sharpe"] = 0.0
+            else:
+                result["base_adjusted_sharpe"] = (
+                    mean_excess / std_excess
+                ) * math.sqrt(365)
+        else:
+            result["base_adjusted_sharpe"] = 0.0
+
+    return result

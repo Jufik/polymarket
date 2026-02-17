@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import polars as pl
 import pytest
@@ -159,3 +159,75 @@ def test_compute_metrics_empty() -> None:
     metrics = compute_metrics(empty_df)
     for key in REQUIRED_KEYS:
         assert metrics[key] == 0, f"Expected {key} to be 0 for empty input, got {metrics[key]}"
+
+
+# --------------------------------------------------------------------------
+# Base rate adjustment tests
+# --------------------------------------------------------------------------
+
+def _make_daily_pnl_br(
+    pnl_values: list[float], bets: int = 1, wins: int = 1,
+) -> pl.DataFrame:
+    base = date(2025, 12, 1)
+    return pl.DataFrame({
+        "resolved_date": [base + timedelta(days=i) for i in range(len(pnl_values))],
+        "daily_pnl": pnl_values,
+        "n_bets": [bets] * len(pnl_values),
+        "n_wins": [wins] * len(pnl_values),
+    })
+
+
+def test_metrics_without_base_rate_backward_compatible() -> None:
+    daily = _make_daily_pnl_br([10.0, -5.0, 8.0, -2.0, 6.0])
+    result = compute_metrics(daily)
+    assert "excess_hr" not in result
+    assert "base_adjusted_sharpe" not in result
+    assert "sharpe" in result
+
+
+def test_metrics_with_base_rate_adds_excess_hr() -> None:
+    daily = _make_daily_pnl_br([10.0, -5.0, 8.0], bets=2, wins=1)
+    result = compute_metrics(daily, base_rate=0.60)
+    assert "excess_hr" in result
+    # hit_rate = 3 wins / 6 bets = 0.5, excess = 0.5 - 0.6 = -0.1
+    assert abs(result["excess_hr"] - (-0.1)) < 1e-9
+
+
+def test_metrics_with_base_rate_adds_adjusted_sharpe() -> None:
+    daily = _make_daily_pnl_br([10.0, -5.0, 8.0, -2.0, 6.0])
+    result = compute_metrics(daily, base_rate=0.50)
+    assert "base_adjusted_sharpe" in result
+    assert isinstance(result["base_adjusted_sharpe"], float)
+
+
+def test_metrics_base_rate_zero_gives_full_excess() -> None:
+    daily = _make_daily_pnl_br([10.0, 10.0, 10.0], bets=1, wins=1)
+    result = compute_metrics(daily, base_rate=0.0)
+    assert abs(result["excess_hr"] - 1.0) < 1e-9
+
+
+def test_metrics_base_rate_one_gives_negative_excess() -> None:
+    daily = _make_daily_pnl_br([10.0, -5.0], bets=2, wins=1)
+    result = compute_metrics(daily, base_rate=1.0)
+    assert result["excess_hr"] < 0
+
+
+def test_metrics_empty_with_base_rate() -> None:
+    empty = pl.DataFrame(schema={
+        "resolved_date": pl.Date,
+        "daily_pnl": pl.Float64,
+        "n_bets": pl.Int64,
+        "n_wins": pl.Int64,
+    })
+    result = compute_metrics(empty, base_rate=0.5)
+    assert result["excess_hr"] == 0
+    assert result["base_adjusted_sharpe"] == 0
+
+
+def test_metrics_with_baseline_daily_pnl() -> None:
+    daily = _make_daily_pnl_br([10.0, -5.0, 8.0, -2.0, 6.0])
+    baseline = [5.0, -3.0, 4.0, -1.0, 3.0]
+    result = compute_metrics(daily, base_rate=0.50, baseline_daily_pnl=baseline)
+    assert "base_adjusted_sharpe" in result
+    # Excess series: [5, -2, 4, -1, 3] -> mean=1.8, should give positive adjusted sharpe
+    assert result["base_adjusted_sharpe"] > 0
