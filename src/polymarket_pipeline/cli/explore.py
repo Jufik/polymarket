@@ -463,21 +463,28 @@ def status(
 def suggest(
     strategy: str = typer.Argument(..., help="Strategy name"),
     n: int = typer.Option(3, "--n", "-n", help="Number of suggestions"),
+    show_filtered: bool = typer.Option(
+        False, "--show-filtered", help="Show consumed/rejected/converged refinements"
+    ),
 ) -> None:
     """Get ranked suggestions for what to explore next."""
     from polymarket_pipeline.exploration.agent import suggest_next_stages
+    from polymarket_pipeline.exploration.tree import build_exploration_context
 
     tree = _load_tree(strategy)
-    suggestions = suggest_next_stages(tree, max_suggestions=n)
+    context = build_exploration_context(tree)
+    suggestions, filtered = suggest_next_stages(tree, max_suggestions=n, context=context)
 
     if not suggestions:
         console.print("[yellow]No suggestions. Complete and review more stages first.[/yellow]")
+        if filtered and show_filtered:
+            _print_filtered(filtered)
         return
 
     console.print(
         Panel(
             "[bold]Suggested Next Steps[/bold]\n\n"
-            "Ranked by priority and complexity:",
+            "Ranked by priority, complexity, and exploration context:",
             title="Suggestions",
         )
     )
@@ -497,6 +504,22 @@ def suggest(
             str(ref.priority),
             f"pm-explore generate {strategy} {parent.id} {ref.name}",
         )
+
+    console.print(table)
+
+    if show_filtered and filtered:
+        _print_filtered(filtered)
+
+
+def _print_filtered(filtered: list) -> None:
+    """Print table of filtered refinements."""
+    table = Table(title="Filtered Refinements")
+    table.add_column("Parent", style="dim")
+    table.add_column("Refinement", style="dim")
+    table.add_column("Reason", style="yellow")
+
+    for f in filtered:
+        table.add_row(f.parent_id, f.refinement_name, f.reason)
 
     console.print(table)
 
@@ -564,6 +587,12 @@ def orchestrate(
     max_dq_retries: int = typer.Option(
         2, "--max-dq-retries", help="Max DQ self-heal attempts before pausing (0 to disable)"
     ),
+    parallel: int = typer.Option(
+        1, "--parallel", "-p", help="Concurrent pipelines (1 = serial)"
+    ),
+    max_children: int = typer.Option(
+        15, "--max-children", help="Max completed children per parent before convergence"
+    ),
 ) -> None:
     """Run autonomous exploration loop.
 
@@ -597,8 +626,11 @@ def orchestrate(
         callback=callback,
         resume=resume,
         max_dq_retries=max_dq_retries,
+        parallel=parallel,
+        max_children=max_children,
     )
 
+    mode = f"parallel ({parallel} pipelines)" if parallel > 1 else "serial"
     console.print(
         Panel(
             f"[bold]Autonomous Exploration[/bold]\n\n"
@@ -606,6 +638,8 @@ def orchestrate(
             f"Max depth: {max_depth}\n"
             f"Max stages: {max_stages}\n"
             f"Max DQ retries: {max_dq_retries}\n"
+            f"Max children/parent: {max_children}\n"
+            f"Mode: {mode}\n"
             f"Resume: {resume}",
             title="Orchestrator Starting",
         )

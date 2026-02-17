@@ -14,6 +14,7 @@ clickhouse = ["clickhouse-connect>=0.7"]
 postgres = ["asyncpg>=0.29"]
 websocket = ["websockets>=13.0"]
 http = ["httpx>=0.27"]
+compact = ["polars>=1.15.0", "pyarrow>=14.0", "duckdb>=1.1"]
 exploration = [
     "claude-agent-sdk",
     "mlflow>=2.19.0",
@@ -30,7 +31,7 @@ dev = [
     "polyfactory>=2.0",
 ]
 all = [
-    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,exploration,dev]",
+    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,dev]",
 ]
 
 [tool.pytest.ini_options]

@@ -14,7 +14,7 @@ SAMPLE_FILE = PARQUET_DIR / "1769363325-969c3ff6-bad8-4578-95f4-6b371bd68e36-0-0
 @pytest.fixture
 def sink():
     try:
-        s = ClickHouseSink(host="localhost", port=18123, database="polymarket")
+        s = ClickHouseSink(host="192.168.0.148", port=18123, database="polymarket")
         s.execute("DELETE FROM trades_raw WHERE is_backfill = true AND source = 'goldsky_sink'")
         yield s
     except Exception:

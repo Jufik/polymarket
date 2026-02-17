@@ -6,6 +6,7 @@ precision (max 76). DuckDB casts to lossy DOUBLE. Do NOT use other readers.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,7 @@ from typing import Any
 import structlog
 
 from polymarket_pipeline.models import NormalizedTrade
-from polymarket_pipeline.normalizers.sink import GoldskySinkNormalizer, EXCHANGE_ADDRS
+from polymarket_pipeline.normalizers.sink import EXCHANGE_ADDRS, GoldskySinkNormalizer
 
 log = structlog.get_logger()
 
@@ -192,3 +193,38 @@ def load_file_fast(
     })
 
     return result, total_rows, dropped
+
+
+# ---------------------------------------------------------------------------
+# Compact Parquet helpers (Polars / PyArrow)
+# ---------------------------------------------------------------------------
+
+
+def list_compact_files(directory: Path) -> list[Path]:
+    """List compact_*.parquet files in directory, sorted by name."""
+    return sorted(directory.glob("compact_*.parquet"))
+
+
+def iter_row_groups_arrow(
+    path: Path, batch_size: int = 500_000
+) -> Iterator[Any]:
+    """Stream row groups from a compact parquet file as PyArrow RecordBatches.
+
+    Yields one RecordBatch per row group for constant-memory insertion.
+    Requires pyarrow (only used with pre-processed compact files, not raw DECIMAL).
+    """
+    import pyarrow.parquet as pq  # lazy import
+
+    pf = pq.ParquetFile(str(path))
+    for i in range(pf.metadata.num_row_groups):
+        yield pf.read_row_group(i)
+
+
+def load_file_polars(path: Path) -> Any:
+    """Load a compact parquet file as a Polars DataFrame for exploration/ad-hoc use.
+
+    Requires polars. Only works with pre-processed compact files.
+    """
+    import polars as pl  # lazy import
+
+    return pl.read_parquet(path)

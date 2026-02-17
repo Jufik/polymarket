@@ -15,7 +15,7 @@ class ClickHouseSink:
 
     def __init__(
         self,
-        host: str = "localhost",
+        host: str = "192.168.0.148",
         port: int = 18123,
         database: str = "polymarket",
     ) -> None:
@@ -71,6 +71,10 @@ class ClickHouseSink:
             )
 
         self._client.insert("trades_raw", rows, column_names=columns)
+
+    def insert_arrow(self, table: Any) -> None:
+        """Insert a PyArrow Table into trades_raw (native Arrow format, no pandas conversion)."""
+        self._client.insert_arrow("trades_raw", table)
 
     def insert_dataframe(self, df: Any, batch_size: int = 100_000) -> None:
         """Insert a pandas DataFrame into trades_raw in batches.
