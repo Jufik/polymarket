@@ -12,7 +12,7 @@ from strategies.consistency_copy.backtester.sweep import SweepConfig
 
 SAMPLE_TOML = """\
 [windows]
-window_strategy = "anchored_expanding"
+strategy = "anchored_expanding"
 train_anchor = 2023-01-01
 holdout_months = 3
 step_months = 3

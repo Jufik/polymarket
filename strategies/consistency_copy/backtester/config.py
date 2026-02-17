@@ -188,7 +188,7 @@ def load_config(path: Path) -> BacktestConfig:
 
     return BacktestConfig(
         # [windows]
-        window_strategy=win["window_strategy"],
+        window_strategy=win["strategy"],
         train_anchor=datetime.fromisoformat(str(win["train_anchor"])),
         holdout_months=int(win["holdout_months"]),
         step_months=int(win["step_months"]),
