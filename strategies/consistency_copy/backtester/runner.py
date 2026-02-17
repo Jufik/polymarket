@@ -14,6 +14,7 @@ from pathlib import Path
 
 import polars as pl
 
+from strategies.consistency_copy.backtester.config import BacktestConfig, load_config
 from strategies.consistency_copy.backtester.price_scanner import get_market_prices_at_signals
 from strategies.consistency_copy.backtester.signal_table import build_signal_table
 from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
@@ -23,66 +24,7 @@ from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
 # ---------------------------------------------------------------------------
 DATA_DIR = Path("data/derived")
 OUTPUT_DIR = Path("strategies/consistency_copy")
-
-# ---------------------------------------------------------------------------
-# Rolling windows
-# ---------------------------------------------------------------------------
-WINDOWS: list[dict] = [
-    {
-        "name": "win0_2024h1",
-        "train_start": datetime(2023, 1, 1),
-        "train_end": datetime(2024, 1, 1),
-        "holdout_start": datetime(2024, 1, 1),
-        "holdout_end": datetime(2024, 7, 1),
-    },
-    {
-        "name": "win1_2024h2",
-        "train_start": datetime(2023, 7, 1),
-        "train_end": datetime(2024, 7, 1),
-        "holdout_start": datetime(2024, 7, 1),
-        "holdout_end": datetime(2025, 1, 1),
-    },
-    {
-        "name": "win2_2025h1",
-        "train_start": datetime(2024, 1, 1),
-        "train_end": datetime(2025, 1, 1),
-        "holdout_start": datetime(2025, 1, 1),
-        "holdout_end": datetime(2025, 7, 1),
-    },
-    {
-        "name": "win3_dec25",
-        "train_start": datetime(2025, 1, 1),
-        "train_end": datetime(2025, 12, 1),
-        "holdout_start": datetime(2025, 12, 1),
-        "holdout_end": datetime(2026, 1, 1),
-    },
-    {
-        "name": "win4_jan26",
-        "train_start": datetime(2025, 3, 1),
-        "train_end": datetime(2026, 1, 1),
-        "holdout_start": datetime(2026, 1, 1),
-        "holdout_end": datetime(2026, 2, 1),
-    },
-]
-
-# ---------------------------------------------------------------------------
-# Pool parameter grids
-# ---------------------------------------------------------------------------
-CONSISTENCY_MONTHS = [3, 4, 6, 8, 12]
-MIN_MARKETS = [10, 20, 30, 50]
-MVF_BAND_NAMES = ["all", "pure_taker", "mixed", "maker_dominant"]
-
-# ---------------------------------------------------------------------------
-# Default sweep config (full grid)
-# ---------------------------------------------------------------------------
-DEFAULT_SWEEP = SweepConfig(
-    min_traders_values=[2, 3, 5, 7, 10],
-    agreement_pct_values=[0.60, 0.70, 0.80, 0.90, 1.00],
-    direction_values=["YES-only", "NO-only", "both"],
-    entry_price_bands=[(0.05, 0.95), (0.10, 0.90), (0.20, 0.80)],
-    sizing_strategies=["fixed", "agreement_weighted", "kelly", "edge_weighted"],
-    min_bets=20,
-)
+DEFAULT_CONFIG = OUTPUT_DIR / "sweep_config.toml"
 
 
 # ---------------------------------------------------------------------------
@@ -144,16 +86,20 @@ def _precompute_mvf_subsets(
     """Pre-compute trader sets for each MVF band.
 
     Bands:
-      all            — every trader
-      pure_taker     — mvf < 0.10
-      mixed          — 0.10 <= mvf <= 0.50
-      maker_dominant — mvf > 0.50
+      all             — every trader
+      pure_taker      — mvf < 0.10
+      informed_taker  — mvf < 0.30 (synthesis recommendation)
+      mixed           — 0.10 <= mvf <= 0.50
+      maker_dominant  — mvf > 0.50
     """
     all_traders = set(mvf["trader"].to_list())
     return {
         "all": all_traders,
         "pure_taker": set(
             mvf.filter(pl.col("mvf") < 0.10)["trader"].to_list()
+        ),
+        "informed_taker": set(
+            mvf.filter(pl.col("mvf") < 0.30)["trader"].to_list()
         ),
         "mixed": set(
             mvf.filter((pl.col("mvf") >= 0.10) & (pl.col("mvf") <= 0.50))["trader"].to_list()
@@ -225,8 +171,15 @@ def get_consistent_traders(
     return set(consistent["trader"].to_list())
 
 
-def _compute_stability_ranking(all_results: pl.DataFrame, top_n: int = 50) -> list[dict]:
+def _compute_stability_ranking(
+    all_results: pl.DataFrame,
+    top_n: int = 50,
+    min_windows: int = 2,
+) -> list[dict]:
     """Group results across windows and rank by stability + average Sharpe.
+
+    Splits dev/test windows, ranks on dev only, and looks up test results
+    for each top config.
 
     Parameters
     ----------
@@ -234,16 +187,18 @@ def _compute_stability_ranking(all_results: pl.DataFrame, top_n: int = 50) -> li
         Concatenated sweep results with window and pool columns.
     top_n
         Number of top configs to return.
+    min_windows
+        Minimum number of dev windows a config must appear in.
 
     Returns
     -------
     list[dict]
-        Top configs as list of dicts, sorted by avg_sharpe descending.
+        Top configs as list of dicts with nested ``config``, ``dev``, ``test`` keys,
+        sorted by avg_sharpe descending.
     """
     if all_results.height == 0:
         return []
 
-    # Config columns = everything except window-specific and metric columns
     config_cols = [
         "consistency_months",
         "min_markets",
@@ -254,31 +209,75 @@ def _compute_stability_ranking(all_results: pl.DataFrame, top_n: int = 50) -> li
         "price_band_lo",
         "price_band_hi",
         "sizing",
+        "execution_delay",
     ]
-
-    # Ensure all config_cols are present
     available = set(all_results.columns)
     config_cols = [c for c in config_cols if c in available]
 
-    n_actual_windows = all_results["window"].n_unique()
-    min_windows = min(n_actual_windows, 2)
+    # Split dev/test
+    if "is_test" in all_results.columns:
+        dev = all_results.filter(~pl.col("is_test"))
+        test = all_results.filter(pl.col("is_test"))
+    else:
+        dev = all_results
+        test = pl.DataFrame()
 
-    grouped = all_results.group_by(config_cols).agg(
+    if dev.height == 0:
+        return []
+
+    n_actual_windows = dev["window"].n_unique()
+    min_win = min(n_actual_windows, min_windows)
+
+    # Metrics to aggregate
+    agg_exprs = [
         pl.col("sharpe").mean().alias("avg_sharpe"),
         pl.col("sharpe").std().alias("std_sharpe"),
         pl.col("total_pnl").mean().alias("avg_pnl"),
         pl.col("hit_rate").mean().alias("avg_hit_rate"),
         pl.col("window").n_unique().alias("n_windows"),
         pl.col("pool_size").mean().alias("avg_pool_size"),
-    )
+    ]
+    if "excess_hr" in dev.columns:
+        agg_exprs.append(pl.col("excess_hr").mean().alias("avg_excess_hr"))
+    if "base_adjusted_sharpe" in dev.columns:
+        agg_exprs.append(pl.col("base_adjusted_sharpe").mean().alias("avg_base_adj_sharpe"))
 
-    # Require stability: present in enough windows
-    stable = grouped.filter(pl.col("n_windows") >= min_windows)
-
-    # Sort by avg_sharpe descending, take top N
+    grouped = dev.group_by(config_cols).agg(agg_exprs)
+    stable = grouped.filter(pl.col("n_windows") >= min_win)
     top = stable.sort("avg_sharpe", descending=True).head(top_n)
 
-    return top.to_dicts()
+    # Build nested output with test lookup
+    metric_keys = [c for c in top.columns if c not in config_cols]
+    top_list = []
+    for row in top.to_dicts():
+        entry = {
+            "config": {k: row[k] for k in config_cols if k in row},
+            "dev": {k: row[k] for k in metric_keys if k in row},
+            "test": {},
+        }
+
+        if test.height > 0:
+            mask = pl.lit(True)
+            for col in config_cols:
+                if col in test.columns and col in row:
+                    mask = mask & (pl.col(col) == row[col])
+            test_rows = test.filter(mask)
+            if test_rows.height > 0:
+                t = {
+                    "sharpe": float(test_rows["sharpe"].mean()),
+                    "hit_rate": float(test_rows["hit_rate"].mean()),
+                    "total_pnl": float(test_rows["total_pnl"].sum()),
+                    "total_bets": int(test_rows["total_bets"].sum()),
+                }
+                if "excess_hr" in test_rows.columns:
+                    t["excess_hr"] = float(test_rows["excess_hr"].mean())
+                if "base_adjusted_sharpe" in test_rows.columns:
+                    t["base_adjusted_sharpe"] = float(test_rows["base_adjusted_sharpe"].mean())
+                entry["test"] = t
+
+        top_list.append(entry)
+
+    return top_list
 
 
 # ---------------------------------------------------------------------------
@@ -289,42 +288,82 @@ def _compute_stability_ranking(all_results: pl.DataFrame, top_n: int = 50) -> li
 def _precompute_entry_prices(
     holdout_data: pl.DataFrame,
     price_ts: pl.DataFrame,
+    execution_delay_s: float = 0.0,
+    max_price_delay_s: float = 3600.0,
 ) -> pl.DataFrame:
-    """Pre-compute market YES prices at every trader's first_trade time.
+    """Pre-compute market YES prices at the next trade AFTER each trader's entry (t+dt).
 
-    Instead of doing an expensive asof join for each signal table variant,
-    do it ONCE per holdout window for all possible (condition_id, trader, first_trade).
+    Uses a FORWARD asof join: for each (condition_id, trader, first_trade),
+    find the first price record at or after first_trade + execution_delay_s.
+    This simulates the realistic copy entry price — the next available trade
+    after the signal fires.
 
-    Returns a DataFrame with columns: condition_id, trader, first_trade,
-    market_yes_price.
+    Parameters
+    ----------
+    holdout_data
+        Per-trader per-market PnL with first_trade column.
+    price_ts
+        Price timeseries: condition_id, timestamp (float), yes_price.
+    execution_delay_s
+        Additional delay in seconds after trigger time (simulates detection +
+        order placement latency). Default 0 = next available price.
+    max_price_delay_s
+        Maximum seconds between trigger and next trade. Prices beyond this
+        are treated as unavailable (falls back to trader entry price).
+        Default 3600 = 1 hour.
+
+    Returns
+    -------
+    pl.DataFrame
+        Columns: condition_id, trader, first_trade, market_yes_price, price_dt_s.
+        price_dt_s = seconds between trigger and the matched price (for diagnostics).
     """
     # Get unique (condition_id, trader, first_trade) from holdout data
     entries = holdout_data.select(
         ["condition_id", "trader", "first_trade"]
     ).unique()
 
-    # Convert first_trade to float timestamp for asof join
+    # Convert first_trade to float timestamp + execution delay for asof join
     entries = entries.with_columns(
-        pl.col("first_trade").dt.epoch("s").cast(pl.Float64).alias("trigger_ts")
+        (pl.col("first_trade").dt.epoch("s").cast(pl.Float64) + execution_delay_s)
+        .alias("trigger_ts")
     ).sort(["condition_id", "trigger_ts"])
 
     # Sort price timeseries
     prices = price_ts.sort(["condition_id", "timestamp"])
 
-    # Asof join: for each entry, find the last price <= trigger_ts
+    # Forward asof join: for each entry, find the first price >= trigger_ts
     joined = entries.join_asof(
         prices,
         left_on="trigger_ts",
         right_on="timestamp",
         by="condition_id",
-        strategy="backward",
+        strategy="forward",
     )
+
+    # Compute dt (seconds between trigger and matched price)
+    joined = joined.with_columns(
+        (pl.col("timestamp") - pl.col("trigger_ts")).alias("price_dt_s")
+    )
+
+    # Null out prices where the delay exceeds max_price_delay_s
+    if max_price_delay_s > 0:
+        joined = joined.with_columns(
+            pl.when(
+                pl.col("yes_price").is_not_null()
+                & (pl.col("price_dt_s") <= max_price_delay_s)
+            )
+            .then(pl.col("yes_price"))
+            .otherwise(pl.lit(None).cast(pl.Float64))
+            .alias("yes_price")
+        )
 
     return joined.select([
         "condition_id",
         "trader",
         "first_trade",
         pl.col("yes_price").alias("market_yes_price"),
+        "price_dt_s",
     ])
 
 
@@ -332,14 +371,14 @@ def _apply_precomputed_prices(
     signal_table: pl.DataFrame,
     entry_prices: pl.DataFrame,
 ) -> pl.DataFrame:
-    """Replace trigger_entry_price with real market prices using pre-computed lookup.
+    """Replace trigger_entry_price with forward market prices using pre-computed lookup.
 
-    For YES signals: entry = market_yes_price
+    For YES signals: entry = market_yes_price (next available price after trigger)
     For NO signals: entry = 1 - market_yes_price
     """
     # Join on (condition_id, trader, first_trade = trigger_time)
     joined = signal_table.join(
-        entry_prices,
+        entry_prices.drop("price_dt_s"),
         left_on=["condition_id", "trader", "trigger_time"],
         right_on=["condition_id", "trader", "first_trade"],
         how="left",
@@ -360,27 +399,75 @@ def _apply_precomputed_prices(
     return joined.drop("market_yes_price")
 
 
-def main() -> None:
-    """Run the full parameter sweep across windows and trader pool configs."""
+def _print_price_diagnostics(entry_prices: pl.DataFrame, win_name: str) -> None:
+    """Print diagnostics about forward price estimation quality."""
+    total = entry_prices.height
+    has_price = entry_prices["market_yes_price"].is_not_null().sum()
+    coverage = has_price / total if total > 0 else 0.0
+
+    # dt stats (only where we got a price)
+    dt_valid = entry_prices.filter(pl.col("price_dt_s").is_not_null() & pl.col("market_yes_price").is_not_null())
+
+    if dt_valid.height > 0:
+        dt_series = dt_valid["price_dt_s"]
+        p50 = dt_series.median()
+        p95 = dt_series.quantile(0.95)
+        p99 = dt_series.quantile(0.99)
+        mean_dt = dt_series.mean()
+        print(
+            f"[prices] {win_name} diagnostics: "
+            f"coverage={coverage:.1%} ({has_price:,}/{total:,}), "
+            f"dt: mean={mean_dt:.0f}s, p50={p50:.0f}s, p95={p95:.0f}s, p99={p99:.0f}s"
+        )
+    else:
+        print(f"[prices] {win_name} diagnostics: coverage={coverage:.1%} ({has_price:,}/{total:,})")
+
+
+def main(config_path: Path | None = None) -> None:
+    """Run the full parameter sweep across windows and trader pool configs.
+
+    Uses FORWARD asof join for entry prices (t+dt): the next available trade
+    price after the signal fires, simulating realistic copy-trade execution.
+
+    Parameters
+    ----------
+    config_path
+        Path to a TOML config file.  Falls back to ``DEFAULT_CONFIG`` when
+        ``None``.
+    """
     t0 = time.time()
 
+    # Load config
+    config = load_config(config_path or DEFAULT_CONFIG)
+    windows = config.generate_windows()
+    sweep_cfg = config.to_sweep_config()
+
+    print(f"[config] Loaded from {config_path or DEFAULT_CONFIG}")
+    print(f"[config] {len(windows)} windows ({sum(1 for w in windows if not w.is_test)} dev, "
+          f"{sum(1 for w in windows if w.is_test)} test)")
+    print(f"[config] Sizing: {config.sizing_strategies}")
+    print(f"[config] Base rate adjustment: {config.base_rate_adjustment}")
+
     # Step 1: Load data
-    df_pnl, mvf_df, _markets, price_ts = _load_data()
+    df_pnl, mvf_df, markets, price_ts = _load_data()
 
     # Step 2: Pre-compute MVF subsets
     mvf_subsets = _precompute_mvf_subsets(mvf_df)
     for band, traders in mvf_subsets.items():
         print(f"[mvf] {band}: {len(traders):,} traders")
 
+    print(f"\n[config] Forward pricing: delays={config.execution_delays}s, "
+          f"max_dt={config.max_price_delay_s}s, base_bet=${config.base_bet:.0f}")
+
     all_results: list[pl.DataFrame] = []
 
     # Step 3: For each rolling window
-    for win in WINDOWS:
-        win_name = win["name"]
-        train_start = win["train_start"]
-        train_end = win["train_end"]
-        holdout_start = win["holdout_start"]
-        holdout_end = win["holdout_end"]
+    for win in windows:
+        win_name = win.name
+        train_start = win.train_start
+        train_end = win.train_end
+        holdout_start = win.holdout_start
+        holdout_end = win.holdout_end
 
         print(f"\n{'=' * 70}")
         print(f"[window] {win_name}: train {train_start:%Y-%m-%d} to {train_end:%Y-%m-%d}, "
@@ -397,19 +484,38 @@ def main() -> None:
             print(f"[window] {win_name}: no holdout data, skipping")
             continue
 
-        # Step 3b: Pre-compute entry prices for this window (ONCE per window)
-        entry_prices: pl.DataFrame | None = None
+        # Step 3b: Pre-compute FORWARD entry prices for ALL delays (once per window)
+        delay_prices: dict[float, pl.DataFrame] = {}
         if price_ts is not None:
-            print(f"[prices] Pre-computing entry prices for {win_name}...")
-            t_prices = time.time()
-            entry_prices = _precompute_entry_prices(holdout_data, price_ts)
-            price_coverage = entry_prices["market_yes_price"].is_not_null().mean()
-            print(f"[prices] Done in {time.time()-t_prices:.1f}s: "
-                  f"{entry_prices.height:,} entries, coverage={price_coverage:.1%}")
+            for delay_s in config.execution_delays:
+                print(f"[prices] Pre-computing forward prices for {win_name} delay={delay_s}s...")
+                t_prices = time.time()
+                ep = _precompute_entry_prices(
+                    holdout_data,
+                    price_ts,
+                    execution_delay_s=delay_s,
+                    max_price_delay_s=config.max_price_delay_s,
+                )
+                delay_prices[delay_s] = ep
+                elapsed_p = time.time() - t_prices
+                _print_price_diagnostics(ep, f"{win_name}/delay={delay_s}s")
+                print(f"[prices] Done in {elapsed_p:.1f}s")
+
+        # Step 3c: Compute per-window base rates from holdout markets
+        base_rates: dict[str, float] | None = None
+        if config.base_rate_adjustment:
+            holdout_mkts = markets.filter(
+                (pl.col("resolved_at") >= holdout_start)
+                & (pl.col("resolved_at") < holdout_end)
+            )
+            if holdout_mkts.height > 0 and "yes_won" in holdout_mkts.columns:
+                yes_rate = float(holdout_mkts["yes_won"].mean())
+                base_rates = {"YES": yes_rate, "NO": 1.0 - yes_rate}
+                print(f"[base_rate] {win_name}: YES={yes_rate:.3f}, NO={1-yes_rate:.3f}")
 
         # Step 4: Nested loops over pool configs
-        for n_months in CONSISTENCY_MONTHS:
-            for min_mkts in MIN_MARKETS:
+        for n_months in config.consistency_months:
+            for min_mkts in config.min_markets:
                 # Get consistent traders for this training window
                 skilled = get_consistent_traders(
                     df_pnl, train_start, train_end, n_months, min_mkts
@@ -418,50 +524,64 @@ def main() -> None:
                 if len(skilled) < 10:
                     continue
 
-                for band_name in MVF_BAND_NAMES:
+                for band_name in config.mvf_bands:
                     # Intersect with MVF subset
                     pool = skilled & mvf_subsets[band_name]
 
                     if len(pool) < 5:
                         continue
 
-                    # Step 5: Build signal table
+                    # Step 5: Build signal table ONCE per pool config
                     signal_table = build_signal_table(holdout_data, pool, mvf_df)
 
                     if signal_table.height < 20:
                         continue
 
-                    # Step 5b: Replace entry prices with real market prices
-                    if entry_prices is not None:
-                        signal_table = _apply_precomputed_prices(
-                            signal_table, entry_prices
+                    # Step 5b: For each delay, apply prices and sweep
+                    delays_to_run = list(delay_prices.keys()) if delay_prices else [0.0]
+
+                    for delay_s in delays_to_run:
+                        # Apply precomputed forward prices for this delay
+                        if delay_s in delay_prices:
+                            st_priced = _apply_precomputed_prices(
+                                signal_table, delay_prices[delay_s]
+                            )
+                        else:
+                            st_priced = signal_table
+
+                        # Step 6: Run sweep
+                        sweep_results = run_sweep(
+                            st_priced, sweep_cfg,
+                            base_bet=config.base_bet, fee_pct=config.fee_pct,
+                            base_rates=base_rates,
                         )
 
-                    # Step 6: Run sweep
-                    sweep_results = run_sweep(signal_table, DEFAULT_SWEEP)
+                        if sweep_results.height == 0:
+                            continue
 
-                    if sweep_results.height == 0:
-                        continue
+                        # Step 7: Add pool params + delay + is_test
+                        sweep_results = sweep_results.with_columns(
+                            pl.lit(win_name).alias("window"),
+                            pl.lit(n_months).alias("consistency_months"),
+                            pl.lit(min_mkts).alias("min_markets"),
+                            pl.lit(band_name).alias("mvf_band"),
+                            pl.lit(len(pool)).alias("pool_size"),
+                            pl.lit(delay_s).alias("execution_delay"),
+                            pl.lit(win.is_test).alias("is_test"),
+                        )
 
-                    # Step 7: Add pool params
-                    sweep_results = sweep_results.with_columns(
-                        pl.lit(win_name).alias("window"),
-                        pl.lit(n_months).alias("consistency_months"),
-                        pl.lit(min_mkts).alias("min_markets"),
-                        pl.lit(band_name).alias("mvf_band"),
-                        pl.lit(len(pool)).alias("pool_size"),
-                    )
+                        all_results.append(sweep_results)
 
-                    all_results.append(sweep_results)
-
-                    # Progress line
-                    best_hr = sweep_results["hit_rate"].max()
-                    best_pnl = sweep_results["total_pnl"].max()
-                    print(
-                        f"  months={n_months} mkts={min_mkts} mvf={band_name} "
-                        f"pool={len(pool)}: {sweep_results.height} configs, "
-                        f"best HR={best_hr:.1%}, best PnL=${best_pnl:.2f}"
-                    )
+                    # Progress line (summary across delays)
+                    if all_results:
+                        last = all_results[-1]
+                        best_hr = last["hit_rate"].max()
+                        best_pnl = last["total_pnl"].max()
+                        print(
+                            f"  months={n_months} mkts={min_mkts} mvf={band_name} "
+                            f"pool={len(pool)}: {last.height} configs/delay, "
+                            f"best HR={best_hr:.1%}, best PnL=${best_pnl:.2f}"
+                        )
 
     # Step 8: Save outputs
     if not all_results:
@@ -475,7 +595,9 @@ def main() -> None:
     combined.write_parquet(out_parquet)
     print(f"[save] Wrote {out_parquet}")
 
-    top_configs = _compute_stability_ranking(combined, top_n=50)
+    top_configs = _compute_stability_ranking(
+        combined, top_n=config.top_n, min_windows=config.min_windows
+    )
 
     out_json = OUTPUT_DIR / "top_configs.json"
     out_json.write_text(json.dumps(top_configs, indent=2, default=str))
