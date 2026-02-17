@@ -14,10 +14,9 @@ from pathlib import Path
 
 import polars as pl
 
-from strategies.consistency_copy.backtester.config import BacktestConfig, load_config
-from strategies.consistency_copy.backtester.price_scanner import get_market_prices_at_signals
+from strategies.consistency_copy.backtester.config import load_config
 from strategies.consistency_copy.backtester.signal_table import build_signal_table
-from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
+from strategies.consistency_copy.backtester.sweep import run_sweep
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -406,7 +405,9 @@ def _print_price_diagnostics(entry_prices: pl.DataFrame, win_name: str) -> None:
     coverage = has_price / total if total > 0 else 0.0
 
     # dt stats (only where we got a price)
-    dt_valid = entry_prices.filter(pl.col("price_dt_s").is_not_null() & pl.col("market_yes_price").is_not_null())
+    dt_valid = entry_prices.filter(
+        pl.col("price_dt_s").is_not_null() & pl.col("market_yes_price").is_not_null()
+    )
 
     if dt_valid.height > 0:
         dt_series = dt_valid["price_dt_s"]
