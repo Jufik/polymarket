@@ -81,6 +81,13 @@ class DataQualityIssue(BaseModel):
     suggested_fix: str | None = None
 
 
+class BranchRecommendation(str, Enum):
+    CONTINUE = "continue"   # More refinements are promising
+    PIVOT = "pivot"         # Approach is failing, try something different
+    CONVERGE = "converge"   # Findings stable, no more refinements needed
+    REJECT = "reject"       # Hypothesis definitively rejected
+
+
 class ClaudeAnalysis(BaseModel):
     """Claude's analysis of a completed stage."""
 
@@ -90,7 +97,50 @@ class ClaudeAnalysis(BaseModel):
     proposed_refinements: list[ProposedRefinement]
     data_quality_issues: list[DataQualityIssue] = Field(default_factory=list)
     confidence: float
+    branch_recommendation: BranchRecommendation = BranchRecommendation.CONTINUE
+    information_gain: float = Field(default=1.0, ge=0.0, le=1.0)
     generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TestedHypothesis(BaseModel):
+    stage_id: str
+    hypothesis: str
+    confirmed: bool
+    confidence: float
+    key_finding: str
+
+
+class ExplorationContext(BaseModel):
+    """Accumulated knowledge built lazily from the tree each iteration."""
+
+    tested_hypotheses: list[TestedHypothesis] = Field(default_factory=list)
+    established_facts: list[str] = Field(default_factory=list)
+    rejected_directions: list[str] = Field(default_factory=list)
+    consumed_refinement_keys: set[str] = Field(default_factory=set)
+    # key = "{parent_id}::{refinement_name}"
+    executed_refinement_names: set[str] = Field(default_factory=set)
+    branch_statuses: dict[str, BranchRecommendation] = Field(default_factory=dict)
+
+
+class SweepVariantResult(BaseModel):
+    """Result from a single variant in a parameter sweep."""
+
+    param_value: Any
+    metrics: StageMetrics | None = None
+    outputs_path: str | None = None
+
+
+class SweepResult(BaseModel):
+    """Aggregated results from a parameter sweep.
+
+    One stage in the tree with N sub-results, not N separate stages.
+    """
+
+    sweep_param: str
+    sweep_values: list[Any]
+    variants: list[SweepVariantResult] = Field(default_factory=list)
+    best_value: Any | None = None
+    comparison_metric: str = "unique_traders"
 
 
 class ExplorationStage(BaseModel):
@@ -124,6 +174,9 @@ class ExplorationStage(BaseModel):
     last_error: str | None = None
     run_attempts: int = 0
     dq_fix_attempts: int = 0
+
+    # Parameter sweep results (populated when this stage is a sweep)
+    sweep_results: SweepResult | None = None
 
 
 class OrchestratorState(BaseModel):
@@ -265,8 +318,19 @@ def create_refinement_stage(
     parent: ExplorationStage,
     refinement: ProposedRefinement,
     index: str,
+    tree: ExplorationTree | None = None,
 ) -> ExplorationStage:
-    stage_id = f"{parent.depth + 1:02d}{index}_{refinement.name.lower().replace(' ', '_')}"
+    base_name = refinement.name.lower().replace(" ", "_")
+    stage_id = f"{parent.depth + 1:02d}{index}_{base_name}"
+
+    # Ensure global uniqueness if tree is provided
+    if tree is not None:
+        suffix = 0
+        original_id = stage_id
+        while stage_id in tree.stages:
+            suffix += 1
+            stage_id = f"{original_id}_{suffix}"
+
     return ExplorationStage(
         id=stage_id,
         name=refinement.name,
@@ -328,3 +392,56 @@ def render_analysis_markdown(
         + "\n".join(refinements_md)
         + f"\n## Exploration Tree\n\n```mermaid\n{tree.to_mermaid()}\n```\n"
     )
+
+
+def build_exploration_context(tree: ExplorationTree) -> ExplorationContext:
+    """Build accumulated exploration knowledge from the current tree state.
+
+    Scans all stages with analysis to extract tested hypotheses,
+    established facts, consumed refinement keys, and branch statuses.
+    """
+    ctx = ExplorationContext()
+
+    for stage in tree.stages.values():
+        # Record tested hypotheses from analyzed stages
+        if stage.analysis and stage.hypothesis:
+            confirmed = stage.analysis.confidence >= 0.5
+            key_finding = stage.analysis.summary[:200] if stage.analysis.summary else ""
+            ctx.tested_hypotheses.append(
+                TestedHypothesis(
+                    stage_id=stage.id,
+                    hypothesis=stage.hypothesis,
+                    confirmed=confirmed,
+                    confidence=stage.analysis.confidence,
+                    key_finding=key_finding,
+                )
+            )
+
+        # Extract established facts from high-confidence stages
+        if stage.analysis and stage.analysis.confidence >= 0.6:
+            for insight in stage.analysis.key_insights:
+                if insight not in ctx.established_facts:
+                    ctx.established_facts.append(insight)
+
+        # Extract rejected directions from low-confidence or REJECT stages
+        if stage.analysis and (
+            stage.analysis.confidence < 0.3
+            or stage.analysis.branch_recommendation == BranchRecommendation.REJECT
+        ):
+            direction = f"{stage.name}: {stage.hypothesis or stage.description}"
+            ctx.rejected_directions.append(direction)
+
+        # Build consumed refinement keys from parent->child relationships
+        if stage.parent_id and stage.name:
+            key = f"{stage.parent_id}::{stage.name}"
+            ctx.consumed_refinement_keys.add(key)
+
+        # Track executed refinement names globally
+        if stage.parent_id:
+            ctx.executed_refinement_names.add(stage.name)
+
+        # Track branch statuses
+        if stage.analysis:
+            ctx.branch_statuses[stage.id] = stage.analysis.branch_recommendation
+
+    return ctx

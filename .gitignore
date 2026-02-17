@@ -6,7 +6,10 @@ __pycache__/
 
 # Data
 order_filled/
-
+order_filled_compact/
+docker-drives
+data/
+scripts/_cache/
 # Tools
 .mypy_cache/
 .pytest_cache/

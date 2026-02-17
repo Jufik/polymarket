@@ -1,16 +1,27 @@
-"""Thin read-only ClickHouse wrapper for exploration stages.
+"""Exploration data source: ClickHouse (online) or DuckDB (offline/travel).
 
-All joins and aggregates are pushed to ClickHouse SQL.
+All joins and aggregates are pushed to the SQL engine.
 Polars is only for post-query prototyping that hasn't been
 promoted to materialized views yet.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
-import clickhouse_connect
 import polars as pl
+
+
+@runtime_checkable
+class DataSource(Protocol):
+    """Protocol for exploration data sources (ClickHouse or DuckDB)."""
+
+    def query_df(self, sql: str, params: dict[str, Any] | None = None) -> pl.DataFrame: ...
+    def query_raw(
+        self, sql: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]: ...
+    def get_schema(self, table: str) -> list[dict[str, str]]: ...
 
 
 class ExplorationDataSource:
@@ -18,10 +29,12 @@ class ExplorationDataSource:
 
     def __init__(
         self,
-        host: str = "localhost",
+        host: str = "192.168.0.148",
         port: int = 18123,
         database: str = "polymarket",
     ) -> None:
+        import clickhouse_connect
+
         self._client = clickhouse_connect.get_client(
             host=host, port=port, database=database
         )
@@ -55,3 +68,31 @@ class ExplorationDataSource:
             params={"table": table},
         )
         return rows
+
+
+def create_data_source(
+    backend: str = "clickhouse",
+    compact_dir: Path | None = None,
+    metadata_dir: Path | None = None,
+    ch_host: str = "192.168.0.148",
+    ch_port: int = 18123,
+) -> DataSource:
+    """Factory for exploration data sources.
+
+    Args:
+        backend: "clickhouse" or "duckdb".
+        compact_dir: Path to compact parquet files (required for duckdb).
+        metadata_dir: Path to metadata parquet files (default: compact_dir/metadata).
+        ch_host: ClickHouse host (for clickhouse backend).
+        ch_port: ClickHouse HTTP port (for clickhouse backend).
+    """
+    if backend == "duckdb":
+        from polymarket_pipeline.exploration.duckdb_source import DuckDBDataSource
+
+        if compact_dir is None:
+            raise ValueError("compact_dir is required for DuckDB backend")
+        return DuckDBDataSource(compact_dir=compact_dir, metadata_dir=metadata_dir)
+    elif backend == "clickhouse":
+        return ExplorationDataSource(host=ch_host, port=ch_port)
+    else:
+        raise ValueError(f"Unknown backend: {backend!r}. Use 'clickhouse' or 'duckdb'.")

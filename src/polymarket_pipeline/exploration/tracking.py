@@ -21,7 +21,7 @@ class ExplorationTracker:
     One MLflow experiment per strategy. One run per stage.
     """
 
-    def __init__(self, tracking_uri: str = "http://localhost:5050") -> None:
+    def __init__(self, tracking_uri: str = "http://192.168.0.148:5050") -> None:
         mlflow.set_tracking_uri(tracking_uri)
 
     def get_or_create_experiment(self, strategy_name: str) -> str:
