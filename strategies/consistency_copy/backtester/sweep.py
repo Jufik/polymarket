@@ -52,6 +52,7 @@ def run_sweep(
     config: SweepConfig,
     base_bet: float = 1.0,
     fee_pct: float = 0.02,
+    base_rates: dict[str, float] | None = None,
 ) -> pl.DataFrame:
     """Run a full parameter sweep over the signal table.
 
@@ -106,13 +107,23 @@ def run_sweep(
             continue
 
         # Step 5: compute "won" column
-        # won = (YES signal AND resolution=1) OR (NO signal AND resolution=0)
-        bets = bets.with_columns(
-            (
-                ((pl.col("signal_direction") == "YES") & (pl.col("resolution_value") == 1))
-                | ((pl.col("signal_direction") == "NO") & (pl.col("resolution_value") == 0))
-            ).alias("won")
-        )
+        # won = signal direction matches actual outcome
+        if "yes_won" in bets.columns:
+            # Non-tautological: yes_won is True if token_index=0 (affirmative) won
+            bets = bets.with_columns(
+                (
+                    ((pl.col("signal_direction") == "YES") & pl.col("yes_won"))
+                    | ((pl.col("signal_direction") == "NO") & ~pl.col("yes_won"))
+                ).alias("won")
+            )
+        else:
+            # Legacy fallback (tautological with resolution_value=1 for all resolved)
+            bets = bets.with_columns(
+                (
+                    ((pl.col("signal_direction") == "YES") & (pl.col("resolution_value") == 1))
+                    | ((pl.col("signal_direction") == "NO") & (pl.col("resolution_value") == 0))
+                ).alias("won")
+            )
 
         # Step 6: for each sizing strategy, apply sizing -> daily PnL -> metrics
         for sizing in config.sizing_strategies:
@@ -135,7 +146,50 @@ def run_sweep(
                 .sort("resolved_date")
             )
 
-            metrics = compute_metrics(daily_pnl)
+            # Compute base rate for this direction
+            br: float | None = None
+            baseline_daily: list[float] | None = None
+            if base_rates is not None:
+                if direction == "YES-only":
+                    br = base_rates.get("YES")
+                elif direction == "NO-only":
+                    br = base_rates.get("NO")
+                else:  # "both"
+                    n_yes_bets = sized.filter(pl.col("signal_direction") == "YES").height
+                    n_no_bets = sized.filter(pl.col("signal_direction") == "NO").height
+                    total_dir = n_yes_bets + n_no_bets
+                    if total_dir > 0:
+                        br = (
+                            n_yes_bets / total_dir * base_rates.get("YES", 0.5)
+                            + n_no_bets / total_dir * base_rates.get("NO", 0.5)
+                        )
+
+                if br is not None:
+                    # Per-bet baseline PnL: expected PnL of random bettor at base_rate
+                    # baseline = br * win_payoff + (1-br) * lose_payoff
+                    price = pl.col("trigger_entry_price")
+                    baseline_bets = sized.with_columns(
+                        (
+                            pl.lit(br)
+                            * (pl.col("bet_size") * (1.0 - price) / price - pl.col("fee"))
+                            + pl.lit(1.0 - br) * (-pl.col("bet_size") - pl.col("fee"))
+                        ).alias("baseline_pnl")
+                    )
+                    baseline_daily_df = (
+                        baseline_bets.with_columns(
+                            pl.col("resolved_at").cast(pl.Date).alias("resolved_date")
+                        )
+                        .group_by("resolved_date")
+                        .agg(pl.col("baseline_pnl").sum().alias("baseline_daily_pnl"))
+                        .sort("resolved_date")
+                    )
+                    # Join with actual daily_pnl to align dates
+                    daily_pnl_with_baseline = daily_pnl.join(
+                        baseline_daily_df, on="resolved_date", how="left"
+                    ).with_columns(pl.col("baseline_daily_pnl").fill_null(0.0))
+                    baseline_daily = daily_pnl_with_baseline["baseline_daily_pnl"].to_list()
+
+            metrics = compute_metrics(daily_pnl, base_rate=br, baseline_daily_pnl=baseline_daily)
 
             # Step 7: collect params + metrics
             row = {
