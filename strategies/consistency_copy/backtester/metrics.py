@@ -163,7 +163,7 @@ def compute_metrics(
         if baseline_daily_pnl is not None and n_days >= 2:
             excess_series = [
                 actual - baseline
-                for actual, baseline in zip(pnl_series, baseline_daily_pnl)
+                for actual, baseline in zip(pnl_series, baseline_daily_pnl, strict=False)
             ]
             mean_excess = sum(excess_series) / len(excess_series)
             var_excess = sum(

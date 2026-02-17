@@ -9,6 +9,7 @@ import polars as pl
 import pytest
 
 from strategies.consistency_copy.backtester.metrics import compute_metrics
+from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
 
 
 def _make_daily_pnl() -> pl.DataFrame:
@@ -236,8 +237,6 @@ def test_metrics_with_baseline_daily_pnl() -> None:
 # --------------------------------------------------------------------------
 # Sweep + base rate integration tests
 # --------------------------------------------------------------------------
-
-from strategies.consistency_copy.backtester.sweep import SweepConfig, run_sweep
 
 
 def _make_signal_table() -> pl.DataFrame:
