@@ -207,20 +207,31 @@ def load_or_compute_yes_buy_volume(force: bool = False) -> pl.DataFrame:
         print(f"[volume] Loading cached {VOLUME_CACHE}")
         return pl.read_parquet(VOLUME_CACHE)
 
-    print("[volume] Scanning compact parquet files ...")
+    print("[volume] Scanning compact parquet files (streaming) ...")
     t0 = time.time()
-
-    trades = (
-        pl.scan_parquet(str(COMPACT_DIR / "compact_*.parquet"))
-        .select("condition_id", "asset_id", "side", "price", "amount_usd", "timestamp")
-        .collect()
-    )
 
     token_map = pl.read_parquet(METADATA_DIR / "token_map.parquet").select(
         "asset_id", "condition_id", "token_index"
     )
+    token_map_lazy = token_map.lazy()
 
-    result = compute_yes_buy_volume_per_market(trades, token_map)
+    # Stream through 27GB of compact parquet without loading into memory:
+    # join with token_map, filter to YES-buys, aggregate — all in lazy mode.
+    result = (
+        pl.scan_parquet(str(COMPACT_DIR / "compact_*.parquet"))
+        .select("asset_id", "side", "amount_usd")
+        .join(token_map_lazy, on="asset_id", how="inner")
+        .filter(
+            ((pl.col("side") == "BUY") & (pl.col("token_index") == 0))
+            | ((pl.col("side") == "SELL") & (pl.col("token_index") == 1))
+        )
+        .group_by("condition_id")
+        .agg(
+            pl.col("amount_usd").sum().alias("yes_buy_volume"),
+            pl.len().alias("yes_buy_count"),
+        )
+        .collect(streaming=True)
+    )
 
     VOLUME_CACHE.parent.mkdir(parents=True, exist_ok=True)
     result.write_parquet(VOLUME_CACHE)
@@ -568,23 +579,43 @@ def print_stage1_report(all_results: pl.DataFrame) -> None:
     print("  STAGE 1: Per-Bet MM Overlay (maker vs taker)")
     print(f"{'=' * 90}\n")
 
-    print(
-        f"  {'Pool':<20} {'Signal':<14} {'Spread':>7} {'Fill Model':<16} "
-        f"{'#Bets':>6} {'Taker$/b':>9} {'Maker$/b':>9} {'Delta':>8} "
-        f"{'T-HR':>6} {'M-HR':>6}"
-    )
-    print(f"  {'-' * 88}")
+    has_window = "window" in all_results.columns
 
-    for row in all_results.sort(
-        ["pool_label", "signal_label", "spread_edge", "fill_model"]
-    ).iter_rows(named=True):
+    if has_window:
         print(
-            f"  {row['pool_label']:<20} {row['signal_label']:<14} "
-            f"{row['spread_edge']:>7.3f} {row['fill_model']:<16} "
-            f"{row['n_filled']:>6} ${row['taker_pnl_per_bet']:>7.2f} "
-            f"${row['maker_pnl_per_bet']:>7.2f} ${row['maker_delta']:>6.0f} "
-            f"{row['taker_hr']:>5.1%} {row['maker_hr']:>5.1%}"
+            f"  {'Window':<16} {'Pool':<20} {'Signal':<12} {'Sprd':>5} {'Fill':<10} "
+            f"{'#Bet':>5} {'T$/b':>7} {'M$/b':>7} {'T-HR':>6} {'M-HR':>6}"
         )
+        print(f"  {'-' * 106}")
+        for row in all_results.filter(
+            pl.col("fill_model") == "flat_100%"
+        ).sort(
+            ["window", "pool_label", "signal_label", "spread_edge"]
+        ).iter_rows(named=True):
+            print(
+                f"  {row['window']:<16} {row['pool_label']:<20} "
+                f"{row['signal_label']:<12} {row['spread_edge']:>4.1f}c "
+                f"{row['fill_model']:<10} {row['n_filled']:>5} "
+                f"${row['taker_pnl_per_bet']:>5.1f} ${row['maker_pnl_per_bet']:>5.1f} "
+                f"{row['taker_hr']:>5.1%} {row['maker_hr']:>5.1%}"
+            )
+    else:
+        print(
+            f"  {'Pool':<20} {'Signal':<14} {'Spread':>7} {'Fill Model':<16} "
+            f"{'#Bets':>6} {'Taker$/b':>9} {'Maker$/b':>9} {'Delta':>8} "
+            f"{'T-HR':>6} {'M-HR':>6}"
+        )
+        print(f"  {'-' * 88}")
+        for row in all_results.sort(
+            ["pool_label", "signal_label", "spread_edge", "fill_model"]
+        ).iter_rows(named=True):
+            print(
+                f"  {row['pool_label']:<20} {row['signal_label']:<14} "
+                f"{row['spread_edge']:>7.3f} {row['fill_model']:<16} "
+                f"{row['n_filled']:>6} ${row['taker_pnl_per_bet']:>7.2f} "
+                f"${row['maker_pnl_per_bet']:>7.2f} ${row['maker_delta']:>6.0f} "
+                f"{row['taker_hr']:>5.1%} {row['maker_hr']:>5.1%}"
+            )
 
 
 def print_stage2_report(sim_results: list[dict]) -> None:
@@ -637,6 +668,7 @@ def print_stage2_report(sim_results: list[dict]) -> None:
 def main() -> None:
     """Full orchestration: load data, build signals, run Stage 1 + Stage 2."""
     force_volume = "--force-volume" in sys.argv
+    all_windows_mode = "--all-windows" in sys.argv
     t0 = time.time()
 
     # Step 1: Load data
@@ -646,17 +678,24 @@ def main() -> None:
     config = load_config(CONFIG_PATH)
     windows = config.generate_windows()
 
-    # Use the MOST RECENT DEV WINDOW
     dev_windows = [w for w in windows if not w.is_test]
     if not dev_windows:
         print("[error] No dev windows found in config.")
         return
-    win = dev_windows[-1]
-    print(f"[config] Using window: {win.name}")
-    print(
-        f"[config] Train: {win.train_start:%Y-%m-%d} to {win.train_end:%Y-%m-%d}, "
-        f"Holdout: {win.holdout_start:%Y-%m-%d} to {win.holdout_end:%Y-%m-%d}"
-    )
+
+    if all_windows_mode:
+        target_windows = dev_windows
+        print(f"[config] Running ALL {len(target_windows)} dev windows")
+    else:
+        target_windows = [dev_windows[-1]]
+        print(f"[config] Using window: {target_windows[0].name}")
+
+    for win in target_windows:
+        print(
+            f"[config] Window {win.name}: "
+            f"train {win.train_start:%Y-%m-%d} to {win.train_end:%Y-%m-%d}, "
+            f"holdout {win.holdout_start:%Y-%m-%d} to {win.holdout_end:%Y-%m-%d}"
+        )
 
     # Step 3: Pre-compute MVF subsets and trader median entry
     mvf_subsets = _precompute_mvf_subsets(mvf_df)
@@ -670,100 +709,97 @@ def main() -> None:
     volume = load_or_compute_yes_buy_volume(force=force_volume)
     print(f"[volume] {volume.height:,} markets with YES-buy volume")
 
-    # Step 5: Pre-compute forward prices at 60s delay
-    holdout_data = df_pnl.filter(
-        (pl.col("resolved_at") >= win.holdout_start)
-        & (pl.col("resolved_at") < win.holdout_end)
-    )
-    print(f"[holdout] {holdout_data.height:,} trader-market rows")
-
-    delay_s = 60.0
-    entry_prices = None
-    if price_ts is not None:
-        PRICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        cache_path = PRICE_CACHE_DIR / f"{win.name}_delay_{delay_s}.parquet"
-        if cache_path.exists():
-            entry_prices = pl.read_parquet(cache_path)
-            print(f"[prices] Loaded cached {cache_path.name} ({entry_prices.height:,} rows)")
-        else:
-            print(f"[prices] Pre-computing forward prices for {win.name} delay={delay_s}s...")
-            entry_prices = _precompute_entry_prices(
-                holdout_data, price_ts,
-                execution_delay_s=delay_s,
-                max_price_delay_s=config.max_price_delay_s,
-            )
-            entry_prices.write_parquet(cache_path)
-            print(f"[prices] Cached {entry_prices.height:,} rows")
-
-    # Step 6: For each POOL_CONFIG x SIGNAL_CONFIG, build signals and run Stage 1
+    # Step 5 + 6: For each window, build signals and run Stage 1
     all_stage1: list[pl.DataFrame] = []
     signal_cache: dict[str, pl.DataFrame] = {}
+    delay_s = 60.0
 
-    for pcfg in POOL_CONFIGS:
-        n_months = pcfg["n_months"]
-        min_mkts = pcfg["min_mkts"]
-        mvf_band = pcfg["mvf_band"]
-        max_entry = pcfg["max_entry"]
-        pool_label = f"m{n_months}_k{min_mkts}_{mvf_band}_e{max_entry}"
-
-        # Build trader pool
-        skilled = get_consistent_traders(
-            df_pnl, win.train_start, win.train_end,
-            int(n_months), int(min_mkts),
+    for win in target_windows:
+        holdout_data = df_pnl.filter(
+            (pl.col("resolved_at") >= win.holdout_start)
+            & (pl.col("resolved_at") < win.holdout_end)
         )
-        pool = skilled & mvf_subsets[str(mvf_band)]
-
-        # Filter by median entry price
-        eligible = set(
-            trader_median_entry.filter(
-                pl.col("median_entry") <= float(max_entry)
-            )["trader"].to_list()
-        )
-        pool = pool & eligible
-
-        if len(pool) < 5:
-            print(f"[pool] {pool_label}: only {len(pool)} traders, skipping")
+        if holdout_data.height == 0:
+            print(f"[{win.name}] No holdout data, skipping")
             continue
-        print(f"[pool] {pool_label}: {len(pool)} traders")
+        print(f"\n[{win.name}] {holdout_data.height:,} trader-market rows in holdout")
 
-        # Build signal table
-        signal_table = build_signal_table(holdout_data, pool, mvf_df)
-        if signal_table.height < 20:
-            print(f"[signal] {pool_label}: only {signal_table.height} rows, skipping")
-            continue
+        entry_prices = None
+        if price_ts is not None:
+            PRICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            cache_path = PRICE_CACHE_DIR / f"{win.name}_delay_{delay_s}.parquet"
+            if cache_path.exists():
+                entry_prices = pl.read_parquet(cache_path)
+                print(f"[{win.name}] Loaded cached forward prices ({entry_prices.height:,} rows)")
+            else:
+                print(f"[{win.name}] Pre-computing forward prices delay={delay_s}s...")
+                entry_prices = _precompute_entry_prices(
+                    holdout_data, price_ts,
+                    execution_delay_s=delay_s,
+                    max_price_delay_s=config.max_price_delay_s,
+                )
+                entry_prices.write_parquet(cache_path)
+                print(f"[{win.name}] Cached {entry_prices.height:,} rows")
 
-        # Apply forward prices
-        if entry_prices is not None:
-            signal_table = _apply_precomputed_prices(signal_table, entry_prices)
+        for pcfg in POOL_CONFIGS:
+            n_months = pcfg["n_months"]
+            min_mkts = pcfg["min_mkts"]
+            mvf_band = pcfg["mvf_band"]
+            max_entry = pcfg["max_entry"]
+            pool_label = f"m{n_months}_k{min_mkts}_{mvf_band}_e{max_entry}"
 
-        for scfg in SIGNAL_CONFIGS:
-            min_t = scfg["min_traders"]
-            agree = scfg["agreement_pct"]
-            signal_label = f"t{min_t}_a{agree:.0%}"
+            skilled = get_consistent_traders(
+                df_pnl, win.train_start, win.train_end,
+                int(n_months), int(min_mkts),
+            )
+            pool = skilled & mvf_subsets[str(mvf_band)]
 
-            fires = _select_signal_fires(signal_table, min_t, agree)
-            if fires.height < 5:
+            eligible = set(
+                trader_median_entry.filter(
+                    pl.col("median_entry") <= float(max_entry)
+                )["trader"].to_list()
+            )
+            pool = pool & eligible
+
+            if len(pool) < 5:
                 continue
 
-            cache_key = f"{pool_label}_{signal_label}"
-            signal_cache[cache_key] = fires
+            signal_table = build_signal_table(holdout_data, pool, mvf_df)
+            if signal_table.height < 20:
+                continue
 
-            result = stage1_mm_overlay(
-                signals=fires,
-                volume=volume,
-                spread_edges=SPREAD_EDGES,
-                flat_fill_rates=FLAT_FILL_RATES,
-                bet_size=BET_SIZE,
-                fee_pct=0.0,
-            )
+            if entry_prices is not None:
+                signal_table = _apply_precomputed_prices(signal_table, entry_prices)
 
-            if result.height > 0:
-                result = result.with_columns(
-                    pl.lit(pool_label).alias("pool_label"),
-                    pl.lit(signal_label).alias("signal_label"),
-                    pl.lit(fires.height).alias("n_signal_fires"),
+            for scfg in SIGNAL_CONFIGS:
+                min_t = scfg["min_traders"]
+                agree = scfg["agreement_pct"]
+                signal_label = f"t{min_t}_a{agree:.0%}"
+
+                fires = _select_signal_fires(signal_table, min_t, agree)
+                if fires.height < 5:
+                    continue
+
+                cache_key = f"{win.name}_{pool_label}_{signal_label}"
+                signal_cache[cache_key] = fires
+
+                result = stage1_mm_overlay(
+                    signals=fires,
+                    volume=volume,
+                    spread_edges=SPREAD_EDGES,
+                    flat_fill_rates=FLAT_FILL_RATES,
+                    bet_size=BET_SIZE,
+                    fee_pct=0.0,
                 )
-                all_stage1.append(result)
+
+                if result.height > 0:
+                    result = result.with_columns(
+                        pl.lit(win.name).alias("window"),
+                        pl.lit(pool_label).alias("pool_label"),
+                        pl.lit(signal_label).alias("signal_label"),
+                        pl.lit(fires.height).alias("n_signal_fires"),
+                    )
+                    all_stage1.append(result)
 
     if not all_stage1:
         print("\n[done] No Stage 1 results. Check data availability.")
@@ -774,7 +810,43 @@ def main() -> None:
 
     print_stage1_report(combined_s1)
 
-    # Step 7: Stage 2 — pick top configs by maker_pnl_per_bet and simulate
+    # Step 7: Multi-window summary — aggregate across windows at best signal config
+    if all_windows_mode and "window" in combined_s1.columns:
+        full_fill = combined_s1.filter(pl.col("fill_model") == "flat_100%")
+        if full_fill.height > 0:
+            print(f"\n{'=' * 90}")
+            print("  MULTI-WINDOW SUMMARY (100% fill, 2c spread)")
+            print(f"{'=' * 90}\n")
+
+            best_spread = full_fill.filter(pl.col("spread_edge") == 0.02)
+            if best_spread.height > 0:
+                summary = best_spread.group_by(
+                    ["pool_label", "signal_label"]
+                ).agg(
+                    pl.col("taker_pnl_per_bet").mean().alias("avg_taker_ppb"),
+                    pl.col("maker_pnl_per_bet").mean().alias("avg_maker_ppb"),
+                    pl.col("maker_delta").mean().alias("avg_delta"),
+                    pl.col("taker_hr").mean().alias("avg_taker_hr"),
+                    pl.col("maker_hr").mean().alias("avg_maker_hr"),
+                    pl.col("n_filled").sum().alias("total_bets"),
+                    pl.col("window").n_unique().alias("n_windows"),
+                ).sort("avg_maker_ppb", descending=True)
+
+                print(
+                    f"  {'Pool':<28} {'Signal':<12} {'#Win':>5} {'#Bets':>6} "
+                    f"{'T-$/bet':>8} {'M-$/bet':>8} {'Delta':>7} {'T-HR':>6} {'M-HR':>6}"
+                )
+                print(f"  {'-' * 90}")
+                for row in summary.iter_rows(named=True):
+                    print(
+                        f"  {row['pool_label']:<28} {row['signal_label']:<12} "
+                        f"{row['n_windows']:>5} {row['total_bets']:>6} "
+                        f"${row['avg_taker_ppb']:>6.2f} ${row['avg_maker_ppb']:>6.2f} "
+                        f"${row['avg_delta']:>5.0f} {row['avg_taker_hr']:>5.1%} "
+                        f"{row['avg_maker_hr']:>5.1%}"
+                    )
+
+    # Step 8: Stage 2 — pick top configs by maker_pnl_per_bet and simulate
     # Filter to flat_100% fill model for fair comparison
     full_fill = combined_s1.filter(pl.col("fill_model") == "flat_100%")
     if full_fill.height == 0:
@@ -787,7 +859,8 @@ def main() -> None:
     taker_results: list[dict] = []
 
     for row in top.iter_rows(named=True):
-        cache_key = f"{row['pool_label']}_{row['signal_label']}"
+        win_name = row.get("window", target_windows[-1].name)
+        cache_key = f"{win_name}_{row['pool_label']}_{row['signal_label']}"
         fires = signal_cache.get(cache_key)
         if fires is None or fires.height == 0:
             continue
