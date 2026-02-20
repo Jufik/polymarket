@@ -8,6 +8,7 @@ def test_app_importable(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("PM_ALCHEMY_WS_URL", "wss://test.example.com")
 
     import importlib
+
     import polymarket_pipeline.live.app as app_mod
 
     importlib.reload(app_mod)
@@ -21,6 +22,7 @@ def test_asgi_app_has_dashboard_route(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("PM_ALCHEMY_WS_URL", "wss://test.example.com")
 
     import importlib
+
     import polymarket_pipeline.live.app as app_mod
 
     importlib.reload(app_mod)
