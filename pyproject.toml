@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Polymarket unified trade data pipeline"
 requires-python = ">=3.11"
 dependencies = [
+    "aiohttp>=3.13.3",
     "pydantic>=2.0",
     "structlog>=24.0",
 ]
@@ -23,6 +24,13 @@ exploration = [
     "polars>=1.15.0",
     "clickhouse-connect>=0.7",
 ]
+live = [
+    "faststream[kafka]>=0.5",
+    "eth-abi>=5.0",
+    "websockets>=13.0",
+    "gql[aiohttp]>=3.5",
+    "pydantic-settings>=2.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -31,7 +39,7 @@ dev = [
     "polyfactory>=2.0",
 ]
 all = [
-    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,dev]",
+    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,live,dev]",
 ]
 
 [tool.pytest.ini_options]
@@ -51,6 +59,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 
 [project.scripts]
 pm-explore = "polymarket_pipeline.cli.explore:app"
+pm-live = "polymarket_pipeline.cli.live:main"
 
 [build-system]
 requires = ["hatchling"]
