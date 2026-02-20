@@ -5,7 +5,10 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
+import structlog
 from faststream.asgi import AsgiResponse
+
+log = structlog.get_logger()
 
 if TYPE_CHECKING:
     from polymarket_pipeline.live.quality.checker import QualityChecker
@@ -54,22 +57,23 @@ def _query_gap_metrics(checker: QualityChecker) -> dict[str, Any]:
         "alchemy_only": 0,
         "total": 0,
     }
+    ch = checker.clickhouse
     try:
-        rows = checker._ch.query(LATENCY_GAP_SQL)
+        rows = ch.query(LATENCY_GAP_SQL)
         if rows:
             metrics["median_latency_s"] = rows[0].get("median_latency_s")
             metrics["max_latency_s"] = rows[0].get("max_latency_s")
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("dashboard.latency_query_failed", error=str(exc))
 
     try:
-        rows = checker._ch.query(COVERAGE_GAP_SQL)
+        rows = ch.query(COVERAGE_GAP_SQL)
         if rows:
             metrics["rtds_only"] = rows[0].get("rtds_only", 0)
             metrics["alchemy_only"] = rows[0].get("alchemy_only", 0)
             metrics["total"] = rows[0].get("total", 0)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("dashboard.coverage_query_failed", error=str(exc))
 
     return metrics
 
@@ -113,7 +117,7 @@ def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
     state = checker.state
     state_val = state.current.value
     results = state.last_results
-    heartbeats = checker._heartbeats
+    heartbeats = checker.heartbeats
     gap = _query_gap_metrics(checker)
 
     # Producer rows
@@ -121,7 +125,7 @@ def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
     for src in ["rtds", "alchemy"]:
         ts = heartbeats.get(src)
         age = _fmt_age(ts)
-        ok = ts is not None and (now - ts) < checker._settings.source_liveness_timeout_s
+        ok = ts is not None and (now - ts) < checker.liveness_timeout_s
         producer_rows += f"<tr><td>{src}</td><td>{age}</td><td>{_status_dot(ok)}</td></tr>\n"
 
     # Check rows
@@ -140,14 +144,38 @@ def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
 <meta http-equiv="refresh" content="{refresh_s}">
 <title>Pipeline Dashboard</title>
 <style>
-  body {{ font-family: -apple-system, system-ui, sans-serif; margin: 2rem; background: #0f172a; color: #e2e8f0; }}
-  .banner {{ padding: 1rem 2rem; border-radius: 8px; font-size: 1.5rem; font-weight: 700;
-             background: {_state_color(state_val)}; color: #fff; margin-bottom: 2rem; }}
-  table {{ border-collapse: collapse; width: 100%; margin-bottom: 2rem; }}
-  th, td {{ text-align: left; padding: 0.5rem 1rem; border-bottom: 1px solid #334155; }}
-  th {{ color: #94a3b8; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }}
-  h2 {{ color: #94a3b8; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2rem; }}
-  .metric {{ display: inline-block; background: #1e293b; padding: 1rem 1.5rem; border-radius: 8px; margin: 0.5rem; text-align: center; }}
+  body {{
+    font-family: -apple-system, system-ui, sans-serif;
+    margin: 2rem; background: #0f172a; color: #e2e8f0;
+  }}
+  .banner {{
+    padding: 1rem 2rem; border-radius: 8px;
+    font-size: 1.5rem; font-weight: 700;
+    background: {_state_color(state_val)};
+    color: #fff; margin-bottom: 2rem;
+  }}
+  table {{
+    border-collapse: collapse;
+    width: 100%; margin-bottom: 2rem;
+  }}
+  th, td {{
+    text-align: left; padding: 0.5rem 1rem;
+    border-bottom: 1px solid #334155;
+  }}
+  th {{
+    color: #94a3b8; font-weight: 600;
+    font-size: 0.85rem; text-transform: uppercase;
+  }}
+  h2 {{
+    color: #94a3b8; font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em; margin-top: 2rem;
+  }}
+  .metric {{
+    display: inline-block; background: #1e293b;
+    padding: 1rem 1.5rem; border-radius: 8px;
+    margin: 0.5rem; text-align: center;
+  }}
   .metric .value {{ font-size: 1.8rem; font-weight: 700; }}
   .metric .label {{ font-size: 0.8rem; color: #94a3b8; }}
 </style>
