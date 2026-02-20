@@ -48,13 +48,31 @@ SEPARATE PATH (one-time):
   Goldsky Parquet ──> backfill CLI ──> ClickHouse (direct insert)
 ```
 
+## Empirical Finding: proxyWallet == On-Chain Address (Verified 2026-02-20)
+
+Cross-referencing 20 live RTDS trades against Goldsky Subgraph confirmed:
+
+| proxyWallet matches | Count | Percentage |
+|---------------------|-------|------------|
+| On-chain **maker** | 18 | 90% |
+| On-chain **taker** | 2 | 10% |
+| Neither | 0 | 0% |
+
+**Key conclusions:**
+1. `proxyWallet` IS a real on-chain address — 100% match rate against maker or taker.
+2. RTDS reports **both sides** of a fill (same double-reporting as Parquet taker duplicates).
+3. For copy trading, this is ideal: we see a tracked trader whether they placed a limit order (maker) or sent a market order (taker).
+4. Alchemy's role changes from "address enrichment" to "completeness backstop + role disambiguation + on-chain ordering".
+
+**Implication for versioning:** RTDS trades carry more identity data than originally assumed. However, Alchemy (_version=2) still overwrites RTDS (_version=1) because it provides explicit maker/taker role labels and block-level ordering.
+
 ## Data Sources
 
 | Source | Role | Latency | Data Quality | When Active |
 |--------|------|---------|--------------|-------------|
 | **Goldsky Parquet** | Initial historical backfill | N/A (batch) | Full on-chain (_v=2) | Once at bootstrap |
-| **RTDS WebSocket** | Fast path, immediate signal detection | < 1s | `proxyWallet` only (_v=1) | Always on |
-| **Alchemy eth_subscribe** | Enrichment, full on-chain data | ~2s (block time) | Full maker/taker (_v=2) | Always on |
+| **RTDS WebSocket** | Fast path, immediate signal detection | < 1s | `proxyWallet` = real on-chain address (_v=1) | Always on |
+| **Alchemy eth_subscribe** | Completeness backstop, role disambiguation, ordering | ~2s (block time) | Full maker/taker with role labels (_v=2) | Always on |
 | **Goldsky Subgraph** | Gap recovery after outages | Seconds (polling) | Full on-chain (_v=2) | On-demand |
 
 All four write to the same `trades.raw` Redpanda topic. ClickHouse `ReplacingMergeTree(_version)` ensures on-chain events (v=2) overwrite WS events (v=1) for the same `trade_id`.
@@ -67,7 +85,8 @@ All four write to the same `trades.raw` Redpanda topic. ClickHouse `ReplacingMer
 - **Subscribe**: `{topic: "activity", type: "trades"}` (global firehose, no filter)
 - **Heartbeat**: PING every 5s (required or connection drops)
 - **Normalizer**: Existing `RTDSNormalizer` (reused from current codebase)
-- **Output**: `NormalizedTrade` with `_version=1`, `source=rtds`
+- **Output**: `NormalizedTrade` with `_version=1`, `source=rtds`, `maker=proxyWallet` (verified: real on-chain address)
+- **Double-reporting**: RTDS reports both maker and taker perspectives. Existing dedup drops exchange-contract takers. Both real-user events pass through — ClickHouse ReplacingMergeTree handles final dedup when Alchemy v=2 arrives.
 - **Reconnect**: Exponential backoff (1s, 2s, 4s, ..., capped at 60s)
 - **Checkpoint**: `last_trade_timestamp` (Unix seconds)
 
