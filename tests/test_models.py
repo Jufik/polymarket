@@ -109,6 +109,13 @@ def test_price_bounds_validation() -> None:
         )
 
 
+def test_source_alchemy_exists() -> None:
+    from polymarket_pipeline.models import Source
+
+    assert Source.ALCHEMY == "alchemy"
+    assert "alchemy" in [s.value for s in Source]
+
+
 def test_size_must_be_positive() -> None:
     import pytest
 

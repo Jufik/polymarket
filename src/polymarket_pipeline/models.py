@@ -21,6 +21,7 @@ class Source(StrEnum):
     GOLDSKY_SUBGRAPH = "goldsky_subgraph"
     WEBSOCKET = "websocket"
     RTDS = "rtds"
+    ALCHEMY = "alchemy"
 
 
 class NormalizedTrade(BaseModel):
