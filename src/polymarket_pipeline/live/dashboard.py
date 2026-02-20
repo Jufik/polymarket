@@ -17,17 +17,26 @@ if TYPE_CHECKING:
 
 LATENCY_GAP_SQL = """\
 SELECT
-    median(dateDiff('second', t1_ts, t2_ts)) AS median_latency_s,
-    max(dateDiff('second', t1_ts, t2_ts))    AS max_latency_s
+    count() AS matched,
+    medianIf(
+        dateDiff('second', t1_ts, t2_ts),
+        1 = 1
+    ) AS median_latency_s,
+    maxIf(
+        dateDiff('second', t1_ts, t2_ts),
+        1 = 1
+    ) AS max_latency_s
 FROM (
     SELECT trade_id, timestamp AS t1_ts
     FROM trades_raw
-    WHERE _version = 1 AND timestamp > now() - INTERVAL 1 HOUR
+    WHERE _version = 1
+      AND timestamp > now() - INTERVAL 1 HOUR
 ) t1
 JOIN (
     SELECT trade_id, timestamp AS t2_ts
     FROM trades_raw
-    WHERE _version = 2 AND timestamp > now() - INTERVAL 1 HOUR
+    WHERE _version = 2
+      AND timestamp > now() - INTERVAL 1 HOUR
 ) t2 USING (trade_id)
 """
 
@@ -60,7 +69,7 @@ def _query_gap_metrics(checker: QualityChecker) -> dict[str, Any]:
     ch = checker.clickhouse
     try:
         rows = ch.query(LATENCY_GAP_SQL)
-        if rows:
+        if rows and rows[0].get("matched", 0) > 0:
             metrics["median_latency_s"] = rows[0].get("median_latency_s")
             metrics["max_latency_s"] = rows[0].get("max_latency_s")
     except Exception as exc:
