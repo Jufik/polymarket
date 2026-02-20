@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 LATENCY_GAP_SQL = """\
 SELECT
-    median(t2_ts - t1_ts) AS median_latency_s,
-    max(t2_ts - t1_ts)    AS max_latency_s
+    median(dateDiff('second', t1_ts, t2_ts)) AS median_latency_s,
+    max(dateDiff('second', t1_ts, t2_ts))    AS max_latency_s
 FROM (
     SELECT trade_id, timestamp AS t1_ts
     FROM trades_raw
