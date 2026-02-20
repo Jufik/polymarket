@@ -26,6 +26,21 @@ class QualityChecker:
     def state(self) -> ReadinessState:
         return self._state
 
+    @property
+    def heartbeats(self) -> dict[str, float]:
+        """Current heartbeat timestamps per source."""
+        return dict(self._heartbeats)
+
+    @property
+    def clickhouse(self) -> Any:
+        """ClickHouse sink instance."""
+        return self._ch
+
+    @property
+    def liveness_timeout_s(self) -> int:
+        """Source liveness timeout in seconds."""
+        return self._settings.source_liveness_timeout_s
+
     def record_heartbeat(self, source: str, ts: float) -> None:
         """Record a heartbeat from an ingestor source."""
         self._heartbeats[source] = ts
