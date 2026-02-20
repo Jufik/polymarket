@@ -10,17 +10,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from polymarket_pipeline.constants import EXCHANGE_ADDRS, USDC_SCALE
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
-
-EXCHANGE_ADDRS: frozenset[str] = frozenset(
-    {
-        "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
-        "0xc5d563a36ae78145c45a50134d48a1215220f80a",
-    }
-)
-
-_USDC_SCALE = Decimal("1000000")  # 1e6
 
 
 class GoldskySinkNormalizer:
@@ -45,10 +37,10 @@ class GoldskySinkNormalizer:
         token_asset_id = str(raw["taker_asset_id"] if is_buy else raw["maker_asset_id"])
 
         # 3. Scale amounts (USDC uses 6 decimals)
-        usdc = Decimal(str(usdc_raw)) / _USDC_SCALE
-        tokens = Decimal(str(token_raw)) / _USDC_SCALE
+        usdc = Decimal(str(usdc_raw)) / USDC_SCALE
+        tokens = Decimal(str(token_raw)) / USDC_SCALE
         price = (usdc / tokens).quantize(Decimal("0.0001")) if tokens else Decimal(0)
-        fee = Decimal(str(raw["fee"])) / _USDC_SCALE
+        fee = Decimal(str(raw["fee"])) / USDC_SCALE
 
         # 4. Convert byte fields to hex strings
         tx_hash = "0x" + raw["transaction_hash"].hex()
