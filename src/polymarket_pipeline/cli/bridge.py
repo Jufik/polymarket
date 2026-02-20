@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-STRATEGIES_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "strategies"
+STRATEGIES_ROOT = Path(__file__).resolve().parent.parent.parent.parent / "research" / "strategies"
 
 
 def list_strategies() -> list[str]:

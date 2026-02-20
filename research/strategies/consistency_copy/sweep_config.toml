@@ -1,0 +1,50 @@
+# Backtester V4 sweep configuration.
+# Month-by-month sliding windows, focused on validated signal channel.
+# Changes from V3:
+#   - holdout_months=1, step_months=1 (monthly sliding)
+#   - first_holdout=2025-01-01 (pool too small before)
+#   - execution_delays=[30, 60] (delay=0 matches own trade, see insight #07)
+#   - directions=["NO-only"] (only channel with +35% excess HR OOS)
+#   - mvf_bands=["pure_taker"] (validated best filter, insight #03)
+#   - min_traders=[5, 7, 10] (3 never in top configs, insights #06/#07)
+#   - price_bands: wide + narrow only ([0.20, 0.80] never in top configs)
+#   - fee_pct=0.0 (most Polymarket markets have zero fees)
+#   - min_bets=10 (lower for 1-month holdouts)
+#   - min_windows=3 (more windows available)
+
+[windows]
+strategy = "anchored_expanding"
+train_anchor = 2023-01-01
+holdout_months = 1
+step_months = 1
+first_holdout = 2025-01-01
+last_holdout = 2026-01-01
+test_after = 2026-01-01
+
+[pool]
+consistency_months = [6, 9]
+min_markets = [10, 20]
+mvf_bands = ["pure_taker"]
+max_median_entry_price = [0.80, 0.90]
+
+[pricing]
+execution_delays = [30, 60]
+max_price_delay_s = 3600.0
+signal_price = false
+
+[sweep]
+min_traders = [5, 7, 10]
+agreement_pct = [0.60, 0.70, 0.80, 0.90, 1.00]
+directions = ["NO-only"]
+price_bands = [[0.05, 0.95], [0.10, 0.90]]
+sizing_strategies = ["fixed", "kelly", "agreement_weighted", "edge_weighted"]
+min_bets = 10
+base_bet = 100.0
+fee_pct = 0.0
+
+[metrics]
+base_rate_adjustment = true
+
+[ranking]
+top_n = 50
+min_windows = 3
