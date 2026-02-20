@@ -96,6 +96,10 @@ def _fmt_val(v: Any) -> str:
     if v is None:
         return "&mdash;"
     if isinstance(v, float):
+        import math
+
+        if math.isnan(v):
+            return "&mdash;"
         return f"{v:.1f}s"
     return str(v)
 
@@ -113,6 +117,9 @@ def _state_color(state_val: str) -> str:
 
 def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
     """Build the full HTML dashboard page."""
+    # Run checks on each render — no periodic timer exists yet
+    checker.run_all_checks()
+
     now = time.time()
     state = checker.state
     state_val = state.current.value
