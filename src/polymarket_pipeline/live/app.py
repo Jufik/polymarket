@@ -24,9 +24,76 @@ settings = Settings()
 broker = KafkaBroker(settings.redpanda_url)
 app = FastStream(broker)
 
+
+# Placeholder dashboard returns 503 until startup completes
+async def _dashboard_placeholder(scope: Any, receive: Any, send: Any) -> None:
+    from faststream.asgi import AsgiResponse
+
+    resp = AsgiResponse(body=b"Starting...", status_code=503)
+    await resp(scope, receive, send)
+
+
+asgi_app = app.as_asgi(asgi_routes=[("/dashboard", _dashboard_placeholder)])
+
 # Shared state
 _quality_checker: QualityChecker | None = None
 _ingestor_tasks: list[asyncio.Task[Any]] = []
+
+
+async def _load_token_map() -> dict[str, tuple[str, str]]:
+    """Load token_market_map from PostgreSQL."""
+    from polymarket_pipeline.sinks.postgres import PostgresSink
+
+    async with PostgresSink(dsn=settings.pg_dsn) as pg:
+        token_map = await pg.fetch_token_market_map()
+    log.info("token_map.loaded", entries=len(token_map))
+    return token_map
+
+
+async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
+    """Check for gaps and run subgraph recovery if needed."""
+    from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
+
+    ch = ClickHouseSink(
+        host=settings.ch_host, port=settings.ch_port, database=settings.ch_database
+    )
+
+    # Check latest trade in ClickHouse
+    try:
+        result = ch.execute("SELECT max(timestamp) FROM trades_raw")
+        max_ts = result[0][0] if result and result[0][0] else None
+    except Exception:
+        max_ts = None
+
+    if max_ts is None:
+        log.info("recovery.no_trades_in_clickhouse")
+        return
+
+    # Convert to unix timestamp if it's a datetime
+    if hasattr(max_ts, "timestamp"):
+        last_ts = int(max_ts.timestamp())
+    else:
+        last_ts = int(max_ts)
+
+    gap_s = int(time.time()) - last_ts
+    log.info("recovery.gap_check", gap_seconds=gap_s, threshold=settings.gap_threshold_s)
+
+    if gap_s <= settings.gap_threshold_s:
+        log.info("recovery.gap_within_threshold")
+        return
+
+    log.info("recovery.starting_subgraph", from_ts=last_ts, gap_hours=gap_s / 3600)
+    from polymarket_pipeline.live.ingestors.subgraph import SubgraphPoller
+
+    poller = SubgraphPoller(
+        broker=broker,
+        subgraph_url=settings.subgraph_url,
+        token_market_map=token_map,
+        topic="trades.raw",
+        status_topic="pipeline.status",
+    )
+    total = await poller.recover(from_timestamp=last_ts)
+    log.info("recovery.complete", trades_recovered=total)
 
 
 @app.on_startup
@@ -37,8 +104,11 @@ async def on_startup(context: ContextRepo) -> None:
     log.info("live_pipeline.starting", redpanda=settings.redpanda_url)
     context.set_global("settings", settings)
 
-    # TODO: Load token_map from PostgreSQL for condition_id resolution
-    token_map: dict[str, tuple[str, str]] = {}
+    # Load token_map from PostgreSQL
+    token_map = await _load_token_map()
+
+    # Check for gaps and recover via subgraph if needed
+    await _check_and_recover(token_map)
 
     # Initialize quality checker
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
@@ -63,6 +133,16 @@ async def on_startup(context: ContextRepo) -> None:
     _ingestor_tasks.append(asyncio.create_task(alchemy.run()))
 
     log.info("live_pipeline.ingestors_started", count=len(_ingestor_tasks))
+
+    # Mount live dashboard (replaces placeholder)
+    from polymarket_pipeline.live.dashboard import make_dashboard_route
+
+    route = make_dashboard_route(_quality_checker, refresh_s=settings.dashboard_refresh_s)
+    asgi_app.routes = [
+        (path, route if path == "/dashboard" else handler)
+        for path, handler in asgi_app.routes
+    ]
+    log.info("dashboard.mounted", path="/dashboard")
 
 
 @app.on_shutdown
