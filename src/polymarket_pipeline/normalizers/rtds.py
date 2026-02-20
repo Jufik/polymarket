@@ -26,6 +26,9 @@ class RTDSNormalizer:
         # Round price to 2 decimal places to fix float imprecision
         price = Decimal(str(payload["price"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         size = Decimal(str(payload["size"])).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if size <= 0:
+            msg_str = f"size={payload['size']} rounds to 0, skipping dust trade"
+            raise ValueError(msg_str)
         amount_usd = (price * size).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         # Use payload.timestamp (seconds) — the actual trade time
