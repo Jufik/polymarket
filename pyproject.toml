@@ -30,6 +30,7 @@ live = [
     "websockets>=13.0",
     "gql[aiohttp]>=3.5",
     "pydantic-settings>=2.0",
+    "uvicorn>=0.30",
 ]
 dev = [
     "pytest>=8.0",
@@ -60,6 +61,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 [project.scripts]
 pm-explore = "polymarket_pipeline.cli.explore:app"
 pm-live = "polymarket_pipeline.cli.live:main"
+pm-recover = "polymarket_pipeline.cli.recover:main"
+pm-backfill = "polymarket_pipeline.cli.backfill:main"
 
 [build-system]
 requires = ["hatchling"]
