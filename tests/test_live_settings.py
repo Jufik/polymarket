@@ -1,7 +1,5 @@
 """Tests for live pipeline settings."""
 
-import os
-
 import pytest
 
 
@@ -34,8 +32,9 @@ def test_settings_from_env(monkeypatch: pytest.MonkeyPatch):
 def test_dashboard_settings_defaults(monkeypatch: pytest.MonkeyPatch):
     """Dashboard fields should have sensible defaults."""
     monkeypatch.setenv("PM_ALCHEMY_WS_URL", "wss://test.example.com")
-    from polymarket_pipeline.live.settings import Settings
+
     import importlib
+
     import polymarket_pipeline.live.settings as mod
 
     importlib.reload(mod)
@@ -51,5 +50,5 @@ def test_settings_alchemy_url_required(monkeypatch: pytest.MonkeyPatch):
 
     from polymarket_pipeline.live.settings import Settings
 
-    with pytest.raises(Exception):  # ValidationError
+    with pytest.raises(Exception):  # ValidationError  # noqa: B017
         Settings(_env_file=None)
