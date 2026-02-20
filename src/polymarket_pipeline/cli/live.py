@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-import sys
-
 
 def main() -> None:
-    """Run the FastStream live pipeline.
+    """Run the live pipeline with monitoring dashboard.
 
-    Equivalent to: faststream run polymarket_pipeline.live.app:app
+    Uses uvicorn to serve the ASGI app (FastStream + dashboard routes).
     """
-    from faststream.cli.main import cli
+    import uvicorn
 
-    sys.argv = ["faststream", "run", "polymarket_pipeline.live.app:app"]
-    cli()
+    from polymarket_pipeline.live.app import asgi_app, settings
+
+    uvicorn.run(
+        asgi_app,
+        host="0.0.0.0",
+        port=settings.dashboard_port,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":
