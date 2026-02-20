@@ -1,6 +1,5 @@
 """Tests for ReadinessState and CheckResult."""
 
-import pytest
 
 from polymarket_pipeline.live.quality.state import CheckResult, PipelineState, ReadinessState
 
