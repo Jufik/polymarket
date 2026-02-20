@@ -1,0 +1,45 @@
+{
+  "wide_0fee": {
+    "n_bets": 338,
+    "n_wins": 180,
+    "hit_rate": 0.5325,
+    "total_pnl": -204.81,
+    "avg_pnl_per_bet": -0.61,
+    "avg_win": 86.64,
+    "avg_loss": -100.0,
+    "win_loss_ratio": 0.87,
+    "daily_sharpe": -0.16,
+    "monthly_sharpe": -0.28,
+    "max_drawdown": 2478.95,
+    "avg_calibration_edge": 0.0377,
+    "avg_no_price": 0.5406,
+    "n_months_active": 4,
+    "avg_bets_per_month": 84.5
+  },
+  "sweet_spot_0fee": {
+    "error": "no bets"
+  },
+  "tight_0fee": {
+    "error": "no bets"
+  },
+  "wide_2fee": {
+    "n_bets": 338,
+    "n_wins": 180,
+    "hit_rate": 0.5325,
+    "total_pnl": -880.81,
+    "avg_pnl_per_bet": -2.61,
+    "avg_win": 84.64,
+    "avg_loss": -102.0,
+    "win_loss_ratio": 0.83,
+    "daily_sharpe": -0.71,
+    "monthly_sharpe": -1.22,
+    "max_drawdown": 3022.95,
+    "avg_calibration_edge": 0.0377,
+    "avg_no_price": 0.5406,
+    "n_months_active": 4,
+    "avg_bets_per_month": 84.5
+  },
+  "sweet_spot_2fee": {
+    "error": "no bets"
+  }
+}
