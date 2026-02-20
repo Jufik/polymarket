@@ -53,6 +53,9 @@ class RTDSIngestor:
 
         try:
             trade = self._normalizer.normalize(msg)
+        except ValueError as exc:
+            log.debug("rtds.skip_trade", reason=str(exc))
+            return
         except Exception:
             log.exception("rtds.normalize_error")
             return
