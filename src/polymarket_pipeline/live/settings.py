@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     Example: PM_REDPANDA_URL=redpanda:9092
     """
 
-    model_config = SettingsConfigDict(env_prefix="PM_")
+    model_config = SettingsConfigDict(env_prefix="PM_", env_file=".env", extra="ignore")
 
     # Redpanda
     redpanda_url: str = "localhost:19092"
@@ -28,12 +28,12 @@ class Settings(BaseSettings):
     )
 
     # ClickHouse
-    ch_host: str = "192.168.0.148"
+    ch_host: str = "localhost"
     ch_port: int = 18123
     ch_database: str = "polymarket"
 
     # PostgreSQL
-    pg_dsn: str = "postgresql://polymarket:polymarket@192.168.0.148:15432/polymarket"
+    pg_dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
     # Quality thresholds
     quality_check_interval_s: int = 900
@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     # Recovery
     gap_threshold_s: int = 600
+
+    # Dashboard
+    dashboard_refresh_s: int = 5
+    dashboard_port: int = 8099
 
     # Batching (ClickHouse consumer)
     ch_batch_size: int = 100
