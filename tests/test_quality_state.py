@@ -1,6 +1,24 @@
-"""Tests for the readiness state machine."""
+"""Tests for ReadinessState and CheckResult."""
 
 import pytest
+
+from polymarket_pipeline.live.quality.state import CheckResult, PipelineState, ReadinessState
+
+
+def test_last_results_empty_by_default():
+    state = ReadinessState()
+    assert state.last_results == {}
+
+
+def test_last_results_populated_after_update():
+    state = ReadinessState()
+    results = {
+        "liveness": CheckResult(ok=True),
+        "volume": CheckResult(ok=False, reason="low"),
+    }
+    state.update(results)
+    assert state.last_results == results
+    assert state.current == PipelineState.DEGRADED
 
 
 class TestReadinessState:

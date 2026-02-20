@@ -32,6 +32,10 @@ class ReadinessState:
         return self._state
 
     @property
+    def last_results(self) -> dict[str, CheckResult]:
+        return dict(self._last_results)
+
+    @property
     def failures(self) -> list[str]:
         return [
             f"{name}: {r.reason}" for name, r in self._last_results.items() if not r.ok
