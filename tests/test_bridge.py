@@ -70,4 +70,4 @@ def test_bridge_handles_list_strategies():
         {},
     )
     assert isinstance(result, list)
-    assert "skilled_traders" in result
+    assert "consistency_copy" in result

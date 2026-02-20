@@ -18,6 +18,9 @@ scripts/_cache/
 # Local experiments
 .local/
 
+# OS
+.DS_Store
+
 # IDE / editor
 .claude/
 .serena/

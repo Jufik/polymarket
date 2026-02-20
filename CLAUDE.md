@@ -47,6 +47,17 @@ uv run python -m polymarket_pipeline.cli.market_sync
 
 # Strategy exploration CLI
 uv run pm-explore --help
+
+# Data build pipeline (CLOB + Gamma metadata, compact trades, Polars derived tables)
+uv run python scripts/build_data.py                        # all steps
+uv run python scripts/build_data.py --step metadata        # CLOB + Gamma API fetch
+uv run python scripts/build_data.py --step compact         # recompress raw parquet
+uv run python scripts/build_data.py --step derived         # Polars PnL + MVF
+uv run python scripts/build_data.py --step prices          # market price timeseries
+uv run python scripts/build_data.py --force-metadata       # re-fetch even if fresh
+
+# Backtester sweep (archived to research/)
+uv run python -m research.strategies.consistency_copy.backtester
 ```
 
 ## Architecture
@@ -68,6 +79,28 @@ Gamma API ─────────────> PostgreSQL ──────
   (metadata sync)        (source of truth)
 ```
 
+### Offline Data Pipeline (`scripts/build_data.py`)
+
+```
+CLOB API ──────────> data/metadata/markets.parquet     (condition_id, resolution, winner)
+(~455K markets)      data/metadata/token_map.parquet    (asset_id → condition_id, outcome, winner)
+
+Gamma API ─────────> merged into markets.parquet        (event_id, category, closed_at)
+
+order_filled/ ─────> data/compact/                      (recompressed trades, resume-safe)
+(2685 raw files)     compact_NNNN.parquet + _manifest.json
+
+Polars scans ──────> data/derived/                      (pre-computed for fast downstream)
+                     trader_market_pnl.parquet
+                     maker_volume_fractions.parquet
+                     markets_resolved.parquet
+                     market_prices.parquet
+```
+
+- **Resolution source**: CLOB API `tokens[].winner` (ground truth, ~100% coverage). Gamma's `resolved` field is broken.
+- **Derived tables**: Pure Polars lazy scans (no DuckDB). Streaming collect for larger-than-memory.
+- **Token convention**: `token_index=0` = affirmative/"YES" side (CLOB API ordering matches Gamma's `token_yes`).
+
 ### Key Design Decisions
 
 - **Dedup strategy**: Deterministic SHA-256 trade IDs (`chain:` prefix for on-chain, `ws:` prefix for off-chain). ClickHouse `ReplacingMergeTree` keeps highest `_version` — on-chain (2) overwrites off-chain (1).
@@ -83,6 +116,7 @@ Gamma API ─────────────> PostgreSQL ──────
 src/polymarket_pipeline/
 ├── models.py            # NormalizedTrade, Event, Market, Tag, TokenMarketEntry (Pydantic v2, frozen)
 ├── trade_id.py          # Deterministic trade ID: make_trade_id_chain(), make_trade_id_ws()
+├── constants.py         # Shared constants (exchange addrs, USDC scale)
 ├── market_sync.py       # Gamma API fetcher: fetch_events() -> SyncResult
 ├── normalizers/
 │   ├── sink.py          # Goldsky Parquet: drop taker dups, 1e6 scaling, bytes->hex
@@ -98,8 +132,21 @@ src/polymarket_pipeline/
 ├── cli/
 │   ├── backfill.py      # Parquet -> ClickHouse + metadata sync
 │   ├── market_sync.py   # Gamma API -> PostgreSQL standalone
-│   └── explore.py       # Strategy exploration CLI (Typer)
+│   ├── explore.py       # Strategy exploration CLI (Typer)
+│   └── live.py          # Live sync pipeline entry point (planned)
+├── live/                # Live sync pipeline (FastStream + Redpanda)
+│   ├── app.py           # FastStream app + lifespan hooks
+│   ├── settings.py      # Pydantic Settings (env-based, PM_ prefix)
+│   ├── ingestors/       # RTDS, Alchemy, Subgraph recovery producers
+│   ├── consumers/       # Signal evaluator, dashboard, derived refresher
+│   ├── quality/         # Data quality gate + readiness state machine
+│   └── normalizers/     # PolygonRPCNormalizer, SubgraphNormalizer
 └── exploration/         # ML experimentation: tree-based stages, Claude agent, MLflow
+
+research/                # Archived exploration (not production)
+├── insights/            # Strategy research findings (24 copy, overpriceNo, etc.)
+├── scripts/             # One-off analysis scripts
+└── strategies/          # Backtester, sweep results, configs
 ```
 
 ### Conventions
