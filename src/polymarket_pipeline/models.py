@@ -22,6 +22,7 @@ class Source(StrEnum):
     WEBSOCKET = "websocket"
     RTDS = "rtds"
     ALCHEMY = "alchemy"
+    MEMPOOL = "mempool"
 
 
 class NormalizedTrade(BaseModel):
@@ -57,8 +58,8 @@ class NormalizedTrade(BaseModel):
     block_number: int | None
     is_backfill: bool
 
-    # ReplacingMergeTree version: on-chain (2) > off-chain (1)
-    version: int = Field(ge=1, le=2)
+    # ReplacingMergeTree version: on-chain (2) > off-chain (1) > mempool (0)
+    version: int = Field(ge=0, le=2)
 
     # Pipeline metadata: when the ingestor published to Redpanda (time.time())
     published_at: float = 0.0
