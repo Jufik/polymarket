@@ -112,7 +112,7 @@ class SubgraphPoller:
 
             while True:
                 if cursor_id:
-                    result = await client.execute_async(
+                    result = await client.execute(
                         QUERY_STICKY,
                         variable_values={
                             "timestamp": cursor_ts,
@@ -121,7 +121,7 @@ class SubgraphPoller:
                         },
                     )
                 else:
-                    result = await client.execute_async(
+                    result = await client.execute(
                         QUERY_TEMPLATE,
                         variable_values={
                             "timestamp_gt": cursor_ts,

@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS markets (
     token_no TEXT,
     neg_risk BOOLEAN DEFAULT false,
     status TEXT NOT NULL DEFAULT 'unknown',
+    resolution_value SMALLINT DEFAULT 0,
+    winner_outcome TEXT DEFAULT '',
     created_at TIMESTAMPTZ,
     closed_at TIMESTAMPTZ,
     resolved_at TIMESTAMPTZ,
@@ -53,7 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_event_tags_tag ON event_tags(tag_id);
 CREATE TABLE IF NOT EXISTS token_market_map (
     asset_id TEXT PRIMARY KEY,
     condition_id TEXT NOT NULL REFERENCES markets(condition_id),
-    outcome TEXT NOT NULL  -- 'YES' or 'NO'
+    outcome TEXT NOT NULL,  -- 'YES' or 'NO'
+    winner BOOLEAN DEFAULT false
 );
 
 -- Backfill progress tracking

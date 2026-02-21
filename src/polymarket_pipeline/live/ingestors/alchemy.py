@@ -10,7 +10,7 @@ from typing import Any
 import structlog
 import websockets
 
-from polymarket_pipeline.live.normalizers.polygon_rpc import PolygonRPCNormalizer
+from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
 
 log = structlog.get_logger()
 
@@ -61,14 +61,19 @@ class AlchemyIngestor:
         if not result:
             return
 
-        # Inject timestamp -- in production, fetch block timestamp via eth_getBlockByNumber.
-        # For MVP, use current time (block timestamps are ~2s delayed anyway).
-        result["_timestamp"] = int(time.time())
+        # Use blockTimestamp from Alchemy (hex-encoded unix seconds).
+        # Fall back to current time if not present.
+        block_ts = result.get("blockTimestamp")
+        if block_ts:
+            result["_timestamp"] = int(block_ts, 16)
+        else:
+            result["_timestamp"] = int(time.time())
 
         trade = self._normalizer.normalize(result)
         if trade is None:
             return  # taker duplicate dropped
 
+        trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
         await self._broker.publish(
             message=trade_json,
@@ -116,7 +121,10 @@ class AlchemyIngestor:
                         "method": "eth_subscribe",
                         "params": [
                             "logs",
-                            {"address": [CTF_EXCHANGE, NEGRISK_EXCHANGE]},
+                            {
+                                "address": [CTF_EXCHANGE, NEGRISK_EXCHANGE],
+                                "topics": [[ORDER_FILLED_SIG]],
+                            },
                         ],
                     })
                     await ws.send(subscribe)

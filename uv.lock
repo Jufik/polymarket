@@ -2688,6 +2688,7 @@ all = [
     { name = "rich" },
     { name = "ruff" },
     { name = "typer" },
+    { name = "uvicorn" },
     { name = "websockets" },
 ]
 clickhouse = [
@@ -2721,6 +2722,7 @@ live = [
     { name = "faststream", extra = ["kafka"] },
     { name = "gql", extra = ["aiohttp"] },
     { name = "pydantic-settings" },
+    { name = "uvicorn" },
     { name = "websockets" },
 ]
 postgres = [
@@ -2763,6 +2765,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "structlog", specifier = ">=24.0" },
     { name = "typer", marker = "extra == 'exploration'", specifier = ">=0.14.0" },
+    { name = "uvicorn", marker = "extra == 'live'", specifier = ">=0.30" },
     { name = "websockets", marker = "extra == 'live'", specifier = ">=13.0" },
     { name = "websockets", marker = "extra == 'websocket'", specifier = ">=13.0" },
 ]

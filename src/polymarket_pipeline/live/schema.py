@@ -18,14 +18,16 @@ CREATE TABLE IF NOT EXISTS trades_kafka (
     order_hash      Nullable(String),
     block_number    Nullable(UInt64),
     is_backfill     UInt8,
-    _version        UInt16
+    _version        UInt16,
+    published_at    Float64
 ) ENGINE = Kafka
 SETTINGS
     kafka_broker_list = '{broker_list}',
     kafka_topic_list = 'trades.raw',
     kafka_group_name = 'clickhouse',
     kafka_format = 'JSONEachRow',
-    kafka_num_consumers = 4
+    kafka_num_consumers = 4,
+    date_time_input_format = 'best_effort'
 """
 
 TRADES_RAW_TABLE = """
@@ -46,7 +48,9 @@ CREATE TABLE IF NOT EXISTS trades_raw (
     order_hash      Nullable(String),
     block_number    Nullable(UInt64),
     is_backfill     UInt8,
-    _version        UInt16
+    _version        UInt16,
+    published_at    Float64 DEFAULT 0,
+    ingested_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
 ) ENGINE = ReplacingMergeTree(_version)
 ORDER BY (condition_id, timestamp, trade_id)
 PARTITION BY toYYYYMM(timestamp)

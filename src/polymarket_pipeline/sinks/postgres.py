@@ -12,7 +12,7 @@ from polymarket_pipeline.models import Event, Market, Tag, TokenMarketEntry
 class PostgresSink:
     """Async PostgreSQL sink using asyncpg connection pool."""
 
-    def __init__(self, dsn: str = "postgresql://polymarket:polymarket@192.168.0.148:15432/polymarket"):
+    def __init__(self, dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"):
         self._dsn = dsn
         self._pool: asyncpg.Pool | None = None
 
@@ -90,8 +90,9 @@ class PostgresSink:
             INSERT INTO markets (
                 condition_id, event_id, question, slug, category,
                 token_yes, token_no, neg_risk, status,
+                resolution_value, winner_outcome,
                 created_at, closed_at, resolved_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
             ON CONFLICT (condition_id) DO UPDATE SET
                 event_id = EXCLUDED.event_id,
                 question = EXCLUDED.question,
@@ -101,6 +102,8 @@ class PostgresSink:
                 token_no = EXCLUDED.token_no,
                 neg_risk = EXCLUDED.neg_risk,
                 status = EXCLUDED.status,
+                resolution_value = EXCLUDED.resolution_value,
+                winner_outcome = EXCLUDED.winner_outcome,
                 created_at = EXCLUDED.created_at,
                 closed_at = EXCLUDED.closed_at,
                 resolved_at = EXCLUDED.resolved_at,
@@ -118,6 +121,8 @@ class PostgresSink:
                 m.token_no,
                 m.neg_risk,
                 m.status.value,
+                m.resolution_value,
+                m.winner_outcome,
                 m.created_at,
                 m.closed_at,
                 m.resolved_at,
@@ -166,14 +171,15 @@ class PostgresSink:
             return
 
         sql = """
-            INSERT INTO token_market_map (asset_id, condition_id, outcome)
-            VALUES ($1, $2, $3)
+            INSERT INTO token_market_map (asset_id, condition_id, outcome, winner)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT (asset_id) DO UPDATE SET
                 condition_id = EXCLUDED.condition_id,
-                outcome = EXCLUDED.outcome
+                outcome = EXCLUDED.outcome,
+                winner = EXCLUDED.winner
         """
 
-        rows = [(e.asset_id, e.condition_id, e.outcome) for e in entries]
+        rows = [(e.asset_id, e.condition_id, e.outcome, e.winner) for e in entries]
 
         async with self._pool.acquire() as conn:
             await conn.executemany(sql, rows)

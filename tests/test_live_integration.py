@@ -51,7 +51,7 @@ class TestNormalizedTradeRoundTrip:
         log = {
             "address": "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
             "topics": [
-                "0x",
+                "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6",
                 "0x" + "cc" * 32,
                 "0x" + "00" * 12 + "a1" * 20,
                 "0x" + "00" * 12 + "b2" * 20,
