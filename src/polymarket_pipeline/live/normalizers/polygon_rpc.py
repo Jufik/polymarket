@@ -13,6 +13,13 @@ from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
 
 
+
+# OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker,
+#             uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled,
+#             uint256 takerAmountFilled, uint256 fee)
+ORDER_FILLED_SIG = "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6"
+
+
 class PolygonRPCNormalizer:
     """Normalizes raw Polygon log events for OrderFilled into NormalizedTrade."""
 
@@ -31,9 +38,14 @@ class PolygonRPCNormalizer:
                  (Unix seconds, injected by the ingestor from block data).
 
         Returns:
-            NormalizedTrade or None if this is a taker-perspective duplicate.
+            NormalizedTrade or None if not an OrderFilled event or taker duplicate.
         """
         topics = log["topics"]
+
+        # Only process OrderFilled events (4 topics: sig + 3 indexed params)
+        if len(topics) < 4 or topics[0] != ORDER_FILLED_SIG:
+            return None
+
         raw_data = bytes.fromhex(log["data"][2:])
 
         # Decode indexed params from topics

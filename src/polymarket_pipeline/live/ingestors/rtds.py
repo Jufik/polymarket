@@ -60,13 +60,15 @@ class RTDSIngestor:
             log.exception("rtds.normalize_error")
             return
 
+        now = time.time()
+        trade = trade.model_copy(update={"published_at": now})
         trade_json = trade.model_dump_json()
         await self._broker.publish(
             message=trade_json,
             topic=self._topic,
             key=trade.condition_id.encode(),
         )
-        self._last_trade_ts = time.time()
+        self._last_trade_ts = now
         self._trade_count += 1
 
     async def _publish_heartbeat(self) -> None:

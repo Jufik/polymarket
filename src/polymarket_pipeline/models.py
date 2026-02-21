@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class Side(StrEnum):
@@ -59,6 +59,15 @@ class NormalizedTrade(BaseModel):
 
     # ReplacingMergeTree version: on-chain (2) > off-chain (1)
     version: int = Field(ge=1, le=2)
+
+    # Pipeline metadata: when the ingestor published to Redpanda (time.time())
+    published_at: float = 0.0
+
+    @field_serializer("timestamp")
+    @classmethod
+    def serialize_timestamp(cls, v: datetime) -> str:
+        """Format as 'YYYY-MM-DD HH:MM:SS.fff' for ClickHouse JSONEachRow."""
+        return v.strftime("%Y-%m-%d %H:%M:%S.") + f"{v.microsecond // 1000:03d}"
 
     @field_validator("price")
     @classmethod
@@ -131,7 +140,7 @@ class Event(BaseModel):
 
 
 class Market(BaseModel):
-    """Polymarket market metadata from Gamma API."""
+    """Polymarket market metadata from Gamma API + CLOB resolution."""
 
     model_config = {"frozen": True}
 
@@ -144,6 +153,8 @@ class Market(BaseModel):
     token_no: str
     neg_risk: bool
     status: MarketStatus
+    resolution_value: int = 0  # 1=resolved, 0=unresolved, -1=voided
+    winner_outcome: str = ""  # "Yes" or "No" (from CLOB tokens[].winner)
     created_at: datetime | None
     closed_at: datetime | None
     resolved_at: datetime | None
@@ -226,3 +237,4 @@ class TokenMarketEntry(BaseModel):
     asset_id: str
     condition_id: str
     outcome: str
+    winner: bool = False

@@ -18,6 +18,9 @@ scripts/_cache/
 # Local experiments
 .local/
 
+# Secrets
+.env
+
 # OS
 .DS_Store
 

@@ -41,7 +41,7 @@ def _make_subscription_result(
             "result": {
                 "address": "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
                 "topics": [
-                    "0x",  # event sig
+                    "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6",
                     order_hash,
                     "0x" + "00" * 12 + maker[2:],
                     "0x" + "00" * 12 + taker[2:],

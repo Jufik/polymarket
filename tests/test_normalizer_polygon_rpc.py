@@ -7,6 +7,8 @@ import pytest
 
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 
+ORDER_FILLED_SIG = "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6"
+
 
 @pytest.fixture
 def normalizer():
@@ -44,7 +46,7 @@ def _make_log(
     return {
         "address": "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
         "topics": [
-            "0x",  # placeholder — normalizer shouldn't validate topic[0]
+            ORDER_FILLED_SIG,
             order_hash,
             "0x" + "00" * 12 + maker[2:],  # address padded to 32 bytes
             "0x" + "00" * 12 + taker[2:],  # address padded to 32 bytes
@@ -137,3 +139,16 @@ class TestPolygonRPCNormalizer:
         log = _make_log(maker_asset_id=12345, taker_asset_id=0)
         trade = n.normalize(log)
         assert trade.condition_id == "cond_abc"
+
+    def test_non_order_filled_event_skipped(self, normalizer):
+        """Events with wrong signature or too few topics return None."""
+        log = _make_log()
+        # Wrong event signature
+        log["topics"][0] = "0x" + "00" * 32
+        assert normalizer.normalize(log) is None
+
+    def test_too_few_topics_skipped(self, normalizer):
+        """Logs with <4 topics (different event type) return None."""
+        log = _make_log()
+        log["topics"] = log["topics"][:2]  # only sig + 1 indexed param
+        assert normalizer.normalize(log) is None

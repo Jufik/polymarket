@@ -53,8 +53,8 @@ def test_build_html_contains_gap_section(mock_checker: QualityChecker):
     from polymarket_pipeline.live.dashboard import build_dashboard_html
 
     html = build_dashboard_html(mock_checker, refresh_s=5)
-    assert "Latency Gap" in html or "latency_gap" in html
-    assert "Coverage Gap" in html or "coverage_gap" in html
+    assert "Source Race" in html
+    assert "Coverage Gaps" in html
 
 
 def test_make_asgi_app_callable(mock_checker: QualityChecker):
