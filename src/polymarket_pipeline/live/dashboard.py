@@ -15,31 +15,28 @@ log = structlog.get_logger()
 if TYPE_CHECKING:
     from polymarket_pipeline.live.quality.checker import QualityChecker
 
-# ── Gap queries ──────────────────────────────────────────────────────────
+# ── SQL queries ─────────────────────────────────────────────────────────
 
-LATENCY_GAP_SQL = """\
+# Source race: for matched trades, who published first?
+RACE_SQL = """\
 SELECT
     count() AS matched,
-    medianIf(
-        dateDiff('second', t1_ts, t2_ts),
-        1 = 1
-    ) AS median_latency_s,
-    maxIf(
-        dateDiff('second', t1_ts, t2_ts),
-        1 = 1
-    ) AS max_latency_s
+    median(rtds_pub - alch_pub) AS median_delta_s,
+    max(abs(rtds_pub - alch_pub)) AS max_delta_s,
+    countIf(rtds_pub < alch_pub) AS rtds_first,
+    countIf(alch_pub < rtds_pub) AS alchemy_first
 FROM (
-    SELECT trade_id, timestamp AS t1_ts
+    SELECT trade_id, published_at AS rtds_pub
     FROM trades_raw
-    WHERE _version = 1
+    WHERE source = 'rtds' AND published_at > 0
       AND timestamp > now() - INTERVAL 1 HOUR
-) t1
+) r
 JOIN (
-    SELECT trade_id, timestamp AS t2_ts
+    SELECT trade_id, published_at AS alch_pub
     FROM trades_raw
-    WHERE _version = 2
+    WHERE source = 'alchemy' AND published_at > 0
       AND timestamp > now() - INTERVAL 1 HOUR
-) t2 USING (trade_id)
+) a USING (trade_id)
 """
 
 COVERAGE_GAP_SQL = """\
@@ -58,7 +55,7 @@ FROM (
 )
 """
 
-# Per-minute TPS by source over the last hour
+# Per-minute TPS by source
 TPS_BY_SOURCE_SQL = """\
 SELECT
     toStartOfMinute(timestamp) AS minute,
@@ -70,45 +67,68 @@ GROUP BY minute, source
 ORDER BY minute
 """
 
-# Per-minute median latency gap (v1 vs v2) over the last hour
-LATENCY_TIMESERIES_SQL = """\
+# Per-minute delivery lag per source: published_at - trade timestamp
+DELIVERY_LAG_SQL = """\
 SELECT
-    toStartOfMinute(t1_ts) AS minute,
-    median(dateDiff('second', t1_ts, t2_ts)) AS median_lat_s
+    toStartOfMinute(timestamp) AS minute,
+    source,
+    median(published_at - toFloat64(timestamp)) AS median_lag_s
+FROM trades_raw
+WHERE timestamp > now() - INTERVAL 1 HOUR
+  AND published_at > 0
+GROUP BY minute, source
+ORDER BY minute
+"""
+
+# Trade lifecycle waterfall (matched trades only):
+#   first_seen  = min(rtds_pub, alchemy_pub) - trade_ts
+#   consolidated = max(rtds_pub, alchemy_pub) - trade_ts
+WATERFALL_SQL = """\
+SELECT
+    toStartOfMinute(r.ts) AS minute,
+    median(least(r.pub, a.pub) - toFloat64(r.ts)) AS p50_first_seen,
+    median(greatest(r.pub, a.pub) - toFloat64(r.ts)) AS p50_consolidated,
+    quantile(0.95)(greatest(r.pub, a.pub) - toFloat64(r.ts)) AS p95_consolidated
 FROM (
-    SELECT trade_id, timestamp AS t1_ts
+    SELECT trade_id, timestamp AS ts, published_at AS pub
     FROM trades_raw
-    WHERE _version = 1
+    WHERE source = 'rtds' AND published_at > 0
       AND timestamp > now() - INTERVAL 1 HOUR
-) t1
+) r
 JOIN (
-    SELECT trade_id, timestamp AS t2_ts
+    SELECT trade_id, published_at AS pub
     FROM trades_raw
-    WHERE _version = 2
+    WHERE source = 'alchemy' AND published_at > 0
       AND timestamp > now() - INTERVAL 1 HOUR
-) t2 USING (trade_id)
+) a USING (trade_id)
 GROUP BY minute
 ORDER BY minute
 """
 
 
 def _query_gap_metrics(checker: QualityChecker) -> dict[str, Any]:
-    """Run latency and coverage gap queries against ClickHouse."""
+    """Run race and coverage queries against ClickHouse."""
     metrics: dict[str, Any] = {
-        "median_latency_s": None,
-        "max_latency_s": None,
+        "median_delta_s": None,
+        "max_delta_s": None,
+        "rtds_first": 0,
+        "alchemy_first": 0,
+        "matched": 0,
         "rtds_only": 0,
         "alchemy_only": 0,
         "total": 0,
     }
     ch = checker.clickhouse
     try:
-        rows = ch.query(LATENCY_GAP_SQL)
+        rows = ch.query(RACE_SQL)
         if rows and rows[0].get("matched", 0) > 0:
-            metrics["median_latency_s"] = rows[0].get("median_latency_s")
-            metrics["max_latency_s"] = rows[0].get("max_latency_s")
+            metrics["median_delta_s"] = rows[0].get("median_delta_s")
+            metrics["max_delta_s"] = rows[0].get("max_delta_s")
+            metrics["rtds_first"] = rows[0].get("rtds_first", 0)
+            metrics["alchemy_first"] = rows[0].get("alchemy_first", 0)
+            metrics["matched"] = rows[0].get("matched", 0)
     except Exception as exc:
-        log.warning("dashboard.latency_query_failed", error=str(exc))
+        log.warning("dashboard.race_query_failed", error=str(exc))
 
     try:
         rows = ch.query(COVERAGE_GAP_SQL)
@@ -123,8 +143,12 @@ def _query_gap_metrics(checker: QualityChecker) -> dict[str, Any]:
 
 
 def _query_chart_data(checker: QualityChecker) -> dict[str, Any]:
-    """Query TPS timeseries by source and latency timeseries."""
-    chart: dict[str, Any] = {"tps": {}, "latency": {}}
+    """Query TPS, per-source delivery lag, and waterfall timeseries."""
+    chart: dict[str, Any] = {
+        "tps": {},
+        "delivery_lag": {},
+        "waterfall": {"first_seen": {}, "consolidated": {}, "p95_consolidated": {}},
+    }
     ch = checker.clickhouse
 
     try:
@@ -140,18 +164,34 @@ def _query_chart_data(checker: QualityChecker) -> dict[str, Any]:
         log.warning("dashboard.tps_query_failed", error=str(exc))
 
     try:
-        rows = ch.query(LATENCY_TIMESERIES_SQL)
+        rows = ch.query(DELIVERY_LAG_SQL)
         for row in rows:
             minute = str(row["minute"])
-            val = float(row["median_lat_s"])
+            source = row["source"]
+            val = float(row["median_lag_s"])
             if not math.isnan(val):
-                chart["latency"][minute] = round(val, 1)
+                if source not in chart["delivery_lag"]:
+                    chart["delivery_lag"][source] = {}
+                chart["delivery_lag"][source][minute] = round(val, 2)
     except Exception as exc:
-        log.warning(
-            "dashboard.latency_ts_query_failed", error=str(exc)
-        )
+        log.warning("dashboard.delivery_lag_query_failed", error=str(exc))
+
+    try:
+        rows = ch.query(WATERFALL_SQL)
+        for row in rows:
+            minute = str(row["minute"])
+            for key in ("first_seen", "consolidated", "p95_consolidated"):
+                col = f"p50_{key}" if key != "p95_consolidated" else key
+                val = float(row[col])
+                if not math.isnan(val):
+                    chart["waterfall"][key][minute] = round(val, 2)
+    except Exception as exc:
+        log.warning("dashboard.waterfall_query_failed", error=str(exc))
 
     return chart
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────
 
 
 def _fmt_age(ts: float | None) -> str:
@@ -191,25 +231,33 @@ def _state_color(state_val: str) -> str:
     }.get(state_val, "#6b7280")
 
 
-def _build_chart_js(chart_data: dict[str, Any]) -> str:
-    """Build Chart.js initialization script for TPS + latency."""
-    # Collect all unique minutes across all sources + latency
+def _short_labels(labels: list[str]) -> list[str]:
+    """Convert 'YYYY-MM-DD HH:MM:SS' to 'HH:MM'."""
+    out = []
+    for lbl in labels:
+        try:
+            out.append(lbl[11:16])
+        except (IndexError, TypeError):
+            out.append(lbl)
+    return out
+
+
+# ── Chart builders ───────────────────────────────────────────────────────
+
+
+def _build_tps_chart_js(chart_data: dict[str, Any]) -> str:
+    """TPS chart + per-source delivery lag on second axis."""
     all_minutes: set[str] = set()
     for source_data in chart_data["tps"].values():
         all_minutes.update(source_data.keys())
-    all_minutes.update(chart_data["latency"].keys())
+    for source_data in chart_data["delivery_lag"].values():
+        all_minutes.update(source_data.keys())
 
     if not all_minutes:
-        return "/* no chart data */"
+        return "/* no TPS data */"
 
     labels = sorted(all_minutes)
-    # Short label: HH:MM
-    short_labels = []
-    for lbl in labels:
-        try:
-            short_labels.append(lbl[11:16])  # "2026-02-20 16:35:00" → "16:35"
-        except (IndexError, TypeError):
-            short_labels.append(lbl)
+    short = _short_labels(labels)
 
     source_colors = {
         "rtds": "#38bdf8",
@@ -218,14 +266,14 @@ def _build_chart_js(chart_data: dict[str, Any]) -> str:
         "goldsky_subgraph": "#fbbf24",
         "websocket": "#34d399",
     }
+    lag_colors = {"rtds": "#22d3ee", "alchemy": "#c084fc"}
 
     datasets = []
     for source, minute_data in sorted(chart_data["tps"].items()):
         color = source_colors.get(source, "#94a3b8")
-        values = [minute_data.get(m, 0) for m in labels]
         datasets.append({
             "label": f"{source} TPS",
-            "data": values,
+            "data": [minute_data.get(m, 0) for m in labels],
             "borderColor": color,
             "backgroundColor": color + "33",
             "yAxisID": "y",
@@ -233,53 +281,38 @@ def _build_chart_js(chart_data: dict[str, Any]) -> str:
             "fill": True,
         })
 
-    # Latency on right axis
-    lat_values = [chart_data["latency"].get(m, None) for m in labels]
-    if any(v is not None for v in lat_values):
-        datasets.append({
-            "label": "Median Latency (s)",
-            "data": lat_values,
-            "borderColor": "#f472b6",
-            "backgroundColor": "#f472b600",
-            "yAxisID": "y1",
-            "tension": 0.3,
-            "borderDash": [5, 3],
-            "pointRadius": 2,
-        })
+    for source, minute_data in sorted(chart_data["delivery_lag"].items()):
+        color = lag_colors.get(source, "#f472b6")
+        values = [minute_data.get(m, None) for m in labels]
+        if any(v is not None for v in values):
+            datasets.append({
+                "label": f"{source} lag (s)",
+                "data": values,
+                "borderColor": color,
+                "backgroundColor": color + "00",
+                "yAxisID": "y1",
+                "tension": 0.3,
+                "borderDash": [5, 3],
+                "pointRadius": 2,
+            })
 
     config = {
         "type": "line",
-        "data": {
-            "labels": short_labels,
-            "datasets": datasets,
-        },
+        "data": {"labels": short, "datasets": datasets},
         "options": {
             "responsive": True,
-            "interaction": {
-                "mode": "index",
-                "intersect": False,
-            },
+            "interaction": {"mode": "index", "intersect": False},
             "scales": {
                 "y": {
-                    "type": "linear",
-                    "position": "left",
-                    "title": {
-                        "display": True,
-                        "text": "Trades / sec",
-                        "color": "#94a3b8",
-                    },
+                    "type": "linear", "position": "left",
+                    "title": {"display": True, "text": "Trades / sec", "color": "#94a3b8"},
                     "ticks": {"color": "#94a3b8"},
                     "grid": {"color": "#1e293b"},
                 },
                 "y1": {
-                    "type": "linear",
-                    "position": "right",
-                    "title": {
-                        "display": True,
-                        "text": "Latency (s)",
-                        "color": "#f472b6",
-                    },
-                    "ticks": {"color": "#f472b6"},
+                    "type": "linear", "position": "right",
+                    "title": {"display": True, "text": "Delivery Lag (s)", "color": "#c084fc"},
+                    "ticks": {"color": "#c084fc"},
                     "grid": {"drawOnChartArea": False},
                 },
                 "x": {
@@ -287,25 +320,108 @@ def _build_chart_js(chart_data: dict[str, Any]) -> str:
                     "grid": {"color": "#1e293b"},
                 },
             },
-            "plugins": {
-                "legend": {
-                    "labels": {"color": "#e2e8f0"},
-                },
-            },
+            "plugins": {"legend": {"labels": {"color": "#e2e8f0"}}},
         },
     }
 
     return (
-        f"const ctx = document.getElementById('tpsChart');"
-        f"new Chart(ctx, {json.dumps(config)});"
+        f"const ctx1 = document.getElementById('tpsChart');"
+        f"new Chart(ctx1, {json.dumps(config)});"
     )
+
+
+def _build_waterfall_chart_js(chart_data: dict[str, Any]) -> str:
+    """Trade lifecycle waterfall: Execution → First Seen → Consolidated."""
+    wf = chart_data["waterfall"]
+    all_minutes: set[str] = set()
+    for series in wf.values():
+        all_minutes.update(series.keys())
+
+    if not all_minutes:
+        return "/* no waterfall data — need matched trades from both sources */"
+
+    labels = sorted(all_minutes)
+    short = _short_labels(labels)
+
+    # Stacked bar: segment 1 = first_seen, segment 2 = consolidated - first_seen
+    first_seen = [wf["first_seen"].get(m, None) for m in labels]
+    consol = [wf["consolidated"].get(m, None) for m in labels]
+    p95 = [wf["p95_consolidated"].get(m, None) for m in labels]
+
+    # Delta for stacked segment
+    delta = []
+    for fs, co in zip(first_seen, consol, strict=True):
+        if fs is not None and co is not None:
+            delta.append(round(co - fs, 2))
+        else:
+            delta.append(None)
+
+    config = {
+        "type": "bar",
+        "data": {
+            "labels": short,
+            "datasets": [
+                {
+                    "label": "Execution → First Seen (s)",
+                    "data": first_seen,
+                    "backgroundColor": "#38bdf8cc",
+                    "borderColor": "#38bdf8",
+                    "borderWidth": 1,
+                    "stack": "lifecycle",
+                },
+                {
+                    "label": "First Seen → Consolidated (s)",
+                    "data": delta,
+                    "backgroundColor": "#a78bfacc",
+                    "borderColor": "#a78bfa",
+                    "borderWidth": 1,
+                    "stack": "lifecycle",
+                },
+                {
+                    "label": "p95 Consolidated (s)",
+                    "data": p95,
+                    "type": "line",
+                    "borderColor": "#ef4444",
+                    "backgroundColor": "#ef444400",
+                    "borderDash": [4, 4],
+                    "pointRadius": 2,
+                    "tension": 0.3,
+                },
+            ],
+        },
+        "options": {
+            "responsive": True,
+            "interaction": {"mode": "index", "intersect": False},
+            "scales": {
+                "x": {
+                    "stacked": True,
+                    "ticks": {"color": "#94a3b8", "maxRotation": 45},
+                    "grid": {"color": "#1e293b"},
+                },
+                "y": {
+                    "stacked": True,
+                    "title": {"display": True, "text": "Seconds", "color": "#94a3b8"},
+                    "ticks": {"color": "#94a3b8"},
+                    "grid": {"color": "#1e293b"},
+                },
+            },
+            "plugins": {"legend": {"labels": {"color": "#e2e8f0"}}},
+        },
+    }
+
+    return (
+        f"const ctx2 = document.getElementById('waterfallChart');"
+        f"new Chart(ctx2, {json.dumps(config)});"
+    )
+
+
+# ── HTML builder ─────────────────────────────────────────────────────────
 
 
 def build_dashboard_html(
     checker: QualityChecker, refresh_s: int = 5
 ) -> str:
     """Build the full HTML dashboard page."""
-    # Run checks on each render — no periodic timer exists yet
     checker.run_all_checks()
 
     now = time.time()
@@ -315,7 +431,8 @@ def build_dashboard_html(
     heartbeats = checker.heartbeats
     gap = _query_gap_metrics(checker)
     chart_data = _query_chart_data(checker)
-    chart_js = _build_chart_js(chart_data)
+    tps_js = _build_tps_chart_js(chart_data)
+    waterfall_js = _build_waterfall_chart_js(chart_data)
 
     # Producer rows
     producer_rows = ""
@@ -403,9 +520,14 @@ def build_dashboard_html(
 {producer_rows}
 </table>
 
-<h2>Throughput &amp; Latency (last hour)</h2>
+<h2>Throughput &amp; Delivery Lag (last hour)</h2>
 <div class="chart-container">
   <canvas id="tpsChart"></canvas>
+</div>
+
+<h2>Trade Lifecycle (last hour, matched trades)</h2>
+<div class="chart-container">
+  <canvas id="waterfallChart"></canvas>
 </div>
 
 <h2>Quality Checks</h2>
@@ -414,26 +536,42 @@ def build_dashboard_html(
 {check_rows}
 </table>
 
-<h2>Data Quality Gaps (last hour)</h2>
+<h2>Source Race (last hour)</h2>
 <div>
   <div class="metric">
-    <div class="label">Latency Gap (median)</div>
-    <div class="value">{_fmt_val(gap["median_latency_s"])}</div>
+    <div class="label">Matched Trades</div>
+    <div class="value">{gap["matched"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Latency Gap (max)</div>
-    <div class="value">{_fmt_val(gap["max_latency_s"])}</div>
+    <div class="label">RTDS First</div>
+    <div class="value">{gap["rtds_first"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Coverage Gap: RTDS-only</div>
+    <div class="label">Alchemy First</div>
+    <div class="value">{gap["alchemy_first"]}</div>
+  </div>
+  <div class="metric">
+    <div class="label">Median Delta</div>
+    <div class="value">{_fmt_val(gap["median_delta_s"])}</div>
+  </div>
+  <div class="metric">
+    <div class="label">Max Delta</div>
+    <div class="value">{_fmt_val(gap["max_delta_s"])}</div>
+  </div>
+</div>
+
+<h2>Coverage Gaps (last hour)</h2>
+<div>
+  <div class="metric">
+    <div class="label">RTDS-only</div>
     <div class="value">{gap["rtds_only"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Coverage Gap: Alchemy-only</div>
+    <div class="label">Alchemy-only</div>
     <div class="value">{gap["alchemy_only"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Coverage Gap: Total</div>
+    <div class="label">Total</div>
     <div class="value">{gap["total"]}</div>
   </div>
 </div>
@@ -441,7 +579,7 @@ def build_dashboard_html(
 <p style="color:#475569; margin-top:2rem; font-size:0.8rem;">
   Auto-refresh every {refresh_s}s &middot; {time.strftime("%H:%M:%S")}
 </p>
-<script>{chart_js}</script>
+<script>{tps_js}{waterfall_js}</script>
 </body>
 </html>"""
 
