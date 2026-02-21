@@ -139,3 +139,39 @@ def test_size_must_be_positive() -> None:
             is_backfill=True,
             version=2,
         )
+
+
+def test_mempool_source_exists() -> None:
+    from polymarket_pipeline.models import Source
+
+    assert Source.MEMPOOL == "mempool"
+
+
+def test_version_zero_allowed() -> None:
+    """Mempool trades use version=0 (lowest priority in ReplacingMergeTree)."""
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from polymarket_pipeline.models import NormalizedTrade, Side, Source
+
+    trade = NormalizedTrade(
+        trade_id="mempool:abc123",
+        condition_id="cond_1",
+        asset_id="12345",
+        side=Side.BUY,
+        price=Decimal("0.5000"),
+        size=Decimal("100"),
+        amount_usd=Decimal("50"),
+        fee_usd=Decimal("0"),
+        maker="0x" + "a1" * 20,
+        taker="0x" + "b2" * 20,
+        timestamp=datetime(2026, 2, 21, tzinfo=UTC),
+        source=Source.MEMPOOL,
+        tx_hash="0x" + "dd" * 32,
+        order_hash=None,
+        block_number=None,
+        is_backfill=False,
+        version=0,
+    )
+    assert trade.version == 0
+    assert trade.source == Source.MEMPOOL
