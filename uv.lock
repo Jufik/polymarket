@@ -2656,6 +2656,10 @@ wheels = [
 ]
 
 [[package]]
+name = "polymarket-mempool"
+source = { editable = "crates/polymarket-mempool" }
+
+[[package]]
 name = "polymarket-pipeline"
 version = "0.1.0"
 source = { editable = "." }
@@ -2681,6 +2685,7 @@ all = [
     { name = "pandas" },
     { name = "polars" },
     { name = "polyfactory" },
+    { name = "polymarket-mempool" },
     { name = "pyarrow" },
     { name = "pydantic-settings" },
     { name = "pytest" },
@@ -2721,6 +2726,7 @@ live = [
     { name = "eth-abi" },
     { name = "faststream", extra = ["kafka"] },
     { name = "gql", extra = ["aiohttp"] },
+    { name = "polymarket-mempool" },
     { name = "pydantic-settings" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -2755,6 +2761,7 @@ requires-dist = [
     { name = "polars", marker = "extra == 'compact'", specifier = ">=1.15.0" },
     { name = "polars", marker = "extra == 'exploration'", specifier = ">=1.15.0" },
     { name = "polyfactory", marker = "extra == 'dev'", specifier = ">=2.0" },
+    { name = "polymarket-mempool", marker = "extra == 'live'", editable = "crates/polymarket-mempool" },
     { name = "polymarket-pipeline", extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "dev"], marker = "extra == 'all'" },
     { name = "pyarrow", marker = "extra == 'compact'", specifier = ">=14.0" },
     { name = "pydantic", specifier = ">=2.0" },

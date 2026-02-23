@@ -51,6 +51,9 @@ class QualityChecker:
         timeout = self._settings.source_liveness_timeout_s
 
         required = ["rtds", "alchemy"]
+        # Mempool is optional — only check if we've ever seen a heartbeat
+        if "mempool" in self._heartbeats:
+            required.append("mempool")
         stale = []
         for src in required:
             last = self._heartbeats.get(src)

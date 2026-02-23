@@ -12,6 +12,7 @@ from faststream import ContextRepo, FastStream
 from faststream.kafka import KafkaBroker
 
 from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
+from polymarket_pipeline.live.ingestors.mempool import MempoolIngestor
 from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
 from polymarket_pipeline.live.quality.checker import QualityChecker
 from polymarket_pipeline.live.settings import Settings
@@ -131,6 +132,16 @@ async def on_startup(context: ContextRepo) -> None:
 
     _ingestor_tasks.append(asyncio.create_task(rtds.run()))
     _ingestor_tasks.append(asyncio.create_task(alchemy.run()))
+
+    if settings.mempool_enabled:
+        mempool = MempoolIngestor(
+            broker=broker,
+            topic="mempool.raw",
+            status_topic="pipeline.status",
+            token_market_map=token_map,
+            listen_port=settings.mempool_listen_port,
+        )
+        _ingestor_tasks.append(asyncio.create_task(mempool.run()))
 
     log.info("live_pipeline.ingestors_started", count=len(_ingestor_tasks))
 

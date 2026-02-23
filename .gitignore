@@ -27,3 +27,6 @@ scripts/_cache/
 # IDE / editor
 .claude/
 .serena/
+
+# Rust build artifacts
+crates/*/target/
