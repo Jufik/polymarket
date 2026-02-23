@@ -41,9 +41,7 @@ class VectorizedRunner:
     def __init__(self, strategy: VectorizedStrategy) -> None:
         self._strategy = strategy
 
-    def run(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> VectorizedResult:
+    def run(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> VectorizedResult:
         """Execute the strategy and wrap its output.
 
         Calls ``strategy.compute_signals(trades, markets)`` and returns a

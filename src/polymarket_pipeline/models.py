@@ -23,6 +23,7 @@ class Source(StrEnum):
     RTDS = "rtds"
     ALCHEMY = "alchemy"
     MEMPOOL = "mempool"
+    PENDING_BLOCK = "pending_block"
 
 
 class NormalizedTrade(BaseModel):

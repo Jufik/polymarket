@@ -7,6 +7,8 @@ not strategies.
 
 from __future__ import annotations
 
+from typing import Any
+
 from polymarket_pipeline.strategies.types import (
     MarketInfo,
     OrderbookSnapshot,
@@ -22,11 +24,13 @@ class InMemoryContext:
     helpers used by the backtest runner to advance simulated state.
     """
 
-    __slots__ = ("_markets", "_positions", "_time")
+    __slots__ = ("_features", "_markets", "_orderbooks", "_positions", "_time")
 
     def __init__(self) -> None:
         self._positions: dict[str, Position] = {}
         self._markets: dict[str, MarketInfo] = {}
+        self._orderbooks: dict[str, OrderbookSnapshot] = {}
+        self._features: dict[str, Any] = {}
         self._time: float = 0.0
 
     # ------------------------------------------------------------------
@@ -42,8 +46,8 @@ class InMemoryContext:
         return self._markets.get(condition_id)
 
     async def get_orderbook(self, condition_id: str) -> OrderbookSnapshot | None:
-        """Always returns ``None`` — no order book in backtest mode."""
-        return None
+        """Return the latest order-book snapshot, or ``None``."""
+        return self._orderbooks.get(condition_id)
 
     async def get_price(self, condition_id: str, outcome: str) -> float | None:
         """Return the last known price for *outcome* in *condition_id*."""
@@ -60,6 +64,10 @@ class InMemoryContext:
         """Return the current simulated timestamp (epoch seconds)."""
         return self._time
 
+    async def get_features(self, key: str) -> Any:
+        """Return a feature value by *key*, or ``None``."""
+        return self._features.get(key)
+
     # ------------------------------------------------------------------
     # Mutation methods (sync, used by runners)
     # ------------------------------------------------------------------
@@ -75,3 +83,11 @@ class InMemoryContext:
     def set_time(self, t: float) -> None:
         """Advance simulated clock to *t*."""
         self._time = t
+
+    def set_orderbook(self, condition_id: str, ob: OrderbookSnapshot) -> None:
+        """Store order-book snapshot for *condition_id*."""
+        self._orderbooks[condition_id] = ob
+
+    def update_features(self, features: dict[str, Any]) -> None:
+        """Merge *features* into the feature store."""
+        self._features.update(features)
