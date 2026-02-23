@@ -73,9 +73,7 @@ async def test_get_position_returns_value_after_set(
     assert result is sample_position
 
 
-async def test_get_position_different_key(
-    ctx: InMemoryContext, sample_position: Position
-) -> None:
+async def test_get_position_different_key(ctx: InMemoryContext, sample_position: Position) -> None:
     ctx.set_position("0xabc", sample_position)
     result = await ctx.get_position("0xother")
     assert result is None
@@ -99,9 +97,7 @@ async def test_get_market_returns_value_after_set(
     assert result is sample_market
 
 
-async def test_get_market_different_key(
-    ctx: InMemoryContext, sample_market: MarketInfo
-) -> None:
+async def test_get_market_different_key(ctx: InMemoryContext, sample_market: MarketInfo) -> None:
     ctx.set_market("0xabc", sample_market)
     result = await ctx.get_market("0xother")
     assert result is None
@@ -224,3 +220,32 @@ async def test_get_orderbook_returns_snapshot_after_set(ctx: InMemoryContext) ->
     ctx.set_orderbook("0xabc", ob)
     result = await ctx.get_orderbook("0xabc")
     assert result is ob
+
+
+# ---------------------------------------------------------------------------
+# get_all_positions
+# ---------------------------------------------------------------------------
+
+
+async def test_get_all_positions_empty(ctx: InMemoryContext) -> None:
+    """get_all_positions returns empty dict when no positions set."""
+    result = ctx.get_all_positions()
+    assert result == {}
+
+
+async def test_get_all_positions_after_set(ctx: InMemoryContext, sample_position: Position) -> None:
+    """get_all_positions returns stored positions."""
+    ctx.set_position("0xabc", sample_position)
+    result = ctx.get_all_positions()
+    assert result == {"0xabc": sample_position}
+
+
+async def test_get_all_positions_returns_copy(
+    ctx: InMemoryContext, sample_position: Position
+) -> None:
+    """get_all_positions returns a copy, not the internal dict."""
+    ctx.set_position("0xabc", sample_position)
+    result = ctx.get_all_positions()
+    result["0xnew"] = sample_position  # mutate the copy
+    # Internal state should be unaffected
+    assert "0xnew" not in ctx.get_all_positions()

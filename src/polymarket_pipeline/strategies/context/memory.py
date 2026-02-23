@@ -88,6 +88,10 @@ class InMemoryContext:
         """Store order-book snapshot for *condition_id*."""
         self._orderbooks[condition_id] = ob
 
+    def get_all_positions(self) -> dict[str, Position]:
+        """Return a copy of all current positions (runner-facing, not protocol)."""
+        return dict(self._positions)
+
     def update_features(self, features: dict[str, Any]) -> None:
         """Merge *features* into the feature store."""
         self._features.update(features)

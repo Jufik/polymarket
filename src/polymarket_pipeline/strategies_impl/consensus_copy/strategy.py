@@ -60,7 +60,10 @@ class ConsensusCopyStrategy:
     ) -> list[TradeIntent] | None:
         """Process a single trade and potentially emit a signal."""
         maker = trade.maker
-        if maker is None or maker not in self._cfg.skilled_traders:
+        skilled = await ctx.get_features("skilled_traders")
+        if skilled is None:
+            skilled = self._cfg.skilled_traders  # fallback to config
+        if maker is None or maker not in skilled:
             return None
 
         cid = trade.condition_id

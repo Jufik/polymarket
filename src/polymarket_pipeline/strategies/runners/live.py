@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from polymarket_pipeline.strategies.runners.helpers import apply_fill_to_position, check_risk_gate
+
 if TYPE_CHECKING:
     from polymarket_pipeline.models import NormalizedTrade
     from polymarket_pipeline.strategies.config import StrategyConfig
@@ -72,6 +74,7 @@ class LiveRunner:
         self._tasks: list[asyncio.Task[Any]] = []
         self._trades_processed: int = 0
         self._intents_submitted: int = 0
+        self._last_trade_times: dict[str, float] = {}
 
     async def initialize(self) -> None:
         """Run provider compute() at startup."""
@@ -102,7 +105,7 @@ class LiveRunner:
         self.ctx.set_time(trade.published_at)
 
         # 4. Strategies — read updated context
-        for strategy, _config in self.strategies:
+        for strategy, config in self.strategies:
             t0 = time.monotonic()
             intents = await strategy.on_trade(trade, self.ctx)
             elapsed_ms = (time.monotonic() - t0) * 1000
@@ -115,10 +118,56 @@ class LiveRunner:
 
             if intents:
                 for intent in intents:
-                    await self.gateway.submit(intent)
+                    # Risk gate
+                    positions = self.ctx.get_all_positions()
+                    allowed, reason = check_risk_gate(
+                        intent, config, positions, self._last_trade_times, time.time()
+                    )
+                    if not allowed:
+                        logger.info(
+                            "intent.rejected",
+                            strategy=strategy.name,
+                            reason=reason,
+                            condition_id=intent.condition_id,
+                        )
+                        continue
+
+                    fill = await self.gateway.submit(intent)
                     self._intents_submitted += 1
 
+                    # Position tracking
+                    old_pos = await self.ctx.get_position(fill.condition_id)
+                    new_pos = apply_fill_to_position(old_pos, fill)
+                    self.ctx.set_position(fill.condition_id, new_pos)
+                    self._last_trade_times[intent.strategy] = fill.filled_at
+
         self._trades_processed += 1
+
+    def handle_orderbook(self, data: dict[str, Any]) -> None:
+        """Process an orderbook snapshot and update context.
+
+        Called by the Kafka subscriber for the ``orderbooks.raw`` topic.
+        """
+        from polymarket_pipeline.strategies.types import OrderbookSnapshot
+
+        condition_id = data.get("condition_id")
+        if condition_id is None:
+            return
+
+        best_bid = data.get("best_bid")
+        best_ask = data.get("best_ask")
+        if best_bid is None or best_ask is None:
+            return
+
+        ob = OrderbookSnapshot(
+            condition_id=condition_id,
+            best_bid=float(best_bid),
+            best_ask=float(best_ask),
+            bid_depth=0.0,
+            ask_depth=0.0,
+            timestamp=data.get("timestamp", time.time()),
+        )
+        self.ctx.set_orderbook(condition_id, ob)
 
     async def _timer_loop(self) -> None:
         """Periodic timer callbacks for strategies."""

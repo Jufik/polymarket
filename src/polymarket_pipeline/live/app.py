@@ -56,9 +56,7 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
     """Check for gaps and run subgraph recovery if needed."""
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
-    ch = ClickHouseSink(
-        host=settings.ch_host, port=settings.ch_port, database=settings.ch_database
-    )
+    ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
 
     # Check latest trade in ClickHouse
     try:
@@ -115,9 +113,7 @@ async def on_startup(context: ContextRepo) -> None:
     # Initialize quality checker
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
-    ch = ClickHouseSink(
-        host=settings.ch_host, port=settings.ch_port, database=settings.ch_database
-    )
+    ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
     _quality_checker = QualityChecker(settings=settings, clickhouse=ch)
     context.set_global("quality_checker", _quality_checker)
 
@@ -145,15 +141,28 @@ async def on_startup(context: ContextRepo) -> None:
         _ingestor_tasks.append(asyncio.create_task(mempool.run()))
 
     if settings.pending_block_enabled:
+        rpc_urls = [u.strip() for u in settings.pending_block_rpc_ws_urls.split(",") if u.strip()]
         pending = PendingBlockIngestor(
             broker=broker,
-            rpc_ws_url=settings.pending_block_rpc_ws_url,
+            rpc_ws_urls=rpc_urls,
             topic="pending.signal",
             status_topic="pipeline.status",
             token_market_map=token_map,
             poll_interval=settings.pending_block_poll_interval_s,
         )
         _ingestor_tasks.append(asyncio.create_task(pending.run()))
+
+    if settings.clob_orderbook_enabled:
+        from polymarket_pipeline.live.ingestors.clob_orderbook import CLOBOrderbookIngestor
+
+        clob_ob = CLOBOrderbookIngestor(
+            broker=broker,
+            ws_url=settings.clob_orderbook_ws_url,
+            topic="orderbooks.raw",
+            status_topic="pipeline.status",
+            token_market_map=token_map,
+        )
+        _ingestor_tasks.append(asyncio.create_task(clob_ob.run()))
 
     log.info("live_pipeline.ingestors_started", count=len(_ingestor_tasks))
 
@@ -162,8 +171,7 @@ async def on_startup(context: ContextRepo) -> None:
 
     route = make_dashboard_route(_quality_checker, refresh_s=settings.dashboard_refresh_s)
     asgi_app.routes = [
-        (path, route if path == "/dashboard" else handler)
-        for path, handler in asgi_app.routes
+        (path, route if path == "/dashboard" else handler) for path, handler in asgi_app.routes
     ]
     log.info("dashboard.mounted", path="/dashboard")
 
@@ -200,11 +208,13 @@ async def handle_status(msg: str) -> None:
         _quality_checker.run_all_checks()
         state = _quality_checker.state.current
         await broker.publish(
-            message=json.dumps({
-                "event": state.value,
-                "failures": _quality_checker.state.failures,
-                "ts": time.time(),
-            }),
+            message=json.dumps(
+                {
+                    "event": state.value,
+                    "failures": _quality_checker.state.failures,
+                    "ts": time.time(),
+                }
+            ),
             topic="pipeline.status",
             key=b"quality",
         )

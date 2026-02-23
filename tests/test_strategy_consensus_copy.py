@@ -198,6 +198,52 @@ class TestOnTrade:
         assert r1 is None
         assert r2 is None  # still only 1 unique trader, need 2
 
+    async def test_on_trade_reads_skilled_from_context(self) -> None:
+        """Strategy should prefer skilled_traders from context features over config."""
+        # Config has SKILLED set, but context has a DIFFERENT set
+        strat = _make_strategy(direction="NO", min_traders=3, agreement_pct=0.80)
+        ctx = InMemoryContext()
+
+        # Override context with a different skilled set that includes 0xeve
+        ctx.update_features({"skilled_traders": frozenset({"0xeve", "0xfrank", "0xgrace"})})
+
+        # These traders are in SKILLED (config) but NOT in context features
+        t1 = _trade("0xalice", "SELL", 1000)
+        r1 = await strat.on_trade(t1, ctx)
+        assert r1 is None  # 0xalice not in context's skilled set
+
+        # These traders ARE in context's skilled set
+        t2 = _trade("0xeve", "SELL", 1001)
+        t3 = _trade("0xfrank", "SELL", 1002)
+        t4 = _trade("0xgrace", "SELL", 1003)
+
+        r2 = await strat.on_trade(t2, ctx)
+        r3 = await strat.on_trade(t3, ctx)
+        r4 = await strat.on_trade(t4, ctx)
+
+        assert r2 is None  # only 1 trader
+        assert r3 is None  # only 2 traders
+        assert r4 is not None  # 3 traders, signal fires
+        assert r4[0].outcome == "NO"
+
+    async def test_on_trade_falls_back_to_config(self) -> None:
+        """When context has no skilled_traders feature, falls back to config."""
+        strat = _make_strategy(direction="NO", min_traders=3, agreement_pct=0.80)
+        ctx = InMemoryContext()
+        # No features set — should fall back to config's SKILLED set
+
+        t1 = _trade("0xalice", "SELL", 1000)
+        t2 = _trade("0xbob", "SELL", 1001)
+        t3 = _trade("0xcharlie", "SELL", 1002)
+
+        r1 = await strat.on_trade(t1, ctx)
+        r2 = await strat.on_trade(t2, ctx)
+        r3 = await strat.on_trade(t3, ctx)
+
+        assert r1 is None
+        assert r2 is None
+        assert r3 is not None  # uses config's SKILLED set
+
     async def test_on_market_update_returns_none(self) -> None:
         strat = _make_strategy()
         ctx = InMemoryContext()
