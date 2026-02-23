@@ -28,5 +28,8 @@ scripts/_cache/
 .claude/
 .serena/
 
+# Worktrees
+.worktrees/
+
 # Rust build artifacts
 crates/*/target/
