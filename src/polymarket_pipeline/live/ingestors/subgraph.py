@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections import deque
@@ -15,8 +16,10 @@ from polymarket_pipeline.live.normalizers.subgraph import SubgraphNormalizer
 
 log = structlog.get_logger()
 
-BATCH_SIZE = 1000
+DEFAULT_BATCH_SIZE = 500
 ETA_WINDOW = 600  # rolling window for ETA calculation
+MAX_RETRIES = 5
+RETRY_BASE_DELAY = 2.0  # seconds, doubles each retry
 
 QUERY_TEMPLATE = gql("""
 query FetchOrders($timestamp_gt: String!, $first: Int!) {
@@ -75,11 +78,13 @@ class SubgraphPoller:
         token_market_map: dict[str, tuple[str, str]],
         topic: str = "trades.raw",
         status_topic: str = "pipeline.status",
+        batch_size: int = DEFAULT_BATCH_SIZE,
     ) -> None:
         self._broker = broker
         self._subgraph_url = subgraph_url
         self._topic = topic
         self._status_topic = status_topic
+        self._batch_size = batch_size
         self._normalizer = SubgraphNormalizer(token_market_map=token_market_map)
 
     async def _process_batch(self, events: list[dict[str, Any]]) -> int:
@@ -96,6 +101,26 @@ class SubgraphPoller:
             )
             published += 1
         return published
+
+    async def _execute_with_retry(self, client: Client, query: Any, variables: dict[str, Any]) -> dict[str, Any]:
+        """Execute a GQL query with exponential backoff retry on transient errors."""
+        for attempt in range(MAX_RETRIES):
+            try:
+                return await client.execute(query, variable_values=variables)
+            except Exception as exc:
+                err_str = str(exc)
+                is_transient = any(s in err_str for s in ("502", "503", "504", "timeout", "Timeout", "ConnectionError"))
+                if not is_transient or attempt == MAX_RETRIES - 1:
+                    raise
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                log.warning(
+                    "subgraph.retry",
+                    attempt=attempt + 1,
+                    delay_s=f"{delay:.1f}",
+                    error=err_str[:120],
+                )
+                await asyncio.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
 
     async def recover(self, from_timestamp: int) -> int:
         """Run recovery from a given Unix timestamp until caught up.
@@ -125,20 +150,22 @@ class SubgraphPoller:
                 prev_cursor_ts = int(cursor_ts)
 
                 if cursor_id:
-                    result = await client.execute(
+                    result = await self._execute_with_retry(
+                        client,
                         QUERY_STICKY,
-                        variable_values={
+                        {
                             "timestamp": cursor_ts,
                             "id_gt": cursor_id,
-                            "first": BATCH_SIZE,
+                            "first": self._batch_size,
                         },
                     )
                 else:
-                    result = await client.execute(
+                    result = await self._execute_with_retry(
+                        client,
                         QUERY_TEMPLATE,
-                        variable_values={
+                        {
                             "timestamp_gt": cursor_ts,
-                            "first": BATCH_SIZE,
+                            "first": self._batch_size,
                         },
                     )
 
@@ -192,7 +219,7 @@ class SubgraphPoller:
                     eta=eta_str,
                 )
 
-                if len(events) < BATCH_SIZE:
+                if len(events) < self._batch_size:
                     break
 
             total_wall = time.monotonic() - recovery_start

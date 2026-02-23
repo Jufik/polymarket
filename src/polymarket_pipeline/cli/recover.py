@@ -61,6 +61,7 @@ async def run_recovery(
     *,
     from_timestamp: int | None = None,
     from_parquet: str | None = None,
+    batch_size: int = 500,
 ) -> None:
     """Run subgraph recovery from the given starting point."""
     from polymarket_pipeline.live.settings import Settings
@@ -120,6 +121,7 @@ async def run_recovery(
             token_market_map=token_map,
             topic="trades.raw",
             status_topic="pipeline.status",
+            batch_size=batch_size,
         )
         total = await poller.recover(from_timestamp=start_ts)
 
@@ -142,6 +144,12 @@ def main() -> None:
         default=None,
         help="Parquet directory to scan for latest timestamp",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=500,
+        help="Goldsky subgraph query batch size (default: 500)",
+    )
     args = parser.parse_args()
 
     structlog.configure(processors=[structlog.dev.ConsoleRenderer()])
@@ -150,6 +158,7 @@ def main() -> None:
         run_recovery(
             from_timestamp=args.from_timestamp,
             from_parquet=args.from_parquet,
+            batch_size=args.batch_size,
         )
     )
 
