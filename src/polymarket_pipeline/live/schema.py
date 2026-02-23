@@ -1,5 +1,7 @@
 """ClickHouse DDL for Kafka engine integration with Redpanda."""
 
+from __future__ import annotations
+
 TRADES_KAFKA_TABLE = """
 CREATE TABLE IF NOT EXISTS trades_kafka (
     trade_id        String,
@@ -61,6 +63,48 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS trades_kafka_mv TO trades_raw AS
 SELECT * FROM trades_kafka
 """
 
+ORDERBOOK_SNAPSHOTS_TABLE = """
+CREATE TABLE IF NOT EXISTS orderbook_snapshots (
+    condition_id    String,
+    asset_id        String,
+    best_bid        Float64,
+    best_ask        Float64,
+    timestamp       DateTime64(3, 'UTC'),
+    ingested_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
+) ENGINE = ReplacingMergeTree(timestamp)
+ORDER BY (condition_id, timestamp)
+PARTITION BY toYYYYMMDD(timestamp)
+TTL toDateTime(timestamp) + INTERVAL 7 DAY
+"""
+
+ORDERBOOK_KAFKA_TABLE = """
+CREATE TABLE IF NOT EXISTS orderbook_kafka (
+    condition_id    String,
+    asset_id        String,
+    best_bid        Float64,
+    best_ask        Float64,
+    timestamp       Float64
+) ENGINE = Kafka
+SETTINGS
+    kafka_broker_list = '{broker_list}',
+    kafka_topic_list = 'orderbooks.raw',
+    kafka_group_name = 'clickhouse-orderbook',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 2,
+    date_time_input_format = 'best_effort'
+"""
+
+ORDERBOOK_KAFKA_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS orderbook_kafka_mv TO orderbook_snapshots AS
+SELECT
+    condition_id,
+    asset_id,
+    best_bid,
+    best_ask,
+    toDateTime64(timestamp, 3, 'UTC') AS timestamp
+FROM orderbook_kafka
+"""
+
 
 def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> None:
     """Create all Kafka engine tables and materialized views.
@@ -72,3 +116,8 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
     clickhouse.execute(TRADES_RAW_TABLE)  # type: ignore[attr-defined]
     clickhouse.execute(TRADES_KAFKA_TABLE.format(broker_list=broker_list))  # type: ignore[attr-defined]
     clickhouse.execute(TRADES_KAFKA_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(ORDERBOOK_SNAPSHOTS_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(  # type: ignore[attr-defined]
+        ORDERBOOK_KAFKA_TABLE.format(broker_list=broker_list)
+    )
+    clickhouse.execute(ORDERBOOK_KAFKA_MV)  # type: ignore[attr-defined]

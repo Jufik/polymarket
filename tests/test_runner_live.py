@@ -232,3 +232,86 @@ async def test_initialize_calls_provider_compute(
 
     await runner.initialize()
     assert provider.compute_calls == 1
+
+
+async def test_position_updated_after_fill(ctx: InMemoryContext) -> None:
+    """After a fill, position should be updated in context."""
+    executor = SimulatedExecutor()
+    gateway = ExecutionGateway(executor=executor)
+    strategy = RecordingStrategy(emit=True)
+
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    await runner._handle_trade(_trade())
+
+    pos = await ctx.get_position("0xcond")
+    assert pos is not None
+    assert pos.condition_id == "0xcond"
+    assert pos.qty_yes > 0
+
+
+async def test_risk_gate_blocks_in_live(ctx: InMemoryContext) -> None:
+    """Risk gate should block intents exceeding capital."""
+    executor = SimulatedExecutor()
+    gateway = ExecutionGateway(executor=executor)
+    strategy = RecordingStrategy(emit=True)
+
+    tight_cfg = StrategyConfig(
+        enabled=True,
+        mode=ExecutionMode.PAPER_DEV,
+        capital_usd=15.0,  # Allows first 10 USD trade but blocks second
+        max_position_usd=15.0,
+        max_open_positions=10,
+        cooldown_s=0,
+    )
+
+    runner = LiveRunner(
+        strategies=[(strategy, tight_cfg)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    # First trade should succeed (10 USD intent, but cost_basis initially 0)
+    await runner._handle_trade(_trade(ts=1000))
+    assert runner._intents_submitted == 1
+
+    # Second trade should be blocked by risk gate
+    await runner._handle_trade(_trade(ts=1001))
+    # Still only 1 intent submitted (second was blocked)
+    assert runner._intents_submitted == 1
+
+
+async def test_handle_orderbook_updates_context(ctx: InMemoryContext) -> None:
+    """handle_orderbook should store OrderbookSnapshot in context."""
+    executor = SimulatedExecutor()
+    gateway = ExecutionGateway(executor=executor)
+
+    runner = LiveRunner(
+        strategies=[],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    runner.handle_orderbook(
+        {
+            "condition_id": "0xcond",
+            "best_bid": 0.55,
+            "best_ask": 0.58,
+            "timestamp": 1000.0,
+        }
+    )
+
+    ob = await ctx.get_orderbook("0xcond")
+    assert ob is not None
+    assert ob.best_bid == 0.55
+    assert ob.best_ask == 0.58
