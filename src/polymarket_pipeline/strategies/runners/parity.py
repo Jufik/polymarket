@@ -34,9 +34,7 @@ class ParityStrategy(Protocol):
         self, trade: NormalizedTrade, ctx: StrategyContext
     ) -> list[TradeIntent] | None: ...
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame: ...
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame: ...
 
 
 @dataclass

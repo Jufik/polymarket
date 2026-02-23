@@ -46,6 +46,9 @@ class DummyContext:
     async def now(self) -> float:
         return 0.0
 
+    async def get_features(self, key: str) -> Any:
+        return None
+
 
 class DummyStrategy:
     """Minimal class satisfying Strategy protocol."""
@@ -263,3 +266,83 @@ class TestExecutor:
         )
         result = await ex.execute(intent)
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# FeatureBackend protocol
+# ---------------------------------------------------------------------------
+
+
+class _StubBackend:
+    async def query_trades(
+        self, condition_ids: list[str] | None = None
+    ) -> pl.DataFrame:
+        return pl.DataFrame()
+
+    async def query_markets(self) -> pl.DataFrame:
+        return pl.DataFrame()
+
+    async def query_custom(self, query: str, **params: Any) -> pl.DataFrame:
+        return pl.DataFrame()
+
+
+async def test_stub_backend_satisfies_feature_backend_protocol() -> None:
+    from polymarket_pipeline.strategies.protocol import FeatureBackend
+
+    assert isinstance(_StubBackend(), FeatureBackend)
+
+
+# ---------------------------------------------------------------------------
+# FeatureProvider protocol
+# ---------------------------------------------------------------------------
+
+
+class _StubProvider:
+    name = "stub"
+
+    async def compute(self, backend: Any) -> None:
+        pass
+
+    async def on_trade(self, trade: Any) -> None:
+        pass
+
+    async def refresh(self, backend: Any) -> None:
+        pass
+
+    def get_features(self) -> dict[str, Any]:
+        return {}
+
+
+async def test_stub_provider_satisfies_feature_provider_protocol() -> None:
+    from polymarket_pipeline.strategies.protocol import FeatureProvider
+
+    assert isinstance(_StubProvider(), FeatureProvider)
+
+
+# ---------------------------------------------------------------------------
+# StrategyContext.get_features
+# ---------------------------------------------------------------------------
+
+
+class _CtxWithFeatures:
+    async def get_position(self, condition_id: str) -> None:
+        return None
+
+    async def get_market(self, condition_id: str) -> None:
+        return None
+
+    async def get_orderbook(self, condition_id: str) -> None:
+        return None
+
+    async def get_price(self, condition_id: str, outcome: str) -> float | None:
+        return None
+
+    async def now(self) -> float:
+        return 0.0
+
+    async def get_features(self, key: str) -> Any:
+        return None
+
+
+async def test_ctx_with_get_features_satisfies_protocol() -> None:
+    assert isinstance(_CtxWithFeatures(), StrategyContext)

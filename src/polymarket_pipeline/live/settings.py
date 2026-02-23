@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     mempool_enabled: bool = False
     mempool_listen_port: int = 30304
 
+    # Pending block poller (free RPC, ~1-2s early trade detection)
+    pending_block_enabled: bool = False
+    pending_block_rpc_ws_url: str = "wss://polygon.drpc.org"
+    pending_block_poll_interval_s: float = 0.5
+
     # Batching (ClickHouse consumer)
     ch_batch_size: int = 100
     ch_flush_interval_s: float = 1.0

@@ -114,15 +114,11 @@ class ConsensusCopyStrategy:
         )
         return [intent]
 
-    async def on_market_update(
-        self, update: Any, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_market_update(self, update: Any, ctx: StrategyContext) -> list[TradeIntent] | None:
         """Not used by consensus-copy."""
         return None
 
-    async def on_timer(
-        self, now: float, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_timer(self, now: float, ctx: StrategyContext) -> list[TradeIntent] | None:
         """Not used by consensus-copy."""
         return None
 
@@ -130,9 +126,7 @@ class ConsensusCopyStrategy:
     # Vectorized path
     # ------------------------------------------------------------------
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         """Compute consensus-copy signals over historical trade data.
 
         Returns a DataFrame with columns:

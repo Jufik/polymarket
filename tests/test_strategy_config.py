@@ -8,7 +8,11 @@ from typing import Any
 
 import pytest
 
-from polymarket_pipeline.strategies.config import StrategyConfig, load_strategy_configs
+from polymarket_pipeline.strategies.config import (
+    StrategyConfig,
+    load_provider_configs,
+    load_strategy_configs,
+)
 from polymarket_pipeline.strategies.registry import StrategyRegistry
 from polymarket_pipeline.strategies.types import ExecutionMode
 
@@ -182,3 +186,82 @@ class TestStrategyRegistry:
         registry.register("alpha", _DummyStrategy)
         registry.register("beta", _DummyStrategy)
         assert sorted(registry.list_registered()) == ["alpha", "beta"]
+
+
+# ---------------------------------------------------------------------------
+# ProviderConfig
+# ---------------------------------------------------------------------------
+
+
+def test_load_provider_configs(tmp_path: Path) -> None:
+    config_file = tmp_path / "test.toml"
+    config_file.write_text("""
+[provider.skilled_traders]
+enabled = true
+refresh_interval_s = 900
+[provider.skilled_traders.params]
+min_trades = 50
+min_pnl = 100.0
+
+[provider.disabled_one]
+enabled = false
+refresh_interval_s = 60
+""")
+    configs = load_provider_configs(config_file)
+    assert "skilled_traders" in configs
+    assert "disabled_one" in configs
+    assert configs["skilled_traders"].enabled is True
+    assert configs["skilled_traders"].refresh_interval_s == 900.0
+    assert configs["skilled_traders"].params == {"min_trades": 50, "min_pnl": 100.0}
+
+
+def test_load_provider_configs_enabled_only(tmp_path: Path) -> None:
+    config_file = tmp_path / "test.toml"
+    config_file.write_text("""
+[provider.active]
+enabled = true
+refresh_interval_s = 300
+
+[provider.inactive]
+enabled = false
+refresh_interval_s = 600
+""")
+    configs = load_provider_configs(config_file, enabled_only=True)
+    assert "active" in configs
+    assert "inactive" not in configs
+
+
+# ---------------------------------------------------------------------------
+# Strategy features field
+# ---------------------------------------------------------------------------
+
+
+def test_strategy_config_with_features(tmp_path: Path) -> None:
+    config_file = tmp_path / "test.toml"
+    config_file.write_text("""
+[strategy.my_strat]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000.0
+max_position_usd = 100.0
+max_open_positions = 10
+cooldown_s = 300
+features = ["skilled_traders", "mvf_bands"]
+""")
+    configs = load_strategy_configs(config_file)
+    assert configs["my_strat"].features == ["skilled_traders", "mvf_bands"]
+
+
+def test_strategy_config_features_defaults_empty(tmp_path: Path) -> None:
+    config_file = tmp_path / "test.toml"
+    config_file.write_text("""
+[strategy.basic]
+enabled = true
+mode = "replay"
+capital_usd = 500.0
+max_position_usd = 50.0
+max_open_positions = 5
+cooldown_s = 60
+""")
+    configs = load_strategy_configs(config_file)
+    assert configs["basic"].features == []
