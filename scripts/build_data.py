@@ -32,13 +32,15 @@ import structlog
 
 log = structlog.get_logger()
 
-DATA_DIR = Path("data")
+import os
+
+DATA_DIR = Path(os.environ.get("PM_DATA_DIR", "data"))
 METADATA_DIR = DATA_DIR / "metadata"
 COMPACT_DIR = DATA_DIR / "compact"
 DERIVED_DIR = DATA_DIR / "derived"
 
-RAW_PARQUET_DIR = Path("order_filled")
-OLD_COMPACT_DIR = Path("order_filled_compact")
+RAW_PARQUET_DIR = Path(os.environ.get("PM_RAW_PARQUET_DIR", "order_filled"))
+OLD_COMPACT_DIR = Path(os.environ.get("PM_OLD_COMPACT_DIR", "order_filled_compact"))
 
 FETCH_META_PATH = METADATA_DIR / "_fetch_meta.json"
 FRESHNESS_HOURS = 24
