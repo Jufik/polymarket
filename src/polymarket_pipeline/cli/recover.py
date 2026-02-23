@@ -1,19 +1,20 @@
-"""Subgraph recovery CLI — fills gaps from Parquet end or ClickHouse max to now.
+"""Subgraph recovery CLI — fills gaps from ClickHouse max timestamp to now.
 
-Finds the latest trade timestamp from either ClickHouse (if backfill was done)
-or the Parquet files, then uses the Goldsky Subgraph to recover all trades
-from that point to now. Publishes to Redpanda trades.raw topic.
+Default behavior (no args): queries ClickHouse for the latest trade, then
+uses the Goldsky Subgraph to recover all trades from that point to now.
+Publishes to Redpanda trades.raw topic.
 
 Usage:
-    uv run python -m polymarket_pipeline.cli.recover
-    uv run python -m polymarket_pipeline.cli.recover --from-timestamp 1771249303
-    uv run python -m polymarket_pipeline.cli.recover --from-parquet order_filled/
+    pm-recover                                      # auto-detect from ClickHouse
+    pm-recover --from-timestamp 1771249303          # explicit start
+    pm-recover --from-parquet order_filled/         # scan Parquet for max ts
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import time
 from pathlib import Path
 
 import structlog
@@ -30,7 +31,6 @@ def _max_timestamp_from_parquet(parquet_dir: str) -> int | None:
         log.warning("no_parquet_files", dir=parquet_dir)
         return None
 
-    # Last file by name typically has the latest data
     pf = fastparquet.ParquetFile(str(files[-1]))
     df = pf.to_pandas(columns=["timestamp"])
     max_ts = int(df["timestamp"].max())
@@ -44,8 +44,8 @@ def _max_timestamp_from_clickhouse(ch_host: str, ch_port: int, ch_db: str) -> in
 
     ch = ClickHouseSink(host=ch_host, port=ch_port, database=ch_db)
     try:
-        result = ch.execute("SELECT max(timestamp) FROM trades_raw")
-        val = result[0][0] if result and result[0][0] else None
+        rows = ch.query("SELECT max(timestamp) AS max_ts FROM trades_raw")
+        val = rows[0]["max_ts"] if rows else None
     except Exception:
         return None
 
@@ -64,30 +64,35 @@ async def run_recovery(
 ) -> None:
     """Run subgraph recovery from the given starting point."""
     from polymarket_pipeline.live.settings import Settings
+    from polymarket_pipeline.settings import PipelineSettings
 
     settings = Settings()
+    pipeline = PipelineSettings()
 
     # Determine starting timestamp
     if from_timestamp is not None:
         start_ts = from_timestamp
+        log.info("recovery.source", source="cli_flag", timestamp=start_ts)
     elif from_parquet:
         start_ts = _max_timestamp_from_parquet(from_parquet)
         if start_ts is None:
             log.error("could_not_determine_start_timestamp")
             return
+        log.info("recovery.source", source="parquet", timestamp=start_ts)
     else:
-        # Try ClickHouse first, fall back to Parquet
+        # Default: ClickHouse
         start_ts = _max_timestamp_from_clickhouse(
-            settings.ch_host, settings.ch_port, settings.ch_database
+            pipeline.ch_host, pipeline.ch_port, pipeline.ch_database
         )
-        if start_ts is None:
-            # Try default Parquet dir
-            start_ts = _max_timestamp_from_parquet("order_filled")
-        if start_ts is None:
-            log.error("no_starting_point", hint="Use --from-timestamp or --from-parquet")
+        if start_ts is not None:
+            log.info("recovery.source", source="clickhouse", timestamp=start_ts)
+        else:
+            log.error(
+                "no_starting_point",
+                hint="No trades in ClickHouse. Use --from-timestamp or --from-parquet",
+            )
             return
 
-    import time
     gap_s = int(time.time()) - start_ts
     log.info(
         "recovery.starting",
@@ -135,7 +140,7 @@ def main() -> None:
         "--from-parquet",
         type=str,
         default=None,
-        help="Parquet directory to scan for latest timestamp (default: tries ClickHouse, then order_filled/)",
+        help="Parquet directory to scan for latest timestamp",
     )
     args = parser.parse_args()
 
