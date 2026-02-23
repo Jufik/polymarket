@@ -174,3 +174,53 @@ async def test_get_orderbook_returns_none_even_with_market_set(
     ctx.set_market("0xabc", sample_market)
     result = await ctx.get_orderbook("0xabc")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# get_features / update_features
+# ---------------------------------------------------------------------------
+
+
+async def test_get_features_returns_none_when_empty(ctx: InMemoryContext) -> None:
+    result = await ctx.get_features("skilled_traders")
+    assert result is None
+
+
+async def test_update_features_then_get(ctx: InMemoryContext) -> None:
+    ctx.update_features({"skilled_traders": frozenset({"0xalice", "0xbob"})})
+    result = await ctx.get_features("skilled_traders")
+    assert result == frozenset({"0xalice", "0xbob"})
+
+
+async def test_update_features_merges(ctx: InMemoryContext) -> None:
+    ctx.update_features({"a": 1})
+    ctx.update_features({"b": 2})
+    assert await ctx.get_features("a") == 1
+    assert await ctx.get_features("b") == 2
+
+
+async def test_update_features_overwrites(ctx: InMemoryContext) -> None:
+    ctx.update_features({"a": 1})
+    ctx.update_features({"a": 99})
+    assert await ctx.get_features("a") == 99
+
+
+# ---------------------------------------------------------------------------
+# set_orderbook / get_orderbook with actual data
+# ---------------------------------------------------------------------------
+
+
+async def test_get_orderbook_returns_snapshot_after_set(ctx: InMemoryContext) -> None:
+    from polymarket_pipeline.strategies.types import OrderbookSnapshot
+
+    ob = OrderbookSnapshot(
+        condition_id="0xabc",
+        best_bid=0.58,
+        best_ask=0.62,
+        bid_depth=1000.0,
+        ask_depth=500.0,
+        timestamp=1_700_000_000.0,
+    )
+    ctx.set_orderbook("0xabc", ob)
+    result = await ctx.get_orderbook("0xabc")
+    assert result is ob

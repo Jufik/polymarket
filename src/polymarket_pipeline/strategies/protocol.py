@@ -55,6 +55,10 @@ class StrategyContext(Protocol):
         """Return the current timestamp (epoch seconds)."""
         ...
 
+    async def get_features(self, key: str) -> Any:
+        """Return a feature value by *key*, or ``None``."""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Strategy — event-driven (live / replay) strategy interface
@@ -77,15 +81,11 @@ class Strategy(Protocol):
         """React to a new trade arriving on the feed."""
         ...
 
-    async def on_market_update(
-        self, update: Any, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_market_update(self, update: Any, ctx: StrategyContext) -> list[TradeIntent] | None:
         """React to a market-level update (price change, metadata, etc.)."""
         ...
 
-    async def on_timer(
-        self, now: float, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_timer(self, now: float, ctx: StrategyContext) -> list[TradeIntent] | None:
         """Periodic callback fired by the runner's timer loop."""
         ...
 
@@ -102,9 +102,7 @@ class VectorizedStrategy(Protocol):
     Operates on full Polars DataFrames rather than individual events.
     """
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         """Compute strategy signals over the provided frames.
 
         Returns a DataFrame with at minimum a ``signal`` column.
@@ -123,4 +121,58 @@ class Executor(Protocol):
 
     async def execute(self, intent: TradeIntent) -> Any:
         """Submit *intent* and return execution details."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# FeatureBackend — data access layer for feature providers
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class FeatureBackend(Protocol):
+    """Abstraction over Polars (backtest) vs ClickHouse (live) for batch queries."""
+
+    async def query_trades(self, condition_ids: list[str] | None = None) -> pl.DataFrame:
+        """Return trades, optionally filtered by condition IDs."""
+        ...
+
+    async def query_markets(self) -> pl.DataFrame:
+        """Return market metadata."""
+        ...
+
+    async def query_custom(self, query: str, **params: Any) -> pl.DataFrame:
+        """Run an arbitrary query (SQL for CH, Polars expression for in-memory)."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# FeatureProvider — independent feature computation unit
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class FeatureProvider(Protocol):
+    """Independent computation that feeds features into StrategyContext.
+
+    Lifecycle: compute() at startup, on_trade() per event (hot path),
+    refresh() periodically for expensive recomputation.
+    """
+
+    name: str
+
+    async def compute(self, backend: FeatureBackend) -> None:
+        """Batch compute features at startup."""
+        ...
+
+    async def on_trade(self, trade: NormalizedTrade) -> None:
+        """O(1) streaming update — hot path, in-memory only."""
+        ...
+
+    async def refresh(self, backend: FeatureBackend) -> None:
+        """Periodic expensive recomputation (e.g. every 15 min)."""
+        ...
+
+    def get_features(self) -> dict[str, Any]:
+        """Return current feature values for context injection."""
         ...

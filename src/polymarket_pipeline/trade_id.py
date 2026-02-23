@@ -29,3 +29,14 @@ def make_trade_id_ws(
     raw = f"{asset_id}:{timestamp_ms}:{price}:{size}"
     digest = sha256(raw.encode()).hexdigest()[:16]
     return f"ws:{digest}"
+
+
+def make_trade_id_pending(*, tx_hash: str, index: int) -> str:
+    """Generate trade_id for pending block trades.
+
+    Uses tx_hash + fill index. These are early signals (version=0) that
+    get overwritten by on-chain records (version=2) in ClickHouse.
+    """
+    raw = f"{tx_hash}:{index}"
+    digest = sha256(raw.encode()).hexdigest()[:16]
+    return f"pending:{digest}"
