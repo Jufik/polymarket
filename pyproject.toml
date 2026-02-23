@@ -33,6 +33,11 @@ live = [
     "uvicorn>=0.30",
     "polymarket-mempool",
 ]
+strategy = [
+    "polars>=1.15.0",
+    "pydantic>=2.0",
+    "structlog>=24.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -41,7 +46,7 @@ dev = [
     "polyfactory>=2.0",
 ]
 all = [
-    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,live,dev]",
+    "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,live,strategy,dev]",
 ]
 
 [tool.pytest.ini_options]

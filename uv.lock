@@ -2687,11 +2687,13 @@ all = [
     { name = "polyfactory" },
     { name = "polymarket-mempool" },
     { name = "pyarrow" },
+    { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "rich" },
     { name = "ruff" },
+    { name = "structlog" },
     { name = "typer" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -2738,6 +2740,11 @@ sink = [
     { name = "fastparquet" },
     { name = "pandas" },
 ]
+strategy = [
+    { name = "polars" },
+    { name = "pydantic" },
+    { name = "structlog" },
+]
 websocket = [
     { name = "websockets" },
 ]
@@ -2760,23 +2767,26 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'sink'", specifier = ">=2.0" },
     { name = "polars", marker = "extra == 'compact'", specifier = ">=1.15.0" },
     { name = "polars", marker = "extra == 'exploration'", specifier = ">=1.15.0" },
+    { name = "polars", marker = "extra == 'strategy'", specifier = ">=1.15.0" },
     { name = "polyfactory", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "polymarket-mempool", marker = "extra == 'live'", editable = "crates/polymarket-mempool" },
-    { name = "polymarket-pipeline", extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "dev"], marker = "extra == 'all'" },
+    { name = "polymarket-pipeline", extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "strategy", "dev"], marker = "extra == 'all'" },
     { name = "pyarrow", marker = "extra == 'compact'", specifier = ">=14.0" },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "pydantic", marker = "extra == 'strategy'", specifier = ">=2.0" },
     { name = "pydantic-settings", marker = "extra == 'live'", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "rich", marker = "extra == 'exploration'", specifier = ">=13.9.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "structlog", specifier = ">=24.0" },
+    { name = "structlog", marker = "extra == 'strategy'", specifier = ">=24.0" },
     { name = "typer", marker = "extra == 'exploration'", specifier = ">=0.14.0" },
     { name = "uvicorn", marker = "extra == 'live'", specifier = ">=0.30" },
     { name = "websockets", marker = "extra == 'live'", specifier = ">=13.0" },
     { name = "websockets", marker = "extra == 'websocket'", specifier = ">=13.0" },
 ]
-provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "dev", "all"]
+provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "strategy", "dev", "all"]
 
 [[package]]
 name = "prettytable"
