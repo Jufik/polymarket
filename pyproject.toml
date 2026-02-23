@@ -31,6 +31,7 @@ live = [
     "gql[aiohttp]>=3.5",
     "pydantic-settings>=2.0",
     "uvicorn>=0.30",
+    "polymarket-mempool",
 ]
 dev = [
     "pytest>=8.0",
@@ -63,6 +64,9 @@ pm-explore = "polymarket_pipeline.cli.explore:app"
 pm-live = "polymarket_pipeline.cli.live:main"
 pm-recover = "polymarket_pipeline.cli.recover:main"
 pm-backfill = "polymarket_pipeline.cli.backfill:main"
+
+[tool.uv.sources]
+polymarket-mempool = { path = "crates/polymarket-mempool", editable = true }
 
 [build-system]
 requires = ["hatchling"]

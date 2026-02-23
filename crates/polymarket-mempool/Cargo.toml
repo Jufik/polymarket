@@ -1,0 +1,54 @@
+[package]
+name = "polymarket-mempool"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "polymarket_mempool"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 bridge
+pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3-async-runtimes = { version = "0.28", features = ["tokio-runtime"] }
+
+# Reth networking
+reth-ethereum = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0", features = ["network"] }
+reth-discv4 = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-network = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-network-peers = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-network-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-ethereum-forks = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-storage-api = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-dns-discovery = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-network-types = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-eth-wire-types = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+reth-network-p2p = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.0" }
+
+# Alloy (ABI decoding + genesis + primitives + consensus traits + hardforks)
+alloy = { version = "1.7", features = ["sol-types"] }
+alloy-consensus = { version = "1.7", features = ["std"] }
+alloy-eip2124 = "0.2"
+alloy-genesis = "1.7"
+alloy-hardforks = "0.4"
+alloy-primitives = "1.5"
+
+# Crypto
+secp256k1 = { version = "0.30", features = ["global-context", "std", "recovery"] }
+
+# Runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+pythonize = "0.28"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+eyre = "0.6"
