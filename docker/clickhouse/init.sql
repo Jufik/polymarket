@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS polymarket.markets (
     token_no String,
     neg_risk Bool,
     status String,
+    resolution_value Int16,
+    winner_outcome String,
     created_at Nullable(DateTime('Etc/UTC')),
     closed_at Nullable(DateTime('Etc/UTC')),
     resolved_at Nullable(DateTime('Etc/UTC')),
@@ -104,6 +106,7 @@ ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'markets', 'polymarket', 'pol
 CREATE TABLE IF NOT EXISTS polymarket.token_market_map (
     asset_id String,
     condition_id String,
-    outcome String
+    outcome String,
+    winner Bool
 )
 ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'token_market_map', 'polymarket', 'polymarket');

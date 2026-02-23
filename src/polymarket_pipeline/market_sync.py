@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from base64 import b64decode
 from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 import structlog
@@ -39,12 +40,60 @@ class ClobResolution:
     token_winners: dict[str, bool] = field(default_factory=dict)  # asset_id -> winner
 
 
-async def fetch_clob_resolution() -> dict[str, ClobResolution]:
-    """Fetch all markets from CLOB API and extract resolution data.
+@dataclass
+class ClobMarketRow:
+    """Full market data from CLOB API (superset of ClobResolution)."""
 
-    Returns:
-        Dict mapping condition_id -> ClobResolution.
+    condition_id: str
+    question: str
+    market_slug: str
+    closed: bool
+    active: bool
+    end_date_iso: str
+    neg_risk: bool
+    resolution_value: int
+    winner_outcome: str
+    tags: str  # comma-separated
+
+
+@dataclass
+class ClobTokenRow:
+    """Token entry from CLOB API with token_index."""
+
+    asset_id: str
+    condition_id: str
+    outcome: str
+    winner: bool
+    token_index: int  # 0 = affirmative/"YES" side
+
+
+@dataclass
+class ClobMarketsResult:
+    """Result of fetch_clob_markets() — full CLOB data + resolution."""
+
+    markets: list[ClobMarketRow]
+    tokens: list[ClobTokenRow]
+    resolutions: dict[str, ClobResolution]
+
+
+@dataclass
+class MetadataSyncResult:
+    """Unified result of fetch_all_metadata() — CLOB + Gamma merged."""
+
+    clob: ClobMarketsResult
+    gamma: SyncResult
+    market_rows: list[dict[str, Any]]  # merged rows for parquet
+    token_rows: list[dict[str, Any]]  # token_map rows for parquet
+
+
+async def fetch_clob_markets() -> ClobMarketsResult:
+    """Fetch all markets from CLOB API — full market data, token map, and resolution.
+
+    Returns ClobMarketsResult with market rows, token rows (with token_index),
+    and a resolutions dict for backward-compatible enrichment of Gamma models.
     """
+    market_rows: list[ClobMarketRow] = []
+    token_rows: list[ClobTokenRow] = []
     resolutions: dict[str, ClobResolution] = {}
 
     async with httpx.AsyncClient(timeout=60) as client:
@@ -86,11 +135,37 @@ async def fetch_clob_resolution() -> dict[str, ClobResolution]:
                     resolution_value = 0
                     winner_outcome = ""
 
-                token_winners = {}
-                for t in tokens:
+                market_rows.append(
+                    ClobMarketRow(
+                        condition_id=condition_id,
+                        question=m.get("question", ""),
+                        market_slug=m.get("market_slug", ""),
+                        closed=closed,
+                        active=bool(m.get("active", False)),
+                        end_date_iso=m.get("end_date_iso", ""),
+                        neg_risk=bool(m.get("neg_risk", False)),
+                        resolution_value=resolution_value,
+                        winner_outcome=winner_outcome,
+                        tags=",".join(m.get("tags") or []),
+                    )
+                )
+
+                token_winners: dict[str, bool] = {}
+                for idx, t in enumerate(tokens):
                     token_id = t.get("token_id", "")
-                    if token_id:
-                        token_winners[token_id] = bool(t.get("winner", False))
+                    if not token_id:
+                        continue
+                    is_winner = bool(t.get("winner", False))
+                    token_winners[token_id] = is_winner
+                    token_rows.append(
+                        ClobTokenRow(
+                            asset_id=token_id,
+                            condition_id=condition_id,
+                            outcome=t.get("outcome", ""),
+                            winner=is_winner,
+                            token_index=idx,
+                        )
+                    )
 
                 resolutions[condition_id] = ClobResolution(
                     resolution_value=resolution_value,
@@ -114,13 +189,112 @@ async def fetch_clob_resolution() -> dict[str, ClobResolution]:
 
             if page_num % 20 == 0:
                 log.info(
-                    "clob_resolution_progress",
+                    "clob_fetch_progress",
                     pages=page_num,
-                    markets=len(resolutions),
+                    markets=len(market_rows),
+                    tokens=len(token_rows),
                 )
 
-    log.info("clob_resolution_complete", markets=len(resolutions))
-    return resolutions
+    log.info(
+        "clob_fetch_complete",
+        markets=len(market_rows),
+        tokens=len(token_rows),
+    )
+    return ClobMarketsResult(
+        markets=market_rows,
+        tokens=token_rows,
+        resolutions=resolutions,
+    )
+
+
+async def fetch_all_metadata() -> MetadataSyncResult:
+    """Fetch CLOB ground truth + Gamma supplementary metadata, merge into unified result.
+
+    Returns MetadataSyncResult with:
+    - clob: raw CLOB data (for parquet export)
+    - gamma: SyncResult with Pydantic models (for PG upsert), enriched with CLOB resolution
+    - market_rows: merged dicts for markets.parquet
+    - token_rows: dicts for token_map.parquet
+    """
+    # 1. Fetch CLOB (ground truth for resolution + token_index)
+    log.info("fetching_clob_markets")
+    clob = await fetch_clob_markets()
+
+    # 2. Fetch Gamma (supplementary: event_id, category, closed_at, tags)
+    log.info("fetching_gamma_events")
+    gamma = await fetch_events(fetch_resolution=False)
+
+    # 3. Enrich Gamma models with CLOB resolution
+    gamma.markets = [_enrich_market(m, clob.resolutions.get(m.condition_id)) for m in gamma.markets]
+    gamma.token_entries = [
+        _enrich_token(t, clob.resolutions.get(t.condition_id)) for t in gamma.token_entries
+    ]
+    enriched = sum(1 for m in gamma.markets if m.resolution_value != 0)
+    log.info(
+        "resolution_enrichment_complete",
+        total_markets=len(gamma.markets),
+        enriched=enriched,
+        clob_markets=len(clob.resolutions),
+    )
+
+    # 4. Build token_map rows for parquet (from CLOB — has token_index)
+    token_rows = [
+        {
+            "asset_id": t.asset_id,
+            "condition_id": t.condition_id,
+            "outcome": t.outcome,
+            "winner": t.winner,
+            "token_index": t.token_index,
+        }
+        for t in clob.tokens
+    ]
+
+    # 5. Build merged market rows for parquet (CLOB left-join Gamma)
+    gamma_map: dict[str, Market] = {m.condition_id: m for m in gamma.markets}
+    market_rows: list[dict[str, Any]] = []
+    for cm in clob.markets:
+        gm = gamma_map.get(cm.condition_id)
+        row: dict[str, Any] = {
+            "condition_id": cm.condition_id,
+            "question": cm.question,
+            "market_slug": cm.market_slug,
+            "closed": cm.closed,
+            "active": cm.active,
+            "end_date_iso": cm.end_date_iso,
+            "neg_risk": cm.neg_risk,
+            "resolution_value": cm.resolution_value,
+            "winner_outcome": cm.winner_outcome,
+            "tags": cm.tags,
+            # Gamma supplementary fields
+            "event_id": gm.event_id if gm else None,
+            "slug": gm.slug if gm else None,
+            "category": gm.category if gm else None,
+            "closed_at": gm.closed_at if gm else None,
+        }
+        # resolved_at = closed_at when CLOB says resolved
+        row["resolved_at"] = row["closed_at"] if cm.resolution_value == 1 else None
+        market_rows.append(row)
+
+    log.info(
+        "metadata_merge_complete",
+        clob_markets=len(clob.markets),
+        gamma_markets=len(gamma.markets),
+        merged=len(market_rows),
+        tokens=len(token_rows),
+    )
+
+    return MetadataSyncResult(
+        clob=clob,
+        gamma=gamma,
+        market_rows=market_rows,
+        token_rows=token_rows,
+    )
+
+
+async def fetch_clob_resolution() -> dict[str, ClobResolution]:
+    """Fetch resolution data from CLOB API. Delegates to fetch_clob_markets()."""
+    result = await fetch_clob_markets()
+    return result.resolutions
 
 
 async def fetch_events(
@@ -217,18 +391,15 @@ async def fetch_events(
     # Enrich with CLOB resolution data
     if fetch_resolution:
         resolutions = await fetch_clob_resolution()
-        enriched = 0
 
         # Enrich markets
         result.markets = [
-            _enrich_market(m, resolutions.get(m.condition_id))
-            for m in result.markets
+            _enrich_market(m, resolutions.get(m.condition_id)) for m in result.markets
         ]
 
         # Enrich token entries
         result.token_entries = [
-            _enrich_token(t, resolutions.get(t.condition_id))
-            for t in result.token_entries
+            _enrich_token(t, resolutions.get(t.condition_id)) for t in result.token_entries
         ]
 
         enriched = sum(1 for m in result.markets if m.resolution_value != 0)
@@ -246,10 +417,12 @@ def _enrich_market(market: Market, resolution: ClobResolution | None) -> Market:
     """Create a new Market with resolution data if available."""
     if resolution is None:
         return market
-    return market.model_copy(update={
-        "resolution_value": resolution.resolution_value,
-        "winner_outcome": resolution.winner_outcome,
-    })
+    return market.model_copy(
+        update={
+            "resolution_value": resolution.resolution_value,
+            "winner_outcome": resolution.winner_outcome,
+        }
+    )
 
 
 def _enrich_token(token: TokenMarketEntry, resolution: ClobResolution | None) -> TokenMarketEntry:

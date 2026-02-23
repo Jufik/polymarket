@@ -138,10 +138,7 @@ async def run_backfill(
         initargs=(token_map, ch_sem),
     ) as executor:
         # Submit all files — pass (path_str, batch_size) to minimize pickle cost
-        futures = {
-            executor.submit(_process_file, (str(path), batch_size)): path
-            for path in files
-        }
+        futures = {executor.submit(_process_file, (str(path), batch_size)): path for path in files}
 
         for future in as_completed(futures):
             result = future.result()
@@ -283,10 +280,19 @@ def main() -> None:
     )
 
     if args.compact:
+        from polymarket_pipeline.cli.load import run_load
+        from polymarket_pipeline.settings import PipelineSettings
+
         if not args.compact_dir.exists():
             log.error("compact_dir_not_found", path=str(args.compact_dir))
             sys.exit(1)
-        asyncio.run(run_backfill_compact(args.compact_dir))
+        _settings = PipelineSettings()
+        run_load(
+            compact_dir=args.compact_dir,
+            ch_host=_settings.ch_host,
+            ch_port=_settings.ch_port,
+            ch_database=_settings.ch_database,
+        )
     else:
         if not args.parquet_dir.exists():
             log.error("parquet_dir_not_found", path=str(args.parquet_dir))
