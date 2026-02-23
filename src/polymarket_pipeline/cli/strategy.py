@@ -141,7 +141,12 @@ def _build_runner(
     ctx = InMemoryContext()
     executor = PaperExecutor(ctx=ctx)
     log_path = (log_dir / "intents.jsonl") if log_dir else None
-    gateway = ExecutionGateway(executor=executor, log_path=log_path)
+    # Use delay_s from first strategy's params (if any)
+    delay_s = 0.0
+    if strategies:
+        first_params = strategies[0][1].params
+        delay_s = float(first_params.get("delay_s", 0.0))
+    gateway = ExecutionGateway(executor=executor, log_path=log_path, delay_s=delay_s)
     backend = PolarsBackend(trades=pl.DataFrame(), markets=pl.DataFrame())
 
     return LiveRunner(
@@ -189,6 +194,13 @@ def run(
             data = json.loads(msg)
             trade = NormalizedTrade(**data)
             await runner._handle_trade(trade)
+
+        @broker.subscriber("orderbooks.raw", group_id="strategy-runner")
+        async def handle_orderbook(msg: str) -> None:
+            import json
+
+            data = json.loads(msg)
+            runner.handle_orderbook(data)
 
         await broker.start()
         logger.info(

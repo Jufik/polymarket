@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 from pathlib import Path
@@ -29,14 +30,20 @@ class ExecutionGateway:
         If ``None``, no logging is performed.
     """
 
-    def __init__(self, executor: Executor, log_path: Path | None = None) -> None:
+    def __init__(
+        self, executor: Executor, log_path: Path | None = None, *, delay_s: float = 0.0
+    ) -> None:
         self.executor = executor
         self.log_path = log_path
+        self.delay_s = delay_s
 
     async def submit(self, intent: TradeIntent) -> Fill:
         """Log *intent* (if configured) and delegate to the executor."""
         if self.log_path is not None:
             self._log_intent(intent)
+
+        if self.delay_s > 0:
+            await asyncio.sleep(self.delay_s)
 
         fill: Fill = await self.executor.execute(intent)
 
