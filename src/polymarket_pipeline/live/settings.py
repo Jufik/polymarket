@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     dashboard_refresh_s: int = 5
     dashboard_port: int = 8099
 
+    # Mempool monitor (Rust PyO3 sidecar)
+    mempool_enabled: bool = False
+    mempool_listen_port: int = 30304
+
     # Batching (ClickHouse consumer)
     ch_batch_size: int = 100
     ch_flush_interval_s: float = 1.0
