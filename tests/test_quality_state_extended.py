@@ -31,7 +31,7 @@ def test_degraded_transitions_to_red_after_grace() -> None:
     assert state.current == PipelineState.DEGRADED
 
     # Simulate time passing beyond grace period
-    with patch("polymarket_pipeline.live.quality.state.time") as mock_time:
+    with patch("polymarket_pipeline.quality.state.time") as mock_time:
         start = time.monotonic()
         mock_time.monotonic.return_value = start + 2.0
         state._degraded_since = start

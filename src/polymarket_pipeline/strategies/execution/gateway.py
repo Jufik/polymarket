@@ -13,7 +13,7 @@ import structlog
 if TYPE_CHECKING:
     from polymarket_pipeline.strategies.types import Fill, TradeIntent
 
-from polymarket_pipeline.live.quality.state import PipelineState, ReadinessState
+from polymarket_pipeline.quality.state import PipelineState, ReadinessState
 from polymarket_pipeline.strategies.protocol import Executor
 from polymarket_pipeline.strategies.types import FillStatus
 
