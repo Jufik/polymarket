@@ -14,8 +14,8 @@ from typing import Any
 import structlog
 import websockets
 
-from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.ingestors._publish import safe_publish
+from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
 
 log = structlog.get_logger()
@@ -26,12 +26,13 @@ NEGRISK_EXCHANGE = "0xc5d563a36ae78145c45a50134d48a1215220f80a"
 
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-HEARTBEAT_INTERVAL = 10.0
 _QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 
 
-class AlchemyIngestor:
+class AlchemyIngestor(BaseIngestor):
     """Subscribes to Polygon OrderFilled logs via Alchemy WebSocket."""
+
+    source_name = "alchemy"
 
     def __init__(
         self,
@@ -41,16 +42,11 @@ class AlchemyIngestor:
         status_topic: str = "pipeline.status",
         token_market_map: dict[str, tuple[str, str]] | None = None,
     ) -> None:
-        self._broker = broker
+        super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._ws_url = ws_url
-        self._topic = topic
-        self._status_topic = status_topic
         self._normalizer = PolygonRPCNormalizer(token_market_map=token_market_map)
         self._last_block: int = 0
-        self._trade_count: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
-        self._circuit_breaker = CircuitBreaker()
-        self._drops_queue_full: int = 0
         self._drops_taker_dedup: int = 0
 
     async def _handle_message(self, raw: str) -> None:
@@ -119,33 +115,12 @@ class AlchemyIngestor:
                 circuit_breaker=self._circuit_breaker,
             )
 
-    async def _publish_heartbeat(self) -> None:
-        """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps(
-            {
-                "source": "alchemy",
-                "event": "heartbeat",
-                "last_block": self._last_block,
-                "trade_count": self._trade_count,
-                "drops_queue_full": self._drops_queue_full,
-                "drops_taker_dedup": self._drops_taker_dedup,
-                "ts": time.time(),
-            }
-        )
-        await safe_publish(
-            self._broker,
-            message=heartbeat,
-            topic=self._status_topic,
-            key=b"alchemy",
-            source="alchemy",
-            circuit_breaker=self._circuit_breaker,
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        """Publish heartbeat every HEARTBEAT_INTERVAL seconds."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            await self._publish_heartbeat()
+    def _heartbeat_fields(self) -> dict[str, Any]:
+        """Alchemy-specific heartbeat fields."""
+        return {
+            "last_block": self._last_block,
+            "drops_taker_dedup": self._drops_taker_dedup,
+        }
 
     async def run(self) -> None:
         """Run the Alchemy ingestor with auto-reconnect."""
