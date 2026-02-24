@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import time
@@ -189,6 +190,16 @@ def _query_chart_data(checker: QualityChecker) -> dict[str, Any]:
         log.warning("dashboard.waterfall_query_failed", error=str(exc))
 
     return chart
+
+
+async def _query_gap_metrics_async(checker: QualityChecker) -> dict[str, Any]:
+    """Async wrapper: run sync gap metrics query in a thread."""
+    return await asyncio.to_thread(_query_gap_metrics, checker)
+
+
+async def _query_chart_data_async(checker: QualityChecker) -> dict[str, Any]:
+    """Async wrapper: run sync chart data query in a thread."""
+    return await asyncio.to_thread(_query_chart_data, checker)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -423,17 +434,19 @@ def _build_waterfall_chart_js(chart_data: dict[str, Any]) -> str:
 # ── HTML builder ─────────────────────────────────────────────────────────
 
 
-def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
+async def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
     """Build the full HTML dashboard page."""
-    checker.run_all_checks()
+    await checker.run_all_checks()
 
     now = time.time()
     state = checker.state
     state_val = state.current.value
     results = state.last_results
     heartbeats = checker.heartbeats
-    gap = _query_gap_metrics(checker)
-    chart_data = _query_chart_data(checker)
+    gap, chart_data = await asyncio.gather(
+        _query_gap_metrics_async(checker),
+        _query_chart_data_async(checker),
+    )
     tps_js = _build_tps_chart_js(chart_data)
     waterfall_js = _build_waterfall_chart_js(chart_data)
 
@@ -584,7 +597,7 @@ def make_dashboard_route(checker: QualityChecker, refresh_s: int = 5) -> Any:
     """Create an ASGI app that serves the dashboard HTML."""
 
     async def _handle(scope: Any, receive: Any, send: Any) -> None:
-        html = build_dashboard_html(checker, refresh_s=refresh_s)
+        html = await build_dashboard_html(checker, refresh_s=refresh_s)
         response = AsgiResponse(
             body=html.encode(),
             status_code=200,
