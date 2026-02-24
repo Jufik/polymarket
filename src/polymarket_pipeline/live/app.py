@@ -45,7 +45,7 @@ async def _health_ready(scope: Any, receive: Any, send: Any) -> None:
     """Readiness: 200 if pipeline state is READY, 503 otherwise."""
     from faststream.asgi import AsgiResponse
 
-    if _quality_checker and _quality_checker.state.current.value == "ready":
+    if _quality_checker and _quality_checker.state.current == PipelineState.READY:
         body = b'{"status":"ready"}'
         code = 200
     else:
@@ -126,6 +126,18 @@ async def _auto_protect() -> None:
                 log.error("auto_protect.some_failures", failed=failed)
         except Exception:
             log.exception("auto_protect.error")
+
+
+async def _periodic_quality_check() -> None:
+    """Run quality checks periodically (independent of caught_up events)."""
+    await asyncio.sleep(settings.quality_check_interval_s)  # initial delay
+    while True:
+        if _quality_checker is not None:
+            _quality_checker.run_all_checks()
+            state = _quality_checker.state.current
+            if state == PipelineState.RED:
+                await _auto_protect()
+        await asyncio.sleep(settings.quality_check_interval_s)
 
 
 async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
@@ -216,6 +228,9 @@ async def on_startup(context: ContextRepo) -> None:
     ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
     _quality_checker = QualityChecker(settings=settings, clickhouse=ch)
     context.set_global("quality_checker", _quality_checker)
+
+    # Periodic quality check (detects silent ingestor failures)
+    _ingestor_tasks.append(asyncio.create_task(_periodic_quality_check()))
 
     # Launch ingestors as background tasks
     rtds = RTDSIngestor(
