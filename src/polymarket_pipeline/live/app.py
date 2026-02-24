@@ -54,6 +54,20 @@ async def _load_token_map() -> dict[str, tuple[str, str]]:
 
 async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
     """Check for gaps and run subgraph recovery if needed."""
+    # Check if pm-recover already has an active job — don't interfere
+    from polymarket_pipeline.sinks.postgres import PostgresSink
+
+    async with PostgresSink(dsn=settings.pg_dsn) as pg:
+        active_job = await pg.get_active_recovery_job()
+    if active_job is not None and active_job["status"] == "running":
+        log.warning(
+            "recovery.skipped",
+            reason="active recovery job in progress",
+            job_id=active_job["id"],
+            cursor_ts=active_job["cursor_ts"],
+        )
+        return
+
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
     ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
@@ -118,7 +132,13 @@ async def on_startup(context: ContextRepo) -> None:
     context.set_global("quality_checker", _quality_checker)
 
     # Launch ingestors as background tasks
-    rtds = RTDSIngestor(broker=broker, topic="trades.raw", status_topic="pipeline.status")
+    rtds = RTDSIngestor(
+        broker=broker,
+        topic="trades.raw",
+        status_topic="pipeline.status",
+        pool_size=settings.rtds_pool_size,
+        rotation_interval_s=settings.rtds_rotation_interval_s,
+    )
     alchemy = AlchemyIngestor(
         broker=broker,
         ws_url=settings.alchemy_ws_url,

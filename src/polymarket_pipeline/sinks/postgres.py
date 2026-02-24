@@ -194,6 +194,76 @@ class PostgresSink:
             )
             return {r["asset_id"]: (r["condition_id"], r["outcome"]) for r in rows}
 
+    # ── Recovery job tracking ─────────────────────────────────────────
+
+    async def create_recovery_job(self, from_ts: int, target_ts: int) -> int:
+        """Create a new recovery job, returns job ID."""
+        if not self._pool:
+            raise RuntimeError("PostgresSink not connected")
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO recovery_jobs (from_ts, cursor_ts, target_ts, status)
+                VALUES ($1, $1, $2, 'running')
+                RETURNING id
+                """,
+                from_ts,
+                target_ts,
+            )
+            return int(row["id"])  # type: ignore[index]
+
+    async def update_recovery_cursor(
+        self, job_id: int, cursor_ts: int, total_published: int
+    ) -> None:
+        """Update cursor position and total published count."""
+        if not self._pool:
+            return
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE recovery_jobs
+                SET cursor_ts = $1, total_published = $2, updated_at = NOW()
+                WHERE id = $3
+                """,
+                cursor_ts,
+                total_published,
+                job_id,
+            )
+
+    async def complete_recovery_job(
+        self, job_id: int, status: str = "completed"
+    ) -> None:
+        """Mark job as completed or failed."""
+        if not self._pool:
+            return
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE recovery_jobs
+                SET status = $1, updated_at = NOW()
+                WHERE id = $2
+                """,
+                status,
+                job_id,
+            )
+
+    async def get_active_recovery_job(self) -> dict[str, Any] | None:
+        """Get the most recent running or failed job, if any."""
+        if not self._pool:
+            return None
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id, from_ts, cursor_ts, target_ts, total_published, status,
+                       created_at, updated_at
+                FROM recovery_jobs
+                WHERE status IN ('running', 'failed')
+                ORDER BY id DESC
+                LIMIT 1
+                """
+            )
+            return dict(row) if row else None
+
     async def query(self, sql: str, *args: Any) -> list[dict[str, Any]]:
         """Execute a query and return results as list of dicts."""
         if not self._pool:
