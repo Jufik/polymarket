@@ -45,8 +45,17 @@ uv run python -m polymarket_pipeline.cli.backfill --parquet-dir order_filled/
 # Sync market metadata (Gamma API -> PostgreSQL)
 uv run python -m polymarket_pipeline.cli.market_sync
 
-# Strategy exploration CLI
-uv run pm-explore --help
+# CLI entry points (all registered in pyproject.toml)
+uv run pm-explore --help          # Strategy exploration
+uv run pm-live                    # Start live sync pipeline (FastStream + Redpanda)
+uv run pm-panic                   # Emergency close all positions
+uv run pm-recover                 # Subgraph gap recovery
+uv run pm-sync                    # Gamma API -> PostgreSQL metadata sync
+uv run pm-compact                 # Recompress raw parquet files
+uv run pm-load                    # Load compact parquet into ClickHouse
+uv run pm-build                   # Data build pipeline
+uv run pm-migrate                 # ClickHouse schema migrations
+uv run pm-api                     # Start FastAPI REST API
 
 # Data build pipeline (CLOB + Gamma metadata, compact trades, Polars derived tables)
 uv run python scripts/build_data.py                        # all steps
@@ -73,8 +82,12 @@ Goldsky Parquet ──┐                              ┌─ ClickHouse (trades
   (backfill)      ├──> NormalizedTrade ──────────>│   ReplacingMergeTree(_version)
 RTDS WebSocket ───┤    (canonical model)          │   ORDER BY (condition_id, timestamp, trade_id)
   (live ~50/sec)  │                               │
-Market WebSocket ─┘                               └─ PostgreSQL (metadata only)
-                                                      events, markets, tags, token_map
+Alchemy RPC WS ───┤    Redpanda (Kafka)           └─ PostgreSQL (metadata only)
+  (on-chain logs) │    ───────────────                events, markets, tags, token_map
+Pending Block ────┤    trades.raw (main)
+  (~1s early)     │    pending.signal (early)
+CLOB WS ──────────┘    orderbooks.raw (prices)
+  (orderbooks)         pipeline.status (heartbeats)
 Gamma API ─────────────> PostgreSQL ───────────────> ClickHouse reads via PG engine
   (metadata sync)        (source of truth)
 ```
@@ -115,9 +128,10 @@ Polars scans ──────> data/derived/                      (pre-compute
 ```
 src/polymarket_pipeline/
 ├── models.py            # NormalizedTrade, Event, Market, Tag, TokenMarketEntry (Pydantic v2, frozen)
-├── trade_id.py          # Deterministic trade ID: make_trade_id_chain(), make_trade_id_ws()
-├── constants.py         # Shared constants (exchange addrs, USDC scale)
+├── trade_id.py          # Deterministic trade ID: make_trade_id_chain(), make_trade_id_ws(), _pending()
+├── constants.py         # Shared constants (exchange addrs, USDC scale, FEE_MODULE_ADDRS)
 ├── market_sync.py       # Gamma API fetcher: fetch_events() -> SyncResult
+├── settings.py          # PipelineSettings (offline pipeline, PM_ prefix)
 ├── normalizers/
 │   ├── sink.py          # Goldsky Parquet: drop taker dups, 1e6 scaling, bytes->hex
 │   ├── rtds.py          # RTDS WS: float rounding, proxyWallet as maker
@@ -125,22 +139,62 @@ src/polymarket_pipeline/
 ├── loaders/
 │   └── parquet.py       # ParquetLoader (fastparquet, ~2033 files)
 ├── sinks/
-│   ├── clickhouse.py    # Batch insert to trades_raw
+│   ├── clickhouse.py    # Batch insert to trades_raw (sync, clickhouse_connect)
 │   └── postgres.py      # Async metadata upsert (asyncpg)
 ├── consumers/
 │   └── rtds.py          # WebSocket consumer with PING/PONG heartbeat
+├── quality/             # Shared quality types (no live/ dependency)
+│   └── state.py         # PipelineState, ReadinessState, CheckResult
 ├── cli/
-│   ├── backfill.py      # Parquet -> ClickHouse + metadata sync
-│   ├── market_sync.py   # Gamma API -> PostgreSQL standalone
-│   ├── explore.py       # Strategy exploration CLI (Typer)
-│   └── live.py          # Live sync pipeline entry point (planned)
+│   ├── backfill.py      # pm-backfill: Parquet -> ClickHouse + metadata sync
+│   ├── sync.py          # pm-sync: Gamma API -> PostgreSQL standalone
+│   ├── explore.py       # pm-explore: Strategy exploration CLI (Typer)
+│   ├── live.py          # pm-live: Live sync pipeline entry point
+│   ├── panic.py         # pm-panic: Emergency position close
+│   ├── recover.py       # pm-recover: Subgraph gap recovery
+│   ├── compact.py       # pm-compact: Recompress raw parquet
+│   ├── load.py          # pm-load: Load compact parquet into ClickHouse
+│   ├── build.py         # pm-build: Data build pipeline
+│   ├── migrate.py       # pm-migrate: ClickHouse schema migrations
+│   ├── strategy.py      # pm-strategy (planned)
+│   └── bridge.py        # CLI bridge utilities
+├── execution/           # Trade execution (CLOB API)
+│   ├── clob_client.py   # Polymarket CLOB API client
+│   ├── panic.py         # Panic close all positions
+│   └── position_tracker.py  # PostgreSQL position tracking
+├── strategies/          # Strategy framework (protocols + types)
+│   ├── protocol.py      # Strategy, FeatureProvider, Executor protocols
+│   ├── types.py         # TradeIntent, Position, Fill, OrderbookSnapshot
+│   ├── config.py        # StrategyConfig dataclass
+│   ├── registry.py      # Strategy discovery/registration
+│   ├── context/         # InMemoryContext for strategy state
+│   ├── execution/       # ExecutionGateway, SimulatedExecutor
+│   ├── features/        # FeatureBackend (Polars, ClickHouse)
+│   └── runners/         # LiveRunner, BacktestRunner + helpers
 ├── live/                # Live sync pipeline (FastStream + Redpanda)
-│   ├── app.py           # FastStream app + lifespan hooks
+│   ├── app.py           # FastStream app + ASGI health endpoints (<150 lines)
+│   ├── orchestrator.py  # Ingestor lifecycle + recovery + quality loops
+│   ├── protection.py    # Auto-protect: close positions on RED state
 │   ├── settings.py      # Pydantic Settings (env-based, PM_ prefix)
-│   ├── ingestors/       # RTDS, Alchemy, Subgraph recovery producers
-│   ├── consumers/       # Signal evaluator, dashboard, derived refresher
-│   ├── quality/         # Data quality gate + readiness state machine
-│   └── normalizers/     # PolygonRPCNormalizer, SubgraphNormalizer
+│   ├── circuit_breaker.py  # Circuit breaker for Redpanda publishes
+│   ├── dedup.py         # TTL-based trade deduplication
+│   ├── ingestors/       # 5 sources + BaseIngestor ABC
+│   │   ├── base.py      # BaseIngestor: shared heartbeat, counters, circuit breaker
+│   │   ├── alchemy.py   # Polygon RPC logs (on-chain, ~3.7s latency)
+│   │   ├── rtds.py      # RTDS WS pool with rotation + dedup
+│   │   ├── pending_block.py  # Multi-endpoint pending block poller (~1s early)
+│   │   ├── clob_orderbook.py # CLOB WS orderbook snapshots
+│   │   ├── mempool.py   # Rust PyO3 mempool sidecar wrapper
+│   │   └── subgraph.py  # Goldsky Subgraph gap recovery
+│   ├── quality/         # Re-exports from shared quality/ module
+│   │   ├── state.py     # Re-export shim for backward compat
+│   │   └── checker.py   # QualityChecker: health checks + state machine
+│   ├── consumers/       # Kafka consumers (signal evaluator, derived refresher)
+│   ├── normalizers/     # PolygonRPCNormalizer, SubgraphNormalizer, PendingBlockNormalizer
+│   └── dashboard.py     # HTML dashboard (async, quality metrics)
+├── api/                 # FastAPI REST API
+│   └── app.py           # pm-api entry point
+├── strategies_impl/     # Concrete strategy implementations
 └── exploration/         # ML experimentation: tree-based stages, Claude agent, MLflow
 
 research/                # Archived exploration (not production)
@@ -165,5 +219,7 @@ research/                # Archived exploration (not production)
 |---------|------|---------|
 | ClickHouse 24.8 | 18123 (HTTP), 19000 (native) | Trade storage (OLAP) |
 | CH-UI | 15521 | ClickHouse web UI |
-| PostgreSQL 16 | 15432 | Metadata (user: polymarket, pass: polymarket) |
+| PostgreSQL 16 | 15432 | Metadata (set PM_PG_DSN in .env) |
 | MLflow 2.19.0 | 5050 | Experiment tracking |
+| Redpanda | 19092 (Kafka), 18082 (proxy) | Event streaming (live pipeline) |
+| Redpanda Console | 18080 | Redpanda web UI |
