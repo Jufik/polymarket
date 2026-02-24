@@ -41,7 +41,7 @@ HEARTBEAT_INTERVAL = 10.0
 
 
 class _LRUSet:
-    """Thread-safe bounded set that evicts oldest entries to cap memory."""
+    """Coroutine-safe bounded set that evicts oldest entries to cap memory."""
 
     def __init__(self, maxsize: int = 10000) -> None:
         self._data: OrderedDict[str, None] = OrderedDict()
@@ -92,6 +92,8 @@ class PendingBlockIngestor:
         self._tx_count: int = 0
         self._tx_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
         self._circuit_breaker = CircuitBreaker()
+        self._drops_queue_full: int = 0
+        self._drops_dedup: int = 0
 
     def _extract_new_txs(self, result: dict[str, Any], source: str) -> list[dict[str, Any]]:
         """Extract new Polymarket txs from a pending block response."""
@@ -113,6 +115,7 @@ class PendingBlockIngestor:
 
             # Shared dedup: only the first endpoint to see a tx processes it
             if not self._seen.add(tx_hash):
+                self._drops_dedup += 1
                 continue
 
             tx["_pending_block"] = block_num
@@ -164,9 +167,11 @@ class PendingBlockIngestor:
                                 try:
                                     self._tx_queue.put_nowait(tx)
                                 except asyncio.QueueFull:
+                                    self._drops_queue_full += 1
                                     log.warning(
                                         "pending_block.queue_full",
                                         dropped_tx=tx.get("hash", "?"),
+                                        total_drops=self._drops_queue_full,
                                     )
 
                         except TimeoutError:
@@ -230,6 +235,8 @@ class PendingBlockIngestor:
                 "poll_count": self._poll_count,
                 "tx_count": self._tx_count,
                 "endpoints": len(self._rpc_ws_urls),
+                "drops_queue_full": self._drops_queue_full,
+                "drops_dedup": self._drops_dedup,
                 "ts": time.time(),
             }
         )

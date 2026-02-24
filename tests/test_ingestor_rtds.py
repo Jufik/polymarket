@@ -137,3 +137,48 @@ class TestRTDSIngestor:
         hb = json.loads(published)
         assert hb["pool_size"] == 3
         assert hb["connections_alive"] == 0
+
+    async def test_queue_full_increments_drop_counter(self, mock_broker):
+        """Queue full should increment _drops_queue_full counter."""
+        from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
+
+        ingestor = RTDSIngestor(broker=mock_broker)
+        # Fill queue
+        for i in range(1000):
+            ingestor._queue.put_nowait(("cid", f"trade_{i}"))
+
+        trade_msg = json.dumps(
+            {
+                "type": "trades",
+                "payload": {
+                    "asset": "99999",
+                    "side": "BUY",
+                    "price": 0.72,
+                    "size": 100.0,
+                    "timestamp": 1706800000,
+                    "conditionId": "cond_xyz",
+                    "proxyWallet": "0xmaker",
+                    "transactionHash": "0xtx_new",
+                },
+                "timestamp": 1706800001,
+            }
+        )
+        await ingestor._handle_message(trade_msg, conn_id=0)
+
+        assert ingestor._drops_queue_full == 1
+
+    async def test_heartbeat_includes_drops(self, mock_broker):
+        """Heartbeat should include drop counters."""
+        from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
+
+        ingestor = RTDSIngestor(broker=mock_broker)
+        ingestor._drops_queue_full = 3
+        ingestor._drops_dedup = 7
+
+        await ingestor._publish_heartbeat()
+
+        call_args = mock_broker.publish.call_args
+        published = call_args.kwargs.get("message") or call_args.args[0]
+        hb = json.loads(published)
+        assert hb["drops_queue_full"] == 3
+        assert hb["drops_dedup"] == 7

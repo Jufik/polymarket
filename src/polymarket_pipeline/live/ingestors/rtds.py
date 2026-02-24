@@ -63,6 +63,8 @@ class RTDSIngestor:
         self._connections_alive: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
         self._circuit_breaker = CircuitBreaker()
+        self._drops_queue_full: int = 0
+        self._drops_dedup: int = 0
 
     # ── message handling (shared across connections) ──────────────────
 
@@ -95,6 +97,7 @@ class RTDSIngestor:
 
         # Dedup across connections (TTL-based eviction)
         if self._dedup.is_duplicate(trade.trade_id):
+            self._drops_dedup += 1
             return
 
         now = time.time()
@@ -104,7 +107,12 @@ class RTDSIngestor:
         try:
             self._queue.put_nowait((trade.condition_id, trade_json))
         except asyncio.QueueFull:
-            log.warning("rtds.queue_full", trade_id=trade.trade_id)
+            self._drops_queue_full += 1
+            log.warning(
+                "rtds.queue_full",
+                trade_id=trade.trade_id,
+                total_drops=self._drops_queue_full,
+            )
             return
 
         self._last_trade_ts = now
@@ -135,6 +143,8 @@ class RTDSIngestor:
                 "trade_count": self._trade_count,
                 "connections_alive": self._connections_alive,
                 "pool_size": self._pool_size,
+                "drops_queue_full": self._drops_queue_full,
+                "drops_dedup": self._drops_dedup,
                 "ts": time.time(),
             }
         )

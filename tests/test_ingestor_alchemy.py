@@ -114,3 +114,57 @@ class TestAlchemyIngestor:
         await ingestor._handle_message(confirm)
 
         assert mock_broker.publish.call_count == 0
+
+    async def test_queue_full_increments_drop_counter(self, mock_broker):
+        """Queue full should increment _drops_queue_full counter."""
+        from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
+
+        ingestor = AlchemyIngestor(
+            broker=mock_broker,
+            ws_url="wss://test.example.com",
+        )
+        # Fill the queue to capacity
+        for i in range(1000):
+            ingestor._queue.put_nowait(("cid", f"trade_{i}"))
+
+        # Now send a valid message — should hit QueueFull
+        msg = _make_subscription_result()
+        await ingestor._handle_message(json.dumps(msg))
+
+        assert ingestor._drops_queue_full == 1
+        assert ingestor._queue.qsize() == 1000  # unchanged
+
+    async def test_taker_dedup_increments_drop_counter(self, mock_broker):
+        """Taker duplicate should increment _drops_taker_dedup counter."""
+        from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
+
+        ingestor = AlchemyIngestor(
+            broker=mock_broker,
+            ws_url="wss://test.example.com",
+        )
+        # Taker = exchange address -> normalizer returns None
+        msg = _make_subscription_result(
+            taker="0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e",
+        )
+        await ingestor._handle_message(json.dumps(msg))
+
+        assert ingestor._drops_taker_dedup == 1
+
+    async def test_heartbeat_includes_drops(self, mock_broker):
+        """Heartbeat should include drop counters."""
+        from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
+
+        ingestor = AlchemyIngestor(
+            broker=mock_broker,
+            ws_url="wss://test.example.com",
+        )
+        ingestor._drops_queue_full = 5
+        ingestor._drops_taker_dedup = 10
+
+        await ingestor._publish_heartbeat()
+
+        call_args = mock_broker.publish.call_args
+        published = call_args.kwargs.get("message") or call_args.args[0]
+        hb = json.loads(published)
+        assert hb["drops_queue_full"] == 5
+        assert hb["drops_taker_dedup"] == 10
