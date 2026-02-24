@@ -170,7 +170,15 @@ class LiveRunner:
         self.ctx.set_orderbook(condition_id, ob)
 
     async def _timer_loop(self) -> None:
-        """Periodic timer callbacks for strategies."""
+        """Periodic timer callbacks for strategies.
+
+        .. warning::
+
+           Timer-originated intents currently bypass ``check_risk_gate()``.
+           This is a known placeholder -- timer-based strategies should NOT
+           be used in live mode until risk gating is wired here.
+           See: 2026-02-24 code review, issue C-STR-1.
+        """
         while True:
             await asyncio.sleep(self.timer_interval_s)
             now = time.time()
@@ -178,6 +186,7 @@ class LiveRunner:
                 intents = await strategy.on_timer(now, self.ctx)
                 if intents:
                     for intent in intents:
+                        # TODO(C-STR-1): wire check_risk_gate + position tracking here
                         await self.gateway.submit(intent)
                         self._intents_submitted += 1
 
