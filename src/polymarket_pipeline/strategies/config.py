@@ -62,9 +62,9 @@ def load_strategy_configs(
 
     strategies: dict[str, StrategyConfig] = {}
     for name, section in raw.get("strategy", {}).items():
-        # Extract features and params before building the config.
-        features: list[str] = section.pop("features", [])
-        params: dict[str, Any] = dict(section.pop("params", {}))
+        # Extract features and params without mutating the input dict.
+        features: list[str] = section.get("features", [])
+        params: dict[str, Any] = dict(section.get("params", {}))
 
         cfg = StrategyConfig(
             enabled=section["enabled"],
@@ -99,7 +99,7 @@ def load_provider_configs(
 
     providers: dict[str, ProviderConfig] = {}
     for name, section in raw.get("provider", {}).items():
-        params: dict[str, Any] = dict(section.pop("params", {}))
+        params: dict[str, Any] = dict(section.get("params", {}))
 
         cfg = ProviderConfig(
             enabled=section["enabled"],

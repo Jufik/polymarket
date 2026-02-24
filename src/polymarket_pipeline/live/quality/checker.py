@@ -95,9 +95,12 @@ class QualityChecker:
             return CheckResult(ok=False, reason=f"Query error: {e}")
 
     def check_metadata_freshness(self) -> CheckResult:
-        """Check that token_map has coverage for recent trades."""
-        # Placeholder -- will be implemented when metadata sync is integrated
-        return CheckResult(ok=True)
+        """Check that token_map has coverage for recent trades.
+
+        Stub: always returns ok=True until the metadata sync pipeline is
+        integrated and we can query PostgreSQL for token_map freshness.
+        """
+        return CheckResult(ok=True, reason="stub — metadata sync not yet integrated")
 
     def check_dedup_sanity(self) -> CheckResult:
         """Check version=2/version=1 enrichment ratio."""
@@ -125,9 +128,12 @@ class QualityChecker:
             return CheckResult(ok=False, reason=f"Query error: {e}")
 
     def check_resolved_completeness(self) -> CheckResult:
-        """Check that closed markets have trades in ClickHouse."""
-        # Placeholder -- will be implemented when PostgreSQL metadata is integrated
-        return CheckResult(ok=True)
+        """Check that closed markets have trades in ClickHouse.
+
+        Stub: always returns ok=True until PostgreSQL metadata is integrated
+        and we can cross-reference resolved markets against trade coverage.
+        """
+        return CheckResult(ok=True, reason="stub — PG metadata not yet integrated")
 
     def run_all_checks(self) -> dict[str, CheckResult]:
         """Run all health checks and update readiness state."""

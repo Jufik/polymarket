@@ -3,6 +3,9 @@
 Maintains N concurrent WebSocket connections to RTDS, each with independent
 reconnect logic and staggered rotation.  Trades are deduplicated across
 connections so Redpanda receives exactly one copy per trade.
+
+A bounded asyncio.Queue decouples WS reading from Redpanda publishing so
+that a slow broker never stalls the WebSocket read loop.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.normalizers.rtds import RTDSNormalizer
 
@@ -25,29 +29,8 @@ PING_INTERVAL = 5
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 HEARTBEAT_INTERVAL = 10.0
-_DEDUP_MAXLEN = 50_000  # ~16min buffer at 50 trades/sec
-
-
-class _TradeDedup:
-    """Bounded dedup set — filters duplicate trade_ids across connections."""
-
-    __slots__ = ("_seen", "_maxlen")
-
-    def __init__(self, maxlen: int = _DEDUP_MAXLEN) -> None:
-        self._seen: dict[str, float] = {}
-        self._maxlen = maxlen
-
-    def is_new(self, trade_id: str) -> bool:
-        """Return True and record the id if not seen before."""
-        if trade_id in self._seen:
-            return False
-        self._seen[trade_id] = time.monotonic()
-        if len(self._seen) > self._maxlen:
-            # Evict oldest 20%
-            to_remove = self._maxlen // 5
-            for k in list(self._seen.keys())[:to_remove]:
-                del self._seen[k]
-        return True
+_DEDUP_TTL_S = 300.0  # 5min TTL for dedup entries
+_QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 
 
 class RTDSIngestor:
@@ -73,15 +56,20 @@ class RTDSIngestor:
         self._pool_size = max(pool_size, 1)
         self._rotation_interval_s = rotation_interval_s
         self._normalizer = RTDSNormalizer()
-        self._dedup = _TradeDedup()
+        self._dedup = TradeDedup(ttl_s=_DEDUP_TTL_S)
         self._last_trade_ts: float = 0.0
         self._trade_count: int = 0
         self._connections_alive: int = 0
+        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
 
     # ── message handling (shared across connections) ──────────────────
 
     async def _handle_message(self, raw: str, conn_id: int) -> None:
-        """Process a single raw WebSocket message."""
+        """Process a single raw WebSocket message.
+
+        Normalizes and deduplicates, then enqueues for async publishing so the
+        WS read loop is never blocked by a slow broker.
+        """
         if raw in ("PING", "PONG", "pong"):
             return
 
@@ -103,22 +91,39 @@ class RTDSIngestor:
             log.exception("rtds.normalize_error", conn=conn_id)
             return
 
-        # Dedup across connections
-        if not self._dedup.is_new(trade.trade_id):
+        # Dedup across connections (TTL-based eviction)
+        if self._dedup.is_duplicate(trade.trade_id):
             return
 
         now = time.time()
         trade = trade.model_copy(update={"published_at": now})
         trade_json = trade.model_dump_json()
-        await safe_publish(
-            self._broker,
-            message=trade_json,
-            topic=self._topic,
-            key=trade.condition_id.encode(),
-            source="rtds",
-        )
+
+        try:
+            self._queue.put_nowait(trade_json)
+        except asyncio.QueueFull:
+            log.warning("rtds.queue_full", trade_id=trade.trade_id)
+            return
+
         self._last_trade_ts = now
         self._trade_count += 1
+
+    async def _publish_loop(self) -> None:
+        """Drain the backpressure queue and publish to Redpanda."""
+        while True:
+            trade_json = await self._queue.get()
+            # Parse just enough to get condition_id for the key
+            try:
+                cid = json.loads(trade_json).get("condition_id", "")
+            except Exception:
+                cid = ""
+            await safe_publish(
+                self._broker,
+                message=trade_json,
+                topic=self._topic,
+                key=cid.encode(),
+                source="rtds",
+            )
 
     # ── heartbeat / ping helpers ─────────────────────────────────────
 
@@ -233,14 +238,16 @@ class RTDSIngestor:
     async def run(self) -> None:
         """Run the RTDS ingestor with a pool of redundant connections."""
         heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        publish_task = asyncio.create_task(self._publish_loop())
         conn_tasks = [
             asyncio.create_task(self._connection_loop(i))
             for i in range(self._pool_size)
         ]
 
         try:
-            await asyncio.gather(heartbeat_task, *conn_tasks)
+            await asyncio.gather(heartbeat_task, publish_task, *conn_tasks)
         finally:
             heartbeat_task.cancel()
+            publish_task.cancel()
             for t in conn_tasks:
                 t.cancel()
