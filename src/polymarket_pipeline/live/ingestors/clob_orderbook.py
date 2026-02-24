@@ -15,16 +15,18 @@ import structlog
 import websockets
 
 from polymarket_pipeline.live.ingestors._publish import safe_publish
+from polymarket_pipeline.live.ingestors.base import BaseIngestor
 
 log = structlog.get_logger()
 
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-HEARTBEAT_INTERVAL = 10.0
 
 
-class CLOBOrderbookIngestor:
+class CLOBOrderbookIngestor(BaseIngestor):
     """Subscribes to CLOB WS price_change events and publishes orderbook snapshots."""
+
+    source_name = "clob_orderbook"
 
     def __init__(
         self,
@@ -34,10 +36,8 @@ class CLOBOrderbookIngestor:
         status_topic: str = "pipeline.status",
         token_market_map: dict[str, tuple[str, str]] | None = None,
     ) -> None:
-        self._broker = broker
+        super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._ws_url = ws_url
-        self._topic = topic
-        self._status_topic = status_topic
         self._token_map = token_market_map or {}
         self._update_count: int = 0
 
@@ -113,29 +113,9 @@ class CLOBOrderbookIngestor:
         )
         self._update_count += 1
 
-    async def _publish_heartbeat(self) -> None:
-        """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps(
-            {
-                "source": "clob_orderbook",
-                "event": "heartbeat",
-                "update_count": self._update_count,
-                "ts": time.time(),
-            }
-        )
-        await safe_publish(
-            self._broker,
-            message=heartbeat,
-            topic=self._status_topic,
-            key=b"clob_orderbook",
-            source="clob_orderbook",
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        """Publish heartbeat every HEARTBEAT_INTERVAL seconds."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            await self._publish_heartbeat()
+    def _heartbeat_fields(self) -> dict[str, Any]:
+        """CLOB-specific heartbeat fields."""
+        return {"update_count": self._update_count}
 
     async def run(self) -> None:
         """Run the CLOB orderbook ingestor with auto-reconnect."""

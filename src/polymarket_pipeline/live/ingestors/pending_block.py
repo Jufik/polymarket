@@ -1,4 +1,4 @@
-"""Pending block ingestor — races multiple free RPC endpoints for earliest trade detection.
+"""Pending block ingestor -- races multiple free RPC endpoints for earliest trade detection.
 
 Polymarket operators submit matchOrders txs via private channels, bypassing the
 public mempool. These txs ARE visible in the validator's candidate block via
@@ -23,13 +23,13 @@ import structlog
 import websockets
 
 from polymarket_pipeline.constants import FEE_MODULE_ADDRS
-from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.ingestors._publish import safe_publish
+from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.live.normalizers.pending_block import PendingBlockNormalizer
 
 log = structlog.get_logger()
 
-# Default endpoints — each sees different txs, racing both maximizes coverage
+# Default endpoints -- each sees different txs, racing both maximizes coverage
 DEFAULT_RPC_ENDPOINTS: list[str] = [
     "wss://polygon-bor-rpc.publicnode.com",
     "wss://polygon.drpc.org",
@@ -37,7 +37,6 @@ DEFAULT_RPC_ENDPOINTS: list[str] = [
 
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-HEARTBEAT_INTERVAL = 10.0
 
 
 class _LRUSet:
@@ -63,13 +62,15 @@ class _LRUSet:
         return len(self._data)
 
 
-class PendingBlockIngestor:
+class PendingBlockIngestor(BaseIngestor):
     """Races multiple RPC endpoints to catch Polymarket trades ~1-2s early.
 
-    Each endpoint has a different view of the pending block — racing them
+    Each endpoint has a different view of the pending block -- racing them
     catches ~2x more unique transactions than polling a single endpoint.
     A shared dedup set ensures each tx is processed exactly once.
     """
+
+    source_name = "pending_block"
 
     def __init__(
         self,
@@ -80,19 +81,14 @@ class PendingBlockIngestor:
         token_market_map: dict[str, tuple[str, str]] | None = None,
         poll_interval: float = 0.5,
     ) -> None:
-        self._broker = broker
+        super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._rpc_ws_urls = rpc_ws_urls or DEFAULT_RPC_ENDPOINTS
-        self._topic = topic
-        self._status_topic = status_topic
         self._normalizer = PendingBlockNormalizer(token_market_map=token_market_map)
         self._poll_interval = poll_interval
         self._seen = _LRUSet(maxsize=10000)
-        self._trade_count: int = 0
         self._poll_count: int = 0
         self._tx_count: int = 0
         self._tx_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
-        self._circuit_breaker = CircuitBreaker()
-        self._drops_queue_full: int = 0
         self._drops_dedup: int = 0
 
     def _extract_new_txs(self, result: dict[str, Any], source: str) -> list[dict[str, Any]]:
@@ -225,35 +221,14 @@ class PendingBlockIngestor:
                     source=tx.get("_source_rpc"),
                 )
 
-    async def _publish_heartbeat(self) -> None:
-        """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps(
-            {
-                "source": "pending_block",
-                "event": "heartbeat",
-                "trade_count": self._trade_count,
-                "poll_count": self._poll_count,
-                "tx_count": self._tx_count,
-                "endpoints": len(self._rpc_ws_urls),
-                "drops_queue_full": self._drops_queue_full,
-                "drops_dedup": self._drops_dedup,
-                "ts": time.time(),
-            }
-        )
-        await safe_publish(
-            self._broker,
-            message=heartbeat,
-            topic=self._status_topic,
-            key=b"pending_block",
-            source="pending_block",
-            circuit_breaker=self._circuit_breaker,
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        """Publish heartbeat every HEARTBEAT_INTERVAL seconds."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            await self._publish_heartbeat()
+    def _heartbeat_fields(self) -> dict[str, Any]:
+        """PendingBlock-specific heartbeat fields."""
+        return {
+            "poll_count": self._poll_count,
+            "tx_count": self._tx_count,
+            "endpoints": len(self._rpc_ws_urls),
+            "drops_dedup": self._drops_dedup,
+        }
 
     async def run(self) -> None:
         """Run the multi-endpoint pending block poller."""

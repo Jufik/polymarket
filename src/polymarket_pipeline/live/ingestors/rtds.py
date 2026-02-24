@@ -1,4 +1,4 @@
-"""RTDS WebSocket ingestor — redundant connection pool with trade-level dedup.
+"""RTDS WebSocket ingestor -- redundant connection pool with trade-level dedup.
 
 Maintains N concurrent WebSocket connections to RTDS, each with independent
 reconnect logic and staggered rotation.  Trades are deduplicated across
@@ -18,9 +18,9 @@ from typing import Any
 import structlog
 import websockets
 
-from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.live.ingestors._publish import safe_publish
+from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.normalizers.rtds import RTDSNormalizer
 
 log = structlog.get_logger()
@@ -29,12 +29,11 @@ RTDS_URL = "wss://ws-live-data.polymarket.com"
 PING_INTERVAL = 5
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-HEARTBEAT_INTERVAL = 10.0
 _DEDUP_TTL_S = 300.0  # 5min TTL for dedup entries
 _QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 
 
-class RTDSIngestor:
+class RTDSIngestor(BaseIngestor):
     """Manages a pool of redundant RTDS connections with trade-level dedup.
 
     Each connection independently subscribes to the RTDS ``trades`` feed and
@@ -42,6 +41,8 @@ class RTDSIngestor:
     proactively rotated every ``rotation_interval_s`` seconds, staggered so
     that at least one connection remains active during each rotation cycle.
     """
+
+    source_name = "rtds"
 
     def __init__(
         self,
@@ -51,19 +52,14 @@ class RTDSIngestor:
         pool_size: int = 2,
         rotation_interval_s: int = 300,
     ) -> None:
-        self._broker = broker
-        self._topic = topic
-        self._status_topic = status_topic
+        super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._pool_size = max(pool_size, 1)
         self._rotation_interval_s = rotation_interval_s
         self._normalizer = RTDSNormalizer()
         self._dedup = TradeDedup(ttl_s=_DEDUP_TTL_S)
         self._last_trade_ts: float = 0.0
-        self._trade_count: int = 0
         self._connections_alive: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
-        self._circuit_breaker = CircuitBreaker()
-        self._drops_queue_full: int = 0
         self._drops_dedup: int = 0
 
     # ── message handling (shared across connections) ──────────────────
@@ -133,35 +129,14 @@ class RTDSIngestor:
 
     # ── heartbeat / ping helpers ─────────────────────────────────────
 
-    async def _publish_heartbeat(self) -> None:
-        """Publish heartbeat to pipeline.status topic."""
-        heartbeat = json.dumps(
-            {
-                "source": "rtds",
-                "event": "heartbeat",
-                "last_trade_ts": self._last_trade_ts,
-                "trade_count": self._trade_count,
-                "connections_alive": self._connections_alive,
-                "pool_size": self._pool_size,
-                "drops_queue_full": self._drops_queue_full,
-                "drops_dedup": self._drops_dedup,
-                "ts": time.time(),
-            }
-        )
-        await safe_publish(
-            self._broker,
-            message=heartbeat,
-            topic=self._status_topic,
-            key=b"rtds",
-            source="rtds",
-            circuit_breaker=self._circuit_breaker,
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        """Publish heartbeat every HEARTBEAT_INTERVAL seconds."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            await self._publish_heartbeat()
+    def _heartbeat_fields(self) -> dict[str, Any]:
+        """RTDS-specific heartbeat fields."""
+        return {
+            "last_trade_ts": self._last_trade_ts,
+            "connections_alive": self._connections_alive,
+            "pool_size": self._pool_size,
+            "drops_dedup": self._drops_dedup,
+        }
 
     async def _ping_loop(self, ws: Any) -> None:
         """Send PING every 5s to keep a single connection alive."""
