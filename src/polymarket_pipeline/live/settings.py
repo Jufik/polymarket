@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     pg_dsn: str = ""  # Set via PM_PG_DSN env var or .env file
 
     # Quality thresholds
+    quality_initial_delay_s: int = 60
     quality_check_interval_s: int = 900
     source_liveness_timeout_s: int = 30
     volume_drop_red_pct: float = 0.10
