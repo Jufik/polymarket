@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -99,6 +100,36 @@ class RecordingStrategy:
 
     async def on_timer(self, now: float, ctx: Any) -> list[TradeIntent] | None:
         return None
+
+
+class TimerStrategy:
+    """Strategy that emits intents from on_timer."""
+
+    name = "timer_strategy"
+
+    def __init__(self, *, size_usd: float = 3.0) -> None:
+        self._size_usd = size_usd
+
+    async def on_trade(self, trade: Any, ctx: Any) -> list[TradeIntent] | None:
+        return None
+
+    async def on_market_update(self, update: Any, ctx: Any) -> None:
+        return None
+
+    async def on_timer(self, now: float, ctx: Any) -> list[TradeIntent] | None:
+        return [
+            TradeIntent(
+                strategy=self.name,
+                condition_id="0xcond",
+                side="BUY",
+                outcome="YES",
+                size_usd=self._size_usd,
+                urgency="patient",
+                max_price=0.60,
+                reason="timer_test",
+                signal_time=now,
+            )
+        ]
 
 
 _CFG = StrategyConfig(
@@ -315,3 +346,79 @@ async def test_handle_orderbook_updates_context(ctx: InMemoryContext) -> None:
     assert ob is not None
     assert ob.best_bid == 0.55
     assert ob.best_ask == 0.58
+
+
+async def test_timer_risk_gate_blocks(ctx: InMemoryContext) -> None:
+    """Timer loop should apply risk gating and track positions."""
+    executor = SimulatedExecutor()
+    gateway = ExecutionGateway(executor=executor)
+    strategy = TimerStrategy(size_usd=3.0)
+
+    cfg = StrategyConfig(
+        enabled=True,
+        mode=ExecutionMode.PAPER_DEV,
+        capital_usd=5.0,
+        max_position_usd=5.0,
+        max_open_positions=10,
+        cooldown_s=0,
+    )
+
+    runner = LiveRunner(
+        strategies=[(strategy, cfg)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+        timer_interval_s=0.01,
+    )
+
+    task = asyncio.create_task(runner._timer_loop())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # At least one intent should have been submitted
+    assert runner._intents_submitted >= 1
+
+    # Position should have been tracked
+    pos = await ctx.get_position("0xcond")
+    assert pos is not None
+    assert pos.condition_id == "0xcond"
+    assert pos.qty_yes > 0
+
+
+async def test_timer_risk_gate_rejects_over_capital(ctx: InMemoryContext) -> None:
+    """Timer loop should reject intents that exceed capital after first fill."""
+    executor = SimulatedExecutor()
+    gateway = ExecutionGateway(executor=executor)
+    # Each intent is 4.0 USD; capital is 5.0 so only first fits
+    strategy = TimerStrategy(size_usd=4.0)
+
+    cfg = StrategyConfig(
+        enabled=True,
+        mode=ExecutionMode.PAPER_DEV,
+        capital_usd=5.0,
+        max_position_usd=5.0,
+        max_open_positions=10,
+        cooldown_s=0,
+    )
+
+    runner = LiveRunner(
+        strategies=[(strategy, cfg)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+        timer_interval_s=0.01,
+    )
+
+    task = asyncio.create_task(runner._timer_loop())
+    # Wait enough for several timer ticks
+    await asyncio.sleep(0.08)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # Only the first intent should have been submitted; subsequent blocked
+    assert runner._intents_submitted == 1
