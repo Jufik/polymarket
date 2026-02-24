@@ -49,15 +49,19 @@ def out_of_sample_split(
     cfg = config if isinstance(config, OOSConfig) else OOSConfig()
 
     def _compute_period(start: str, end: str, label: str) -> pl.DataFrame:
-        resolved = resolved_markets_cte(ResolvedMarketsConfig(
-            lookback_start=start,
-            yes_threshold=cfg.yes_threshold,
-            no_threshold=cfg.no_threshold,
-        ))
-        pos = positions_cte(PositionsConfig(
-            lookback_start=start,
-            perspective=cfg.perspective,
-        ))
+        resolved = resolved_markets_cte(
+            ResolvedMarketsConfig(
+                lookback_start=start,
+                yes_threshold=cfg.yes_threshold,
+                no_threshold=cfg.no_threshold,
+            )
+        )
+        pos = positions_cte(
+            PositionsConfig(
+                lookback_start=start,
+                perspective=cfg.perspective,
+            )
+        )
 
         # Add end-date filter
         end_filter = f"AND timestamp < '{end}'" if end else ""
@@ -202,17 +206,22 @@ def oos_evaluate(
             df_is_common = df_is.filter(pl.col("trader").is_in(list(common_traders)))
             df_oos_common = df_oos.filter(pl.col("trader").is_in(list(common_traders)))
 
-            df_joined = df_is_common.select(["trader", "pnl_per_dollar"]).rename(
-                {"pnl_per_dollar": "is_ppd"}
-            ).join(
-                df_oos_common.select(["trader", "pnl_per_dollar"]).rename(
-                    {"pnl_per_dollar": "oos_ppd"}
-                ),
-                on="trader",
-            ).with_columns([
-                pl.col("is_ppd").rank(descending=True).alias("is_rank"),
-                pl.col("oos_ppd").rank(descending=True).alias("oos_rank"),
-            ])
+            df_joined = (
+                df_is_common.select(["trader", "pnl_per_dollar"])
+                .rename({"pnl_per_dollar": "is_ppd"})
+                .join(
+                    df_oos_common.select(["trader", "pnl_per_dollar"]).rename(
+                        {"pnl_per_dollar": "oos_ppd"}
+                    ),
+                    on="trader",
+                )
+                .with_columns(
+                    [
+                        pl.col("is_ppd").rank(descending=True).alias("is_rank"),
+                        pl.col("oos_ppd").rank(descending=True).alias("oos_rank"),
+                    ]
+                )
+            )
 
             fwd_corr = float(df_joined.select(pl.corr("is_rank", "oos_rank")).item())
             metrics["forward_rank_correlation"] = round(fwd_corr, 4)

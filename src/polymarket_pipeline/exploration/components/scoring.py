@@ -167,19 +167,20 @@ def bootstrap_filter(
         pnls = df_market.filter(pl.col("trader") == trader)["market_pnl"].to_numpy()
         if len(pnls) < 10:
             continue
-        boot_means = np.array([
-            rng.choice(pnls, size=len(pnls), replace=True).mean()
-            for _ in range(cfg.n_bootstrap)
-        ])
+        boot_means = np.array(
+            [rng.choice(pnls, size=len(pnls), replace=True).mean() for _ in range(cfg.n_bootstrap)]
+        )
         ci_lower = float(np.percentile(boot_means, alpha / 2 * 100))
         ci_upper = float(np.percentile(boot_means, (1 - alpha / 2) * 100))
         if ci_lower > 0:
-            results.append({
-                "trader": trader,
-                "bootstrap_mean": float(boot_means.mean()),
-                "ci_lower": ci_lower,
-                "ci_upper": ci_upper,
-            })
+            results.append(
+                {
+                    "trader": trader,
+                    "bootstrap_mean": float(boot_means.mean()),
+                    "ci_lower": ci_lower,
+                    "ci_upper": ci_upper,
+                }
+            )
 
     df_skilled = pl.DataFrame(results) if results else pl.DataFrame()
 

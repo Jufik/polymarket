@@ -19,9 +19,7 @@ class MockVectorizedStrategy:
 
     name = "mock_vec"
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         return pl.DataFrame(
             {
                 "condition_id": ["0xa", "0xb"],
@@ -38,9 +36,7 @@ class EmptyStrategy:
 
     name = "empty_vec"
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         return pl.DataFrame(
             {
                 "condition_id": pl.Series([], dtype=pl.Utf8),

@@ -70,8 +70,7 @@ class QualityChecker:
         """Check current hour volume against trailing 24h average."""
         try:
             result = self._ch.query(
-                "SELECT count() as cnt FROM trades_raw "
-                "WHERE timestamp > now() - INTERVAL 1 HOUR"
+                "SELECT count() as cnt FROM trades_raw WHERE timestamp > now() - INTERVAL 1 HOUR"
             )
             current = result[0]["cnt"] if result else 0
 

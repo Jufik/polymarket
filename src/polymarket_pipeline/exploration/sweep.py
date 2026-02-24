@@ -56,7 +56,9 @@ class SweepRunner:
 
             # Create a modified pipeline with the swept parameter
             modified_pipeline = self._modify_pipeline(
-                sweep.base_pipeline, sweep.sweep_param, value,
+                sweep.base_pipeline,
+                sweep.sweep_param,
+                value,
             )
 
             try:
@@ -68,11 +70,13 @@ class SweepRunner:
                 if isinstance(metrics_data, dict):
                     metrics = StageMetrics(**metrics_data)
 
-                variants.append(SweepVariantResult(
-                    param_value=value,
-                    metrics=metrics,
-                    outputs_path=str(variant_dir),
-                ))
+                variants.append(
+                    SweepVariantResult(
+                        param_value=value,
+                        metrics=metrics,
+                        outputs_path=str(variant_dir),
+                    )
+                )
 
                 # Save variant summary
                 (variant_dir / "summary.json").write_text(
@@ -80,11 +84,13 @@ class SweepRunner:
                 )
 
             except Exception as e:
-                variants.append(SweepVariantResult(
-                    param_value=value,
-                    metrics=None,
-                    outputs_path=str(variant_dir),
-                ))
+                variants.append(
+                    SweepVariantResult(
+                        param_value=value,
+                        metrics=None,
+                        outputs_path=str(variant_dir),
+                    )
+                )
                 (variant_dir / "error.txt").write_text(str(e))
 
         # Determine best value
@@ -99,9 +105,7 @@ class SweepRunner:
         )
 
         # Save sweep summary
-        (outputs_dir / "sweep_summary.json").write_text(
-            result.model_dump_json(indent=2)
-        )
+        (outputs_dir / "sweep_summary.json").write_text(result.model_dump_json(indent=2))
 
         return result
 
@@ -123,12 +127,14 @@ class SweepRunner:
                 if param in config_dict:
                     config_dict[param] = value
                     new_config = step.config.__class__(**config_dict)
-                    new_steps.append(PipelineStep(
-                        name=step.name,
-                        component_fn=step.component_fn,
-                        config=new_config,
-                        depends_on=list(step.depends_on),
-                    ))
+                    new_steps.append(
+                        PipelineStep(
+                            name=step.name,
+                            component_fn=step.component_fn,
+                            config=new_config,
+                            depends_on=list(step.depends_on),
+                        )
+                    )
                 else:
                     new_steps.append(deepcopy(step))
             else:

@@ -1,6 +1,5 @@
 """Tests for ReadinessState and CheckResult."""
 
-
 from polymarket_pipeline.live.quality.state import CheckResult, PipelineState, ReadinessState
 
 
@@ -82,8 +81,10 @@ class TestReadinessState:
         from polymarket_pipeline.live.quality.state import CheckResult, ReadinessState
 
         state = ReadinessState()
-        state.update({
-            "a": CheckResult(ok=True),
-            "b": CheckResult(ok=False, reason="broken"),
-        })
+        state.update(
+            {
+                "a": CheckResult(ok=True),
+                "b": CheckResult(ok=False, reason="broken"),
+            }
+        )
         assert state.failures == ["b: broken"]

@@ -1,14 +1,12 @@
 """Tests for Prometheus metrics endpoint."""
 
-from polymarket_pipeline.api.routes.metrics import (
-    registry,
-    positions_open,
-    total_exposure_usd,
-    trades_published,
-    publish_timeouts,
-    normalize_drops,
-)
 from prometheus_client import generate_latest
+
+from polymarket_pipeline.api.routes.metrics import (
+    positions_open,
+    registry,
+    trades_published,
+)
 
 
 def test_metrics_registry_has_gauges():

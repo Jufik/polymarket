@@ -274,9 +274,7 @@ async def run_stage_with_retry(
         save_tree(strategy, tree)
 
         if attempt >= max_retries:
-            cb.on_error(
-                f"Stage {stage.id} failed after {max_retries} attempts: {result.error}"
-            )
+            cb.on_error(f"Stage {stage.id} failed after {max_retries} attempts: {result.error}")
             return result
 
         # Notify about retry
@@ -328,8 +326,11 @@ async def review_stage_lifecycle(
         from polymarket_pipeline.exploration.agent import review_stage
 
         analysis, agent_result = await review_stage(
-            stage, strategy_path, on_event=cb.on_agent_event,
-            context=context, tree=tree,
+            stage,
+            strategy_path,
+            on_event=cb.on_agent_event,
+            context=context,
+            tree=tree,
         )
 
         # Save transcript
@@ -342,9 +343,7 @@ async def review_stage_lifecycle(
         stage.analysis = analysis
         stage.status = StageStatus.REVIEWING
 
-        analysis_path = strategy_path / (
-            stage.analysis_path or f"stages/{stage.id}/analysis.md"
-        )
+        analysis_path = strategy_path / (stage.analysis_path or f"stages/{stage.id}/analysis.md")
         analysis_md = render_analysis_markdown(stage, analysis, tree)
         analysis_path.write_text(analysis_md)
 
@@ -360,9 +359,7 @@ async def review_stage_lifecycle(
         save_tree(strategy, tree)
 
         # Check for critical data quality issues
-        critical_issues = [
-            dq for dq in analysis.data_quality_issues if dq.severity == "critical"
-        ]
+        critical_issues = [dq for dq in analysis.data_quality_issues if dq.severity == "critical"]
         if critical_issues:
             cb.on_data_quality_alert(stage, critical_issues)
             return ReviewResult(
@@ -471,8 +468,7 @@ async def fix_dq_and_retry(
         # Still has critical DQ — extract new issues for next iteration
         if review_result.analysis:
             current_issues = [
-                dq for dq in review_result.analysis.data_quality_issues
-                if dq.severity == "critical"
+                dq for dq in review_result.analysis.data_quality_issues if dq.severity == "critical"
             ]
 
     # Exhausted retries, return the last review result (still has DQ issues)

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
     Gauge,
     generate_latest,
-    CONTENT_TYPE_LATEST,
 )
 
 router = APIRouter()

@@ -222,10 +222,12 @@ class PromptRegistry:
         role_layers: dict[str, PromptLayer] | None = None,
     ) -> None:
         self.platform_layer = platform_layer or PromptLayer(
-            name="platform", content=_BASE_PLATFORM,
+            name="platform",
+            content=_BASE_PLATFORM,
         )
         self.strategy_layer = strategy_layer or PromptLayer(
-            name="strategy", content="",
+            name="strategy",
+            content="",
         )
         self.role_layers = role_layers or {
             "reviewer": PromptLayer(name="reviewer", content=_REVIEWER_ROLE),

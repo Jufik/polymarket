@@ -128,9 +128,7 @@ class PendingBlockIngestor:
         while True:
             try:
                 log.info("pending_block.connecting", url=url, source=name)
-                async with websockets.connect(
-                    url, ping_interval=30, max_size=10_000_000
-                ) as ws:
+                async with websockets.connect(url, ping_interval=30, max_size=10_000_000) as ws:
                     backoff = RECONNECT_BASE
                     log.info("pending_block.connected", source=name)
                     req_id = 0
@@ -139,12 +137,16 @@ class PendingBlockIngestor:
                         req_id += 1
                         self._poll_count += 1
                         try:
-                            await ws.send(json.dumps({
-                                "jsonrpc": "2.0",
-                                "id": req_id,
-                                "method": "eth_getBlockByNumber",
-                                "params": ["pending", True],
-                            }))
+                            await ws.send(
+                                json.dumps(
+                                    {
+                                        "jsonrpc": "2.0",
+                                        "id": req_id,
+                                        "method": "eth_getBlockByNumber",
+                                        "params": ["pending", True],
+                                    }
+                                )
+                            )
 
                             # Read response, skip subscription notifications
                             while True:
@@ -173,7 +175,9 @@ class PendingBlockIngestor:
             except websockets.ConnectionClosed as e:
                 log.warning(
                     "pending_block.disconnected",
-                    source=name, reason=str(e), backoff=backoff,
+                    source=name,
+                    reason=str(e),
+                    backoff=backoff,
                 )
             except Exception:
                 log.exception("pending_block.error", source=name, backoff=backoff)
@@ -215,15 +219,17 @@ class PendingBlockIngestor:
 
     async def _publish_heartbeat(self) -> None:
         """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps({
-            "source": "pending_block",
-            "event": "heartbeat",
-            "trade_count": self._trade_count,
-            "poll_count": self._poll_count,
-            "tx_count": self._tx_count,
-            "endpoints": len(self._rpc_ws_urls),
-            "ts": time.time(),
-        })
+        heartbeat = json.dumps(
+            {
+                "source": "pending_block",
+                "event": "heartbeat",
+                "trade_count": self._trade_count,
+                "poll_count": self._poll_count,
+                "tx_count": self._tx_count,
+                "endpoints": len(self._rpc_ws_urls),
+                "ts": time.time(),
+            }
+        )
         await safe_publish(
             self._broker,
             message=heartbeat,

@@ -88,20 +88,22 @@ class TestRTDSIngestor:
 
         ingestor = RTDSIngestor(broker=mock_broker, topic="trades.raw", pool_size=2)
 
-        trade_msg = json.dumps({
-            "type": "trades",
-            "payload": {
-                "asset": "12345",
-                "side": "BUY",
-                "price": 0.72,
-                "size": 100.0,
-                "timestamp": 1706800000,
-                "conditionId": "cond_abc",
-                "proxyWallet": "0xmaker",
-                "transactionHash": "0xtx",
-            },
-            "timestamp": 1706800001,
-        })
+        trade_msg = json.dumps(
+            {
+                "type": "trades",
+                "payload": {
+                    "asset": "12345",
+                    "side": "BUY",
+                    "price": 0.72,
+                    "size": 100.0,
+                    "timestamp": 1706800000,
+                    "conditionId": "cond_abc",
+                    "proxyWallet": "0xmaker",
+                    "transactionHash": "0xtx",
+                },
+                "timestamp": 1706800001,
+            }
+        )
 
         # Same message from conn 0 and conn 1
         await ingestor._handle_message(trade_msg, conn_id=0)

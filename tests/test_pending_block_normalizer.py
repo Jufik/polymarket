@@ -23,19 +23,19 @@ def _build_order(
 ) -> tuple:
     """Build an Order struct tuple matching the CTFExchange ABI."""
     return (
-        1,                          # salt
-        maker,                      # maker address
-        maker,                      # signer (same as maker for simplicity)
-        "0x" + "00" * 20,           # taker (empty = anyone)
-        token_id,                   # tokenId
-        maker_amount,               # makerAmount
-        taker_amount,               # takerAmount
-        2**64,                      # expiration (far future)
-        0,                          # nonce
-        0,                          # feeRateBps
-        side,                       # side (0=BUY, 1=SELL)
-        0,                          # signatureType
-        b"",                        # signature
+        1,  # salt
+        maker,  # maker address
+        maker,  # signer (same as maker for simplicity)
+        "0x" + "00" * 20,  # taker (empty = anyone)
+        token_id,  # tokenId
+        maker_amount,  # makerAmount
+        taker_amount,  # takerAmount
+        2**64,  # expiration (far future)
+        0,  # nonce
+        0,  # feeRateBps
+        side,  # side (0=BUY, 1=SELL)
+        0,  # signatureType
+        b"",  # signature
     )
 
 
@@ -75,13 +75,19 @@ def test_decode_single_maker_buy():
 
     # Taker BUY: pays 700_000 USDC for 1_000_000 tokens => price = 0.70
     taker_order = _build_order(
-        maker=taker_addr, token_id=token_id,
-        maker_amount=700_000, taker_amount=1_000_000, side=0,
+        maker=taker_addr,
+        token_id=token_id,
+        maker_amount=700_000,
+        taker_amount=1_000_000,
+        side=0,
     )
     # Maker SELL: provides 1_000_000 tokens, wants 700_000 USDC => price = 0.70
     maker_order = _build_order(
-        maker=maker_addr, token_id=token_id,
-        maker_amount=1_000_000, taker_amount=700_000, side=1,
+        maker=maker_addr,
+        token_id=token_id,
+        maker_amount=1_000_000,
+        taker_amount=700_000,
+        side=1,
     )
 
     calldata = _encode_match_orders(
@@ -130,13 +136,19 @@ def test_decode_single_maker_sell():
 
     # Taker SELL: sells 2_000_000 tokens for 1_200_000 USDC => price = 0.60
     taker_order = _build_order(
-        maker=taker_addr, token_id=token_id,
-        maker_amount=2_000_000, taker_amount=1_200_000, side=1,
+        maker=taker_addr,
+        token_id=token_id,
+        maker_amount=2_000_000,
+        taker_amount=1_200_000,
+        side=1,
     )
     # Maker BUY: pays 1_200_000 USDC for 2_000_000 tokens => price = 0.60
     maker_order = _build_order(
-        maker=maker_addr, token_id=token_id,
-        maker_amount=1_200_000, taker_amount=2_000_000, side=0,
+        maker=maker_addr,
+        token_id=token_id,
+        maker_amount=1_200_000,
+        taker_amount=2_000_000,
+        side=0,
     )
 
     calldata = _encode_match_orders(
@@ -175,16 +187,25 @@ def test_decode_multiple_makers():
     token_id = 77777
 
     taker_order = _build_order(
-        maker=taker_addr, token_id=token_id,
-        maker_amount=1_000_000, taker_amount=1_000_000, side=0,
+        maker=taker_addr,
+        token_id=token_id,
+        maker_amount=1_000_000,
+        taker_amount=1_000_000,
+        side=0,
     )
     maker_order_1 = _build_order(
-        maker=maker_addr_1, token_id=token_id,
-        maker_amount=600_000, taker_amount=600_000, side=1,
+        maker=maker_addr_1,
+        token_id=token_id,
+        maker_amount=600_000,
+        taker_amount=600_000,
+        side=1,
     )
     maker_order_2 = _build_order(
-        maker=maker_addr_2, token_id=token_id,
-        maker_amount=400_000, taker_amount=400_000, side=1,
+        maker=maker_addr_2,
+        token_id=token_id,
+        maker_amount=400_000,
+        taker_amount=400_000,
+        side=1,
     )
 
     calldata = _encode_match_orders(
@@ -247,17 +268,21 @@ def test_token_market_map_resolves_condition_id():
     """Token market map resolves asset_id -> condition_id."""
     token_id = 12345
     condition_id = "0xcondition123"
-    normalizer = PendingBlockNormalizer(
-        token_market_map={str(token_id): (condition_id, "YES")}
-    )
+    normalizer = PendingBlockNormalizer(token_market_map={str(token_id): (condition_id, "YES")})
 
     taker_order = _build_order(
-        maker="0x" + "11" * 20, token_id=token_id,
-        maker_amount=500_000, taker_amount=1_000_000, side=0,
+        maker="0x" + "11" * 20,
+        token_id=token_id,
+        maker_amount=500_000,
+        taker_amount=1_000_000,
+        side=0,
     )
     maker_order = _build_order(
-        maker="0x" + "22" * 20, token_id=token_id,
-        maker_amount=1_000_000, taker_amount=500_000, side=1,
+        maker="0x" + "22" * 20,
+        token_id=token_id,
+        maker_amount=1_000_000,
+        taker_amount=500_000,
+        side=1,
     )
 
     calldata = _encode_match_orders(

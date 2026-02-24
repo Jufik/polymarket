@@ -137,9 +137,7 @@ class TestPostgresSink:
         await sink.upsert_tags([Tag(id=TEST_TAG_ID, label="Sports", slug="sports")])
         await sink.upsert_event_tags([(TEST_EVENT_ID, TEST_TAG_ID)])
 
-        rows = await sink.query(
-            "SELECT * FROM event_tags WHERE event_id = $1", TEST_EVENT_ID
-        )
+        rows = await sink.query("SELECT * FROM event_tags WHERE event_id = $1", TEST_EVENT_ID)
         assert len(rows) == 1
         assert rows[0]["tag_id"] == TEST_TAG_ID
 
@@ -149,9 +147,7 @@ class TestPostgresSink:
         await sink.upsert_event_tags([(TEST_EVENT_ID, TEST_TAG_ID)])
         await sink.upsert_event_tags([(TEST_EVENT_ID, TEST_TAG_ID)])
 
-        rows = await sink.query(
-            "SELECT * FROM event_tags WHERE event_id = $1", TEST_EVENT_ID
-        )
+        rows = await sink.query("SELECT * FROM event_tags WHERE event_id = $1", TEST_EVENT_ID)
         assert len(rows) == 1
 
     async def test_token_map(self, sink: PostgresSink) -> None:

@@ -107,9 +107,7 @@ def init(
     (stage_dir / "outputs").mkdir()
 
     # Copy template
-    template_path = (
-        Path(__file__).parent.parent / "exploration" / "templates" / "stage_template.py"
-    )
+    template_path = Path(__file__).parent.parent / "exploration" / "templates" / "stage_template.py"
     if template_path.exists():
         content = template_path.read_text()
         content = content.replace("{stage_id}", root.id)
@@ -257,7 +255,9 @@ def review(
     stage_dir = strategy_path / "stages" / stage_id
     transcript_path = stage_dir / "transcript.json"
     agent_result.save_transcript(transcript_path)
-    console.print(f"[dim]Transcript saved: {transcript_path} ({len(agent_result.transcript)} entries)[/dim]")
+    console.print(
+        f"[dim]Transcript saved: {transcript_path} ({len(agent_result.transcript)} entries)[/dim]"
+    )
 
     # Print transcript summary if verbose
     if verbose:
@@ -587,9 +587,7 @@ def orchestrate(
     max_dq_retries: int = typer.Option(
         2, "--max-dq-retries", help="Max DQ self-heal attempts before pausing (0 to disable)"
     ),
-    parallel: int = typer.Option(
-        1, "--parallel", "-p", help="Concurrent pipelines (1 = serial)"
-    ),
+    parallel: int = typer.Option(1, "--parallel", "-p", help="Concurrent pipelines (1 = serial)"),
     max_children: int = typer.Option(
         15, "--max-children", help="Max completed children per parent before convergence"
     ),

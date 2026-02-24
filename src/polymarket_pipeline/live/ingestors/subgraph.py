@@ -161,7 +161,9 @@ class SubgraphPoller:
                 key=t.condition_id.encode(),
             )
 
-    async def _execute_with_retry(self, client: Client, query: Any, variables: dict[str, Any]) -> dict[str, Any]:
+    async def _execute_with_retry(
+        self, client: Client, query: Any, variables: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute a GQL query with exponential backoff retry on transient errors."""
         for attempt in range(MAX_RETRIES):
             try:
@@ -171,10 +173,13 @@ class SubgraphPoller:
                 )
             except Exception as exc:
                 err_str = str(exc)
-                is_transient = any(s in err_str for s in ("502", "503", "504", "timeout", "Timeout", "ConnectionError"))
+                is_transient = any(
+                    s in err_str
+                    for s in ("502", "503", "504", "timeout", "Timeout", "ConnectionError")
+                )
                 if not is_transient or attempt == MAX_RETRIES - 1:
                     raise
-                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                delay = RETRY_BASE_DELAY * (2**attempt)
                 log.warning(
                     "subgraph.retry",
                     attempt=attempt + 1,
@@ -329,12 +334,14 @@ class SubgraphPoller:
                 # Status message to Redpanda if broker available
                 if self._broker is not None:
                     await self._broker.publish(
-                        message=json.dumps({
-                            "source": "subgraph",
-                            "event": "caught_up",
-                            "total_recovered": total,
-                            "ts": time.time(),
-                        }),
+                        message=json.dumps(
+                            {
+                                "source": "subgraph",
+                                "event": "caught_up",
+                                "total_recovered": total,
+                                "ts": time.time(),
+                            }
+                        ),
                         topic=self._status_topic,
                         key=b"subgraph",
                     )

@@ -76,30 +76,22 @@ class BrainstormAgent:
         ]
 
         if stage.analysis:
-            prompt_parts.append(
-                f"\nStage analysis summary: {stage.analysis.summary}"
-            )
-            prompt_parts.append(
-                f"Confidence: {stage.analysis.confidence:.0%}"
-            )
+            prompt_parts.append(f"\nStage analysis summary: {stage.analysis.summary}")
+            prompt_parts.append(f"Confidence: {stage.analysis.confidence:.0%}")
             prompt_parts.append(
                 f"Branch recommendation: {stage.analysis.branch_recommendation.value}"
             )
             if stage.analysis.key_insights:
                 prompt_parts.append(
-                    "Key insights:\n"
-                    + "\n".join(f"  - {i}" for i in stage.analysis.key_insights)
+                    "Key insights:\n" + "\n".join(f"  - {i}" for i in stage.analysis.key_insights)
                 )
             if stage.analysis.concerns:
                 prompt_parts.append(
-                    "Concerns:\n"
-                    + "\n".join(f"  - {c}" for c in stage.analysis.concerns)
+                    "Concerns:\n" + "\n".join(f"  - {c}" for c in stage.analysis.concerns)
                 )
 
         if stage.outputs_path:
-            prompt_parts.append(
-                f"\nStage outputs at: {strategy_path / stage.outputs_path}"
-            )
+            prompt_parts.append(f"\nStage outputs at: {strategy_path / stage.outputs_path}")
 
         # Include existing brief context
         if self.brief.learnings:
@@ -114,16 +106,10 @@ class BrainstormAgent:
         # Include tree context (siblings, path)
         path_to_root = tree.get_path_to_root(stage.id)
         if path_to_root:
-            prompt_parts.append(
-                "\nExploration path: "
-                + " -> ".join(s.name for s in path_to_root)
-            )
+            prompt_parts.append("\nExploration path: " + " -> ".join(s.name for s in path_to_root))
 
         # Count completed stages
-        completed = [
-            s for s in tree.stages.values()
-            if s.analysis is not None
-        ]
+        completed = [s for s in tree.stages.values() if s.analysis is not None]
         prompt_parts.append(f"\nTotal completed stages: {len(completed)}")
 
         prompt = "\n".join(prompt_parts)
@@ -171,20 +157,11 @@ class BrainstormAgent:
                 brief_update="Failed to parse brainstorm JSON",
             )
 
-        learnings = [
-            StrategyLearning(**item)
-            for item in data.get("new_learnings", [])
-        ]
+        learnings = [StrategyLearning(**item) for item in data.get("new_learnings", [])]
 
-        platform = [
-            PlatformKnowledge(**pk)
-            for pk in data.get("platform_knowledge", [])
-        ]
+        platform = [PlatformKnowledge(**pk) for pk in data.get("platform_knowledge", [])]
 
-        triggers = [
-            EscalationTrigger(**t)
-            for t in data.get("escalation_triggers", [])
-        ]
+        triggers = [EscalationTrigger(**t) for t in data.get("escalation_triggers", [])]
 
         return BrainstormResult(
             new_learnings=learnings,
