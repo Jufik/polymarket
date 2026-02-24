@@ -23,6 +23,7 @@ import structlog
 import websockets
 
 from polymarket_pipeline.constants import FEE_MODULE_ADDRS
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.normalizers.pending_block import PendingBlockNormalizer
 
 log = structlog.get_logger()
@@ -194,10 +195,12 @@ class PendingBlockIngestor:
 
             for trade in trades:
                 trade = trade.model_copy(update={"published_at": time.time()})
-                await self._broker.publish(
+                await safe_publish(
+                    self._broker,
                     message=trade.model_dump_json(),
                     topic=self._topic,
                     key=trade.condition_id.encode(),
+                    source="pending_block",
                 )
                 self._trade_count += 1
 
@@ -221,10 +224,12 @@ class PendingBlockIngestor:
             "endpoints": len(self._rpc_ws_urls),
             "ts": time.time(),
         })
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=heartbeat,
             topic=self._status_topic,
             key=b"pending_block",
+            source="pending_block",
         )
 
     async def _heartbeat_loop(self) -> None:

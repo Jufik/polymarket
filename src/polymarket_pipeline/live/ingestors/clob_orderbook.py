@@ -14,6 +14,8 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.ingestors._publish import safe_publish
+
 log = structlog.get_logger()
 
 RECONNECT_BASE = 1.0
@@ -102,10 +104,12 @@ class CLOBOrderbookIngestor:
             "timestamp": time.time(),
         }
 
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=json.dumps(snapshot),
             topic=self._topic,
             key=condition_id.encode(),
+            source="clob_orderbook",
         )
         self._update_count += 1
 
@@ -119,10 +123,12 @@ class CLOBOrderbookIngestor:
                 "ts": time.time(),
             }
         )
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=heartbeat,
             topic=self._status_topic,
             key=b"clob_orderbook",
+            source="clob_orderbook",
         )
 
     async def _heartbeat_loop(self) -> None:
