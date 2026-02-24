@@ -27,14 +27,6 @@ broker = KafkaBroker(settings.redpanda_url)
 app = FastStream(broker)
 
 
-# Placeholder dashboard returns 503 until startup completes
-async def _dashboard_placeholder(scope: Any, receive: Any, send: Any) -> None:
-    from faststream.asgi import AsgiResponse
-
-    resp = AsgiResponse(body=b"Starting...", status_code=503)
-    await resp(scope, receive, send)
-
-
 async def _health_live(scope: Any, receive: Any, send: Any) -> None:
     """Liveness: 200 if process is running."""
     from faststream.asgi import AsgiResponse
@@ -63,7 +55,6 @@ async def _health_ready(scope: Any, receive: Any, send: Any) -> None:
 
 asgi_app = app.as_asgi(
     asgi_routes=[
-        ("/dashboard", _dashboard_placeholder),
         ("/health/live", _health_live),
         ("/health/ready", _health_ready),
     ]
@@ -221,15 +212,6 @@ async def on_startup(context: ContextRepo) -> None:
         _ingestor_tasks.append(asyncio.create_task(clob_ob.run()))
 
     log.info("live_pipeline.ingestors_started", count=len(_ingestor_tasks))
-
-    # Mount live dashboard (replaces placeholder)
-    from polymarket_pipeline.live.dashboard import make_dashboard_route
-
-    route = make_dashboard_route(_quality_checker, refresh_s=settings.dashboard_refresh_s)
-    asgi_app.routes = [
-        (path, route if path == "/dashboard" else handler) for path, handler in asgi_app.routes
-    ]
-    log.info("dashboard.mounted", path="/dashboard")
 
 
 @app.on_shutdown

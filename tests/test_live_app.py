@@ -17,8 +17,8 @@ def test_app_importable(monkeypatch: pytest.MonkeyPatch):
     assert app_mod.broker is not None
 
 
-def test_asgi_app_has_dashboard_route(monkeypatch: pytest.MonkeyPatch):
-    """ASGI app should expose /dashboard route."""
+def test_asgi_app_has_health_routes(monkeypatch: pytest.MonkeyPatch):
+    """ASGI app should expose health routes (dashboard removed in favour of FastAPI + Next.js)."""
     monkeypatch.setenv("PM_ALCHEMY_WS_URL", "wss://test.example.com")
 
     import importlib
@@ -29,4 +29,6 @@ def test_asgi_app_has_dashboard_route(monkeypatch: pytest.MonkeyPatch):
 
     assert app_mod.asgi_app is not None
     route_paths = [path for path, _ in app_mod.asgi_app.routes]
-    assert "/dashboard" in route_paths
+    assert "/health/live" in route_paths
+    assert "/health/ready" in route_paths
+    assert "/dashboard" not in route_paths
