@@ -1,0 +1,89 @@
+# =============================================================================
+# Strategy Configuration — Three-Strategy Portfolio
+# =============================================================================
+# Run: uv run pm-strategy run --config configs/strategies_example.toml
+
+# ---------------------------------------------------------------------------
+# S2b: Crypto OTM NO — Buy NO on out-of-the-money crypto price checkpoints
+# ---------------------------------------------------------------------------
+[strategy.crypto_otm_no]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 10
+cooldown_s = 0
+features = ["crypto_markets"]
+
+[strategy.crypto_otm_no.params]
+yes_price_min = 0.05
+yes_price_max = 0.25
+base_bet_usd = 100
+min_volume_usd = 50
+question_pattern = "(above|below)"
+assets = ["BTC", "ETH", "SOL", "XRP"]
+
+# ---------------------------------------------------------------------------
+# S2a: Will NO — Buy NO on binary "Will X happen?" questions
+# ---------------------------------------------------------------------------
+[strategy.will_no]
+enabled = true
+mode = "paper_dev"
+capital_usd = 300
+max_position_usd = 50
+max_open_positions = 6
+cooldown_s = 0
+features = ["will_markets"]
+
+[strategy.will_no.params]
+yes_price_min = 0.15
+yes_price_max = 0.40
+base_bet_usd = 50
+prefer_keywords = ["above", "below", "today"]
+avoid_keywords = ["reach", "hit"]
+max_volume_usd = 5000
+question_pattern = "^Will\\b"
+
+# ---------------------------------------------------------------------------
+# S1: Proportional Copy — Copy graded longshot-YES specialists
+# ---------------------------------------------------------------------------
+[strategy.proportional_copy]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["pool_traders"]
+
+[strategy.proportional_copy.params]
+capital_per_trader_usd = 50
+max_position_pct = 0.05
+contradiction_filter = true
+sizing = "equal"
+
+# ---------------------------------------------------------------------------
+# Feature Providers
+# ---------------------------------------------------------------------------
+
+[provider.crypto_markets]
+enabled = true
+refresh_interval_s = 900
+
+[provider.crypto_markets.params]
+question_pattern = "(above|below)"
+assets = ["BTC", "ETH", "SOL", "XRP"]
+
+[provider.will_markets]
+enabled = true
+refresh_interval_s = 900
+
+[provider.will_markets.params]
+question_pattern = "^Will\\b"
+
+[provider.pool_traders]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.pool_traders.params]
+min_markets = 50

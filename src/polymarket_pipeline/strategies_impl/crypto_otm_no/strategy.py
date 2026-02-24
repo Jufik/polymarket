@@ -80,6 +80,14 @@ class CryptoOTMNoStrategy:
         if not self._is_eligible(market, trade):
             return None
 
+        # Volume filter — skip thin markets
+        if self._cfg.min_volume_usd > 0:
+            volumes = await ctx.get_features("crypto_markets_volume")
+            if volumes is not None:
+                vol = volumes.get(cid, 0.0)
+                if vol < self._cfg.min_volume_usd:
+                    return None
+
         self._signaled.add(cid)
 
         intent = TradeIntent(

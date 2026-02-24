@@ -42,8 +42,20 @@ def _register_providers() -> None:
     from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
         SkilledTradersProvider,
     )
+    from polymarket_pipeline.strategies_impl.crypto_otm_no.providers import (
+        CryptoMarketProvider,
+    )
+    from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
+        GradedPoolProvider,
+    )
+    from polymarket_pipeline.strategies_impl.will_no.providers import (
+        WillMarketProvider,
+    )
 
     _PROVIDER_REGISTRY["skilled_traders"] = SkilledTradersProvider
+    _PROVIDER_REGISTRY["crypto_markets"] = CryptoMarketProvider
+    _PROVIDER_REGISTRY["will_markets"] = WillMarketProvider
+    _PROVIDER_REGISTRY["pool_traders"] = GradedPoolProvider
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +77,37 @@ def _make_consensus_copy(config: StrategyConfig) -> Any:
     return ConsensusCopyStrategy(config=cc_cfg)
 
 
+def _make_crypto_otm_no(config: StrategyConfig) -> Any:
+    from polymarket_pipeline.strategies_impl.crypto_otm_no.config import CryptoOTMNoConfig
+    from polymarket_pipeline.strategies_impl.crypto_otm_no.strategy import CryptoOTMNoStrategy
+
+    return CryptoOTMNoStrategy(config=CryptoOTMNoConfig(**config.params))
+
+
+def _make_will_no(config: StrategyConfig) -> Any:
+    from polymarket_pipeline.strategies_impl.will_no.config import WillNoConfig
+    from polymarket_pipeline.strategies_impl.will_no.strategy import WillNoStrategy
+
+    return WillNoStrategy(config=WillNoConfig(**config.params))
+
+
+def _make_proportional_copy(config: StrategyConfig) -> Any:
+    from polymarket_pipeline.strategies_impl.proportional_copy.config import (
+        ProportionalCopyConfig,
+    )
+    from polymarket_pipeline.strategies_impl.proportional_copy.strategy import (
+        ProportionalCopyStrategy,
+    )
+
+    return ProportionalCopyStrategy(config=ProportionalCopyConfig(**config.params))
+
+
 def _register_strategies() -> None:
     """Register known strategy factories."""
     _STRATEGY_FACTORIES["consensus_copy"] = _make_consensus_copy
+    _STRATEGY_FACTORIES["crypto_otm_no"] = _make_crypto_otm_no
+    _STRATEGY_FACTORIES["will_no"] = _make_will_no
+    _STRATEGY_FACTORIES["proportional_copy"] = _make_proportional_copy
 
 
 # ---------------------------------------------------------------------------
