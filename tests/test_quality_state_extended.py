@@ -115,3 +115,19 @@ def test_time_until_red_zero_when_expired() -> None:
     state = ReadinessState(degraded_grace_s=1.0)
     state._degraded_since = time.monotonic() - 10.0
     assert state.time_until_red == 0.0
+
+
+def test_last_results_empty_by_default() -> None:
+    state = ReadinessState()
+    assert state.last_results == {}
+
+
+def test_failures_list() -> None:
+    state = ReadinessState()
+    state.update(
+        {
+            "a": CheckResult(ok=True),
+            "b": CheckResult(ok=False, reason="broken"),
+        }
+    )
+    assert state.failures == ["b: broken"]
