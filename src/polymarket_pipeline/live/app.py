@@ -106,8 +106,12 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
         topic="trades.raw",
         status_topic="pipeline.status",
     )
-    total = await poller.recover(from_timestamp=last_ts)
-    log.info("recovery.complete", trades_recovered=total)
+    try:
+        async with asyncio.timeout(300):
+            total = await poller.recover(from_timestamp=last_ts)
+        log.info("recovery.complete", trades_recovered=total)
+    except TimeoutError:
+        log.warning("recovery.timeout", timeout_s=300, from_ts=last_ts)
 
 
 @app.on_startup
@@ -122,7 +126,7 @@ async def on_startup(context: ContextRepo) -> None:
     token_map = await _load_token_map()
 
     # Check for gaps and recover via subgraph if needed
-    await _check_and_recover(token_map)
+    _ingestor_tasks.append(asyncio.create_task(_check_and_recover(token_map)))
 
     # Initialize quality checker
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
