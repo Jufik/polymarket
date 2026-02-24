@@ -31,10 +31,7 @@ class CircuitBreaker:
 
     @property
     def state(self) -> str:
-        if (
-            self._state == "open"
-            and time.monotonic() - self._last_failure_time >= self._cooldown_s
-        ):
+        if self._state == "open" and time.monotonic() - self._last_failure_time >= self._cooldown_s:
             return "half_open"
         return self._state
 

@@ -1,10 +1,11 @@
 """Tests for safe_publish error handling."""
 
-import pytest
 from unittest.mock import AsyncMock
 
-from polymarket_pipeline.live.ingestors._publish import safe_publish
+import pytest
+
 from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 
 
 @pytest.mark.asyncio
@@ -23,7 +24,5 @@ async def test_safe_publish_handles_connection_error():
 async def test_safe_publish_handles_unexpected_error():
     broker = AsyncMock()
     broker.publish.side_effect = RuntimeError("unexpected")
-    result = await safe_publish(
-        broker, message="test", topic="t", key=b"k", source="test"
-    )
+    result = await safe_publish(broker, message="test", topic="t", key=b"k", source="test")
     assert result is False
