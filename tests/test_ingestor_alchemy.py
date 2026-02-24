@@ -2,9 +2,7 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock
 
-import pytest
 from eth_abi import encode
 
 
@@ -54,13 +52,6 @@ def _make_subscription_result(
             },
         },
     }
-
-
-@pytest.fixture
-def mock_broker():
-    broker = AsyncMock()
-    broker.publish = AsyncMock()
-    return broker
 
 
 class TestAlchemyIngestor:

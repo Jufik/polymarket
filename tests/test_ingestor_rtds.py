@@ -2,16 +2,6 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock
-
-import pytest
-
-
-@pytest.fixture
-def mock_broker():
-    broker = AsyncMock()
-    broker.publish = AsyncMock()
-    return broker
 
 
 class TestRTDSIngestor:
