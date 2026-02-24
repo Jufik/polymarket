@@ -110,3 +110,25 @@ base_bet_usd = 10.0
     runner = _build_runner(config_file, only="consensus_copy")
     assert len(runner.strategies) == 1
     assert runner.strategies[0][0].name == "consensus_copy"
+
+
+def test_all_strategies_registered() -> None:
+    """All four strategies should be registered in the factory."""
+    from polymarket_pipeline.cli.strategy import _STRATEGY_FACTORIES, _register_strategies
+
+    _register_strategies()
+    assert "consensus_copy" in _STRATEGY_FACTORIES
+    assert "crypto_otm_no" in _STRATEGY_FACTORIES
+    assert "will_no" in _STRATEGY_FACTORIES
+    assert "proportional_copy" in _STRATEGY_FACTORIES
+
+
+def test_all_providers_registered() -> None:
+    """All providers should be registered."""
+    from polymarket_pipeline.cli.strategy import _PROVIDER_REGISTRY, _register_providers
+
+    _register_providers()
+    assert "skilled_traders" in _PROVIDER_REGISTRY
+    assert "crypto_markets" in _PROVIDER_REGISTRY
+    assert "will_markets" in _PROVIDER_REGISTRY
+    assert "pool_traders" in _PROVIDER_REGISTRY
