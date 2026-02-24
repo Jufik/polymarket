@@ -88,7 +88,15 @@ async def on_startup(context: ContextRepo) -> None:
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
     ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
-    _quality_checker = QualityChecker(settings=settings, clickhouse=ch)
+
+    # Connect PG pool for quality checks (metadata freshness, resolved completeness)
+    pg_pool = None
+    if settings.pg_dsn:
+        import asyncpg
+
+        pg_pool = await asyncpg.create_pool(dsn=settings.pg_dsn, min_size=1, max_size=2)
+
+    _quality_checker = QualityChecker(settings=settings, clickhouse=ch, pg_pool=pg_pool)
     context.set_global("quality_checker", _quality_checker)
 
     # Periodic quality check (detects silent ingestor failures)
