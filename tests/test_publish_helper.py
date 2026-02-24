@@ -23,7 +23,11 @@ class _FastBroker:
 @pytest.mark.asyncio
 async def test_safe_publish_returns_false_on_timeout() -> None:
     result = await safe_publish(
-        _SlowBroker(), message="x", topic="t", key=b"k", source="test",
+        _SlowBroker(),
+        message="x",
+        topic="t",
+        key=b"k",
+        source="test",
     )
     assert result is False
 
@@ -32,7 +36,11 @@ async def test_safe_publish_returns_false_on_timeout() -> None:
 async def test_safe_publish_returns_true_on_success() -> None:
     broker = _FastBroker()
     result = await safe_publish(
-        broker, message="x", topic="t", key=b"k", source="test",
+        broker,
+        message="x",
+        topic="t",
+        key=b"k",
+        source="test",
     )
     assert result is True
     assert len(broker.published) == 1
