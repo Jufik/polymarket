@@ -34,8 +34,10 @@ def make_trade_id_ws(
 def make_trade_id_pending(*, tx_hash: str, index: int) -> str:
     """Generate trade_id for pending block trades.
 
-    Uses tx_hash + fill index. These are early signals (version=0) that
-    get overwritten by on-chain records (version=2) in ClickHouse.
+    Uses tx_hash + fill index. These are published to the ``pending.signal``
+    topic (NOT ``trades.raw``) and are consumed directly by strategies as
+    early signals. They are NOT written to ClickHouse trades_raw and do NOT
+    participate in version-based deduplication.
     """
     raw = f"{tx_hash}:{index}"
     digest = sha256(raw.encode()).hexdigest()[:16]
