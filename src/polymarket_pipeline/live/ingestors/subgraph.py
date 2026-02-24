@@ -189,15 +189,21 @@ class SubgraphPoller:
                 await asyncio.sleep(delay)
         raise RuntimeError("unreachable")  # pragma: no cover
 
-    async def _checkpoint(self, cursor_ts: int, total: int) -> None:
+    async def _checkpoint(self, cursor_ts: int, total: int, cursor_id: str = "") -> None:
         """Persist recovery cursor to PostgreSQL (if tracking enabled)."""
         if self._pg_dsn is None or self._job_id is None:
             return
         from polymarket_pipeline.sinks.postgres import PostgresSink
 
         async with PostgresSink(dsn=self._pg_dsn) as pg:
-            await pg.update_recovery_cursor(self._job_id, cursor_ts, total)
-        log.debug("recovery.checkpoint", job_id=self._job_id, cursor_ts=cursor_ts, total=total)
+            await pg.update_recovery_cursor(self._job_id, cursor_ts, total, cursor_id)
+        log.debug(
+            "recovery.checkpoint",
+            job_id=self._job_id,
+            cursor_ts=cursor_ts,
+            cursor_id=cursor_id,
+            total=total,
+        )
 
     async def _complete_job(self, status: str = "completed") -> None:
         """Mark recovery job as completed or failed in PostgreSQL."""
@@ -289,7 +295,7 @@ class SubgraphPoller:
 
                     # Checkpoint cursor to PG every 50 batches
                     if batch_num % 50 == 0:
-                        await self._checkpoint(int(cursor_ts), total)
+                        await self._checkpoint(int(cursor_ts), total, cursor_id)
 
                     # Compute ETA from rolling window
                     remaining_data_s = target_ts - int(cursor_ts)
@@ -328,7 +334,7 @@ class SubgraphPoller:
                 total_wall = time.monotonic() - recovery_start
 
                 # Final checkpoint before marking complete
-                await self._checkpoint(int(cursor_ts), total)
+                await self._checkpoint(int(cursor_ts), total, cursor_id)
                 await self._complete_job("completed")
 
                 # Status message to Redpanda if broker available
