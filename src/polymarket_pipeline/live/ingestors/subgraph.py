@@ -159,7 +159,10 @@ class SubgraphPoller:
         """Execute a GQL query with exponential backoff retry on transient errors."""
         for attempt in range(MAX_RETRIES):
             try:
-                return await client.execute(query, variable_values=variables)
+                return await asyncio.wait_for(
+                    client.execute(query, variable_values=variables),
+                    timeout=30.0,
+                )
             except Exception as exc:
                 err_str = str(exc)
                 is_transient = any(s in err_str for s in ("502", "503", "504", "timeout", "Timeout", "ConnectionError"))
