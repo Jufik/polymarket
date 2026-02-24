@@ -1,0 +1,13 @@
+docker-drives/
+order_filled/
+data/
+.git/
+__pycache__/
+*.pyc
+.env
+.venv/
+crates/
+research/
+.worktrees/
+node_modules/
+ui/
