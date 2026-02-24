@@ -118,14 +118,14 @@ class TestApplyFillBuyFromNone:
 
 
 class TestApplyFillBuyExisting:
-    """BUY on an existing position -- weighted avg_entry_price."""
+    """BUY on an existing position -- weighted avg_entry_yes/no."""
 
     def test_buy_yes_weighted_avg(self) -> None:
         old = Position(
             condition_id=CONDITION,
             strategy=STRATEGY,
             qty_yes=100.0,  # bought 100 shares at 0.50
-            avg_entry_price=0.50,
+            avg_entry_yes=0.50,
             cost_basis=50.0,
         )
         fill = _make_fill(side="BUY", outcome="YES", price=0.70, size_usd=70.0, fee_usd=1.0)
@@ -143,7 +143,7 @@ class TestApplyFillBuyExisting:
             condition_id=CONDITION,
             strategy=STRATEGY,
             qty_no=50.0,
-            avg_entry_price=0.30,
+            avg_entry_no=0.30,
             cost_basis=15.0,
         )
         fill = _make_fill(side="BUY", outcome="NO", price=0.40, size_usd=20.0, fee_usd=0.0)
@@ -165,7 +165,7 @@ class TestApplyFillSell:
             condition_id=CONDITION,
             strategy=STRATEGY,
             qty_yes=100.0,
-            avg_entry_price=0.50,
+            avg_entry_yes=0.50,
             cost_basis=50.0,
             realized_pnl=0.0,
         )
@@ -185,7 +185,7 @@ class TestApplyFillSell:
             condition_id=CONDITION,
             strategy=STRATEGY,
             qty_no=200.0,
-            avg_entry_price=0.60,
+            avg_entry_no=0.60,
             cost_basis=120.0,
             realized_pnl=5.0,
         )
@@ -313,3 +313,81 @@ class TestCheckRiskGateCooldown:
         allowed, reason = check_risk_gate(intent, config, {}, last_trade_times, now=1000.0)
         assert allowed is True
         assert reason == ""
+
+
+# ---------------------------------------------------------------------------
+# Cross-side avg_entry tracking
+# ---------------------------------------------------------------------------
+
+
+class TestApplyFillCrossSide:
+    """Verify per-side avg_entry fields stay independent when both sides are held."""
+
+    def test_buy_yes_then_buy_no_tracks_separate_avg(self) -> None:
+        """Build a YES position, then add NO -- verify both avgs are independent."""
+        # Start with a YES position
+        fill_yes = _make_fill(side="BUY", outcome="YES", price=0.60, size_usd=60.0, fee_usd=0.0)
+        pos = apply_fill_to_position(None, fill_yes)
+
+        assert pos.avg_entry_yes == pytest.approx(0.60)
+        assert pos.avg_entry_no == 0.0
+
+        # Now buy NO at a different price
+        fill_no = _make_fill(side="BUY", outcome="NO", price=0.35, size_usd=35.0, fee_usd=0.0)
+        pos = apply_fill_to_position(pos, fill_no)
+
+        # YES avg should be unchanged
+        assert pos.avg_entry_yes == pytest.approx(0.60)
+        # NO avg should reflect the NO fill only
+        assert pos.avg_entry_no == pytest.approx(0.35)
+        # Both sides should have quantity
+        assert pos.qty_yes == pytest.approx(100.0)  # 60 / 0.60
+        assert pos.qty_no == pytest.approx(100.0)  # 35 / 0.35
+
+    def test_sell_yes_uses_yes_avg(self) -> None:
+        """Mixed position: selling YES uses avg_entry_yes for PnL, not NO avg."""
+        pos = Position(
+            condition_id=CONDITION,
+            strategy=STRATEGY,
+            qty_yes=100.0,
+            qty_no=100.0,
+            avg_entry_yes=0.40,
+            avg_entry_no=0.70,
+            cost_basis=110.0,
+            realized_pnl=0.0,
+        )
+        # Sell YES at 0.60 -- PnL should use avg_entry_yes=0.40, NOT avg_entry_no=0.70
+        fill = _make_fill(side="SELL", outcome="YES", price=0.60, size_usd=30.0, fee_usd=0.0)
+        pos = apply_fill_to_position(pos, fill)
+
+        sold_qty = 30.0 / 0.60  # 50.0
+        expected_pnl = (0.60 - 0.40) * sold_qty  # 10.0
+        assert pos.realized_pnl == pytest.approx(expected_pnl)
+        assert pos.qty_yes == pytest.approx(50.0)
+        # NO side should be unchanged
+        assert pos.qty_no == pytest.approx(100.0)
+        assert pos.avg_entry_no == pytest.approx(0.70)
+
+    def test_sell_no_uses_no_avg(self) -> None:
+        """Mixed position: selling NO uses avg_entry_no for PnL, not YES avg."""
+        pos = Position(
+            condition_id=CONDITION,
+            strategy=STRATEGY,
+            qty_yes=100.0,
+            qty_no=200.0,
+            avg_entry_yes=0.50,
+            avg_entry_no=0.30,
+            cost_basis=85.0,
+            realized_pnl=0.0,
+        )
+        # Sell NO at 0.40 -- PnL should use avg_entry_no=0.30, NOT avg_entry_yes=0.50
+        fill = _make_fill(side="SELL", outcome="NO", price=0.40, size_usd=20.0, fee_usd=1.0)
+        pos = apply_fill_to_position(pos, fill)
+
+        sold_qty = 20.0 / 0.40  # 50.0
+        expected_pnl = (0.40 - 0.30) * sold_qty - 1.0  # 5.0 - 1.0 = 4.0
+        assert pos.realized_pnl == pytest.approx(expected_pnl)
+        assert pos.qty_no == pytest.approx(150.0)
+        # YES side should be unchanged
+        assert pos.qty_yes == pytest.approx(100.0)
+        assert pos.avg_entry_yes == pytest.approx(0.50)

@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 def apply_fill_to_position(old: Position | None, fill: Fill) -> Position:
     """Update a position based on a fill.
 
-    BUY YES/NO: increment qty, update weighted avg_entry_price, add to cost_basis.
-    SELL YES/NO: decrement qty, compute realized_pnl delta.
+    BUY YES/NO: increment qty, update weighted avg_entry_yes/no, add to cost_basis.
+    SELL YES/NO: decrement qty, compute realized_pnl delta using per-side avg.
 
     Since :class:`Position` is frozen, a **new** instance is returned each time.
     """
@@ -30,42 +30,42 @@ def apply_fill_to_position(old: Position | None, fill: Fill) -> Position:
             old_qty = old.qty_yes
             new_qty = old_qty + added_qty
             new_avg = (
-                (old.avg_entry_price * old_qty + fill.filled_price * added_qty) / new_qty
+                (old.avg_entry_yes * old_qty + fill.filled_price * added_qty) / new_qty
                 if new_qty > 0
                 else 0.0
             )
             return replace(
                 old,
                 qty_yes=new_qty,
-                avg_entry_price=new_avg,
+                avg_entry_yes=new_avg,
                 cost_basis=old.cost_basis + fill.filled_size_usd + fill.fee_usd,
             )
         # BUY NO
         old_qty = old.qty_no
         new_qty = old_qty + added_qty
         new_avg = (
-            (old.avg_entry_price * old_qty + fill.filled_price * added_qty) / new_qty
+            (old.avg_entry_no * old_qty + fill.filled_price * added_qty) / new_qty
             if new_qty > 0
             else 0.0
         )
         return replace(
             old,
             qty_no=new_qty,
-            avg_entry_price=new_avg,
+            avg_entry_no=new_avg,
             cost_basis=old.cost_basis + fill.filled_size_usd + fill.fee_usd,
         )
 
     # SELL
     sold_qty = fill.filled_size_usd / fill.filled_price
-    pnl_delta = (fill.filled_price - old.avg_entry_price) * sold_qty - fill.fee_usd
-
     if fill.outcome == "YES":
+        pnl_delta = (fill.filled_price - old.avg_entry_yes) * sold_qty - fill.fee_usd
         return replace(
             old,
             qty_yes=old.qty_yes - sold_qty,
             realized_pnl=old.realized_pnl + pnl_delta,
         )
     # SELL NO
+    pnl_delta = (fill.filled_price - old.avg_entry_no) * sold_qty - fill.fee_usd
     return replace(
         old,
         qty_no=old.qty_no - sold_qty,

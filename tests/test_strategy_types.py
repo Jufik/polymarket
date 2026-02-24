@@ -137,12 +137,16 @@ class TestPosition:
             strategy="arb",
             qty_yes=10.5,
             qty_no=3.2,
-            avg_entry_price=0.55,
+            avg_entry_yes=0.55,
+            avg_entry_no=0.40,
             cost_basis=100.0,
             realized_pnl=-5.0,
         )
         assert pos.qty_yes == 10.5
         assert pos.qty_no == 3.2
+        assert pos.avg_entry_yes == 0.55
+        assert pos.avg_entry_no == 0.40
+        # backward-compat property returns YES avg since qty_yes > 0
         assert pos.avg_entry_price == 0.55
         assert pos.cost_basis == 100.0
         assert pos.realized_pnl == -5.0
