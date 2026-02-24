@@ -252,6 +252,39 @@ features = ["skilled_traders", "mvf_bands"]
     assert configs["my_strat"].features == ["skilled_traders", "mvf_bands"]
 
 
+def test_subscribe_pending_defaults_false(tmp_path: Path) -> None:
+    toml_content = """
+[strategy.basic]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 10
+cooldown_s = 300
+"""
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml_content)
+    configs = load_strategy_configs(p)
+    assert configs["basic"].subscribe_pending is False
+
+
+def test_subscribe_pending_true(tmp_path: Path) -> None:
+    toml_content = """
+[strategy.early_bird]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 10
+cooldown_s = 300
+subscribe_pending = true
+"""
+    p = tmp_path / "cfg.toml"
+    p.write_text(toml_content)
+    configs = load_strategy_configs(p)
+    assert configs["early_bird"].subscribe_pending is True
+
+
 def test_strategy_config_features_defaults_empty(tmp_path: Path) -> None:
     config_file = tmp_path / "test.toml"
     config_file.write_text("""
