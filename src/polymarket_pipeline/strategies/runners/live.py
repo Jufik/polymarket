@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.strategies.runners.helpers import apply_fill_to_position, check_risk_gate
 
 if TYPE_CHECKING:
@@ -62,6 +63,8 @@ class LiveRunner:
         timer_interval_s: float = 60.0,
         refresh_interval_s: float = 900.0,
         hot_path_warn_ms: float = 5.0,
+        dedup_ttl_s: float = 600.0,
+        max_trade_age_s: float = 120.0,
     ) -> None:
         self.strategies = strategies
         self.providers = providers
@@ -71,9 +74,13 @@ class LiveRunner:
         self.timer_interval_s = timer_interval_s
         self.refresh_interval_s = refresh_interval_s
         self.hot_path_warn_ms = hot_path_warn_ms
+        self._dedup = TradeDedup(ttl_s=dedup_ttl_s)
+        self._max_trade_age_s = max_trade_age_s
         self._tasks: list[asyncio.Task[Any]] = []
         self._trades_processed: int = 0
         self._intents_submitted: int = 0
+        self._drops_dedup: int = 0
+        self._drops_stale: int = 0
         self._last_trade_times: dict[str, float] = {}
 
     async def initialize(self) -> None:
@@ -85,6 +92,17 @@ class LiveRunner:
 
     async def _handle_trade(self, trade: NormalizedTrade) -> None:
         """Hot path: dispatch trade to providers then strategies."""
+        # Age filter — drop stale trades (Kafka lag, reconnection replays)
+        age = time.time() - trade.published_at
+        if self._max_trade_age_s > 0 and age > self._max_trade_age_s:
+            self._drops_stale += 1
+            return
+
+        # Trade-level dedup — drop duplicate trade_ids within TTL window
+        if self._dedup.is_duplicate(trade.trade_id):
+            self._drops_dedup += 1
+            return
+
         # 1. Providers first — update features
         for provider in self.providers:
             t0 = time.monotonic()
@@ -225,4 +243,6 @@ class LiveRunner:
             "live_runner.stopped",
             trades_processed=self._trades_processed,
             intents_submitted=self._intents_submitted,
+            drops_dedup=self._drops_dedup,
+            drops_stale=self._drops_stale,
         )

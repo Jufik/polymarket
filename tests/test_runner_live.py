@@ -20,7 +20,15 @@ from polymarket_pipeline.strategies.runners.live import LiveRunner
 from polymarket_pipeline.strategies.types import ExecutionMode, TradeIntent
 
 
-def _trade(maker: str = "0xalice", ts: int = 1000) -> NormalizedTrade:
+def _now() -> int:
+    import time
+
+    return int(time.time())
+
+
+def _trade(maker: str = "0xalice", ts: int | None = None) -> NormalizedTrade:
+    if ts is None:
+        ts = _now()
     return NormalizedTrade(
         trade_id=f"test:{maker}:{ts}",
         condition_id="0xcond",
@@ -311,11 +319,12 @@ async def test_risk_gate_blocks_in_live(ctx: InMemoryContext) -> None:
     )
 
     # First trade should succeed (10 USD intent, but cost_basis initially 0)
-    await runner._handle_trade(_trade(ts=1000))
+    now = _now()
+    await runner._handle_trade(_trade(ts=now))
     assert runner._intents_submitted == 1
 
     # Second trade should be blocked by risk gate
-    await runner._handle_trade(_trade(ts=1001))
+    await runner._handle_trade(_trade(ts=now + 1))
     # Still only 1 intent submitted (second was blocked)
     assert runner._intents_submitted == 1
 
@@ -386,6 +395,58 @@ async def test_timer_risk_gate_blocks(ctx: InMemoryContext) -> None:
     assert pos is not None
     assert pos.condition_id == "0xcond"
     assert pos.qty_yes > 0
+
+
+async def test_duplicate_trade_ignored(ctx: InMemoryContext, gateway: ExecutionGateway) -> None:
+    """Same trade_id dispatched twice — second should be silently dropped."""
+    strategy = RecordingStrategy()
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+    trade = _trade()
+    await runner._handle_trade(trade)
+    await runner._handle_trade(trade)  # duplicate
+    assert len(strategy.trades_seen) == 1
+
+
+async def test_stale_trade_ignored(ctx: InMemoryContext, gateway: ExecutionGateway) -> None:
+    """Trade with published_at older than max_trade_age_s should be dropped."""
+    import time
+
+    strategy = RecordingStrategy()
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+        max_trade_age_s=30.0,
+    )
+    old_trade = _trade(ts=int(time.time()) - 120)  # 2 min old
+    await runner._handle_trade(old_trade)
+    assert len(strategy.trades_seen) == 0
+
+
+async def test_fresh_trade_accepted(ctx: InMemoryContext, gateway: ExecutionGateway) -> None:
+    """Trade within max_trade_age_s passes through."""
+    import time
+
+    strategy = RecordingStrategy()
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+        max_trade_age_s=300.0,
+    )
+    recent_trade = _trade(ts=int(time.time()) - 5)  # 5s old
+    await runner._handle_trade(recent_trade)
+    assert len(strategy.trades_seen) == 1
 
 
 async def test_timer_risk_gate_rejects_over_capital(ctx: InMemoryContext) -> None:
