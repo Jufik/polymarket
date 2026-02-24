@@ -5,8 +5,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from polymarket_pipeline.live.quality.state import PipelineState
-
 
 @pytest.fixture
 def checker():

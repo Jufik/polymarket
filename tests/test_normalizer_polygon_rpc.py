@@ -1,11 +1,10 @@
 """Tests for PolygonRPCNormalizer — ABI decoding of raw Polygon log events."""
 
-from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
 
-from polymarket_pipeline.models import NormalizedTrade, Side, Source
+from polymarket_pipeline.models import Side, Source
 
 ORDER_FILLED_SIG = "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6"
 

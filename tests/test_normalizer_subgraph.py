@@ -1,7 +1,5 @@
 """Tests for SubgraphNormalizer — Goldsky GraphQL orderFilledEvents."""
 
-from decimal import Decimal
-
 import pytest
 
 from polymarket_pipeline.models import Side, Source

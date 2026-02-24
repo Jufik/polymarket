@@ -184,7 +184,7 @@ def run_stage(
         if not hasattr(module, "run"):
             stage.status = StageStatus.FAILED
             save_tree(strategy, tree)
-            cb.on_error(f"Stage script missing run() function")
+            cb.on_error("Stage script missing run() function")
             return RunResult(success=False, stage=stage, error="Missing run() function")
 
         outputs_summary = module.run(strategy_path, outputs_dir)

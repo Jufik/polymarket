@@ -99,9 +99,11 @@ async def test_live_executor_fills_successfully() -> None:
     clob = MockClobClient()
     tracker = MockPositionTracker()
     executor = LiveExecutor(
-        clob, tracker,
+        clob,
+        tracker,
         token_market_map=_TEST_TOKEN_MAP,
-        max_position_usd=100.0, max_total_exposure_usd=500.0,
+        max_position_usd=100.0,
+        max_total_exposure_usd=500.0,
     )
 
     intent = _make_intent(size_usd=10.0, max_price=0.60)
@@ -142,9 +144,11 @@ async def test_live_executor_rejects_over_position_limit() -> None:
     clob = MockClobClient()
     tracker = MockPositionTracker(positions=[existing], total_exposure=95.0)
     executor = LiveExecutor(
-        clob, tracker,
+        clob,
+        tracker,
         token_market_map=_TEST_TOKEN_MAP,
-        max_position_usd=100.0, max_total_exposure_usd=500.0,
+        max_position_usd=100.0,
+        max_total_exposure_usd=500.0,
     )
 
     intent = _make_intent(condition_id="0xabc123", size_usd=10.0)
@@ -167,9 +171,11 @@ async def test_live_executor_rejects_over_total_exposure() -> None:
     clob = MockClobClient()
     tracker = MockPositionTracker(total_exposure=490.0)
     executor = LiveExecutor(
-        clob, tracker,
+        clob,
+        tracker,
         token_market_map=_TEST_TOKEN_MAP,
-        max_position_usd=1000.0, max_total_exposure_usd=500.0,
+        max_position_usd=1000.0,
+        max_total_exposure_usd=500.0,
     )
 
     intent = _make_intent(size_usd=20.0)
@@ -221,9 +227,11 @@ async def test_live_executor_allows_under_limits() -> None:
     clob = MockClobClient()
     tracker = MockPositionTracker(positions=[existing], total_exposure=25.0)
     executor = LiveExecutor(
-        clob, tracker,
+        clob,
+        tracker,
         token_market_map=_TEST_TOKEN_MAP,
-        max_position_usd=100.0, max_total_exposure_usd=500.0,
+        max_position_usd=100.0,
+        max_total_exposure_usd=500.0,
     )
 
     intent = _make_intent(condition_id="0xabc123", size_usd=10.0)

@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
-import sys
 import json
+import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass

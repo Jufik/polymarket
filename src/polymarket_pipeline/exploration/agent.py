@@ -39,7 +39,6 @@ from polymarket_pipeline.exploration.tree import (
     ExplorationTree,
     ProposedRefinement,
     RefinementType,
-    StageMetrics,
 )
 
 # ---------------------------------------------------------------------------
