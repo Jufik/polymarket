@@ -266,17 +266,25 @@ async def on_startup(context: ContextRepo) -> None:
 
 @app.on_shutdown
 async def on_shutdown() -> None:
-    """Close positions, cancel ingestors, clean up."""
-    # 1. Close positions first (Task 3.6: position-aware shutdown)
+    """Close positions, drain in-flight publishes, cancel ingestors."""
+    # 1. Close positions first (auto-protect)
     try:
         await _auto_protect()
     except Exception:
         log.exception("shutdown.auto_protect_error")
 
-    # 2. Cancel ingestors
+    # 2. Signal ingestors to stop and wait for drain
     for task in _ingestor_tasks:
         task.cancel()
-    await asyncio.gather(*_ingestor_tasks, return_exceptions=True)
+
+    # 3. Wait up to 10s for in-flight work to complete
+    if _ingestor_tasks:
+        done, pending = await asyncio.wait(_ingestor_tasks, timeout=10.0)
+        if pending:
+            log.warning("shutdown.drain_timeout", pending_tasks=len(pending))
+            for task in pending:
+                task.cancel()
+
     _ingestor_tasks.clear()
     log.info("live_pipeline.stopped")
 
