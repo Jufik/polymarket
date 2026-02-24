@@ -17,9 +17,10 @@ log = structlog.get_logger()
 class QualityChecker:
     """Runs health checks and manages pipeline readiness state."""
 
-    def __init__(self, settings: Settings, clickhouse: Any) -> None:
+    def __init__(self, settings: Settings, clickhouse: Any, pg_pool: Any = None) -> None:
         self._settings = settings
         self._ch = clickhouse
+        self._pg_pool = pg_pool
         self._state = ReadinessState(degraded_grace_s=settings.degraded_grace_s)
         self._heartbeats: dict[str, float] = {}
 
@@ -95,13 +96,27 @@ class QualityChecker:
         except Exception as e:
             return CheckResult(ok=False, reason=f"Query error: {e}")
 
-    def check_metadata_freshness(self) -> CheckResult:
-        """Check that token_map has coverage for recent trades.
+    async def check_metadata_freshness(self) -> CheckResult:
+        """Check that token_market_map was synced recently.
 
-        Stub: always returns ok=True until the metadata sync pipeline is
-        integrated and we can query PostgreSQL for token_map freshness.
+        Verifies the metadata sync pipeline (Gamma API -> PostgreSQL) ran within
+        the configured threshold.  If no PG pool is available, returns ok (degraded
+        monitoring is better than false alarms during bootstrap).
         """
-        return CheckResult(ok=True, reason="stub — metadata sync not yet integrated")
+        if self._pg_pool is None:
+            return CheckResult(ok=True, reason="no PG pool — skipping metadata check")
+        try:
+            count = await self._pg_pool.fetchval(
+                "SELECT count(*) FROM token_market_map "
+                "WHERE updated_at > NOW() - INTERVAL '2 hours'"
+            )
+            if count == 0:
+                return CheckResult(
+                    ok=False, reason="token_market_map has no entries updated in 2h"
+                )
+            return CheckResult(ok=True)
+        except Exception as e:
+            return CheckResult(ok=False, reason=f"Metadata query error: {e}")
 
     def check_dedup_sanity(self) -> CheckResult:
         """Check version=2/version=1 enrichment ratio."""
@@ -129,25 +144,51 @@ class QualityChecker:
         except Exception as e:
             return CheckResult(ok=False, reason=f"Query error: {e}")
 
-    def check_resolved_completeness(self) -> CheckResult:
-        """Check that closed markets have trades in ClickHouse.
+    async def check_resolved_completeness(self) -> CheckResult:
+        """Check that resolved markets in PG have trade coverage in ClickHouse.
 
-        Stub: always returns ok=True until PostgreSQL metadata is integrated
-        and we can cross-reference resolved markets against trade coverage.
+        Returns ok=True if no PG pool is available (graceful degradation).
         """
-        return CheckResult(ok=True, reason="stub — PG metadata not yet integrated")
+        if self._pg_pool is None:
+            return CheckResult(ok=True, reason="no PG pool — skipping resolved check")
+        try:
+            pg_count = await self._pg_pool.fetchval(
+                "SELECT count(*) FROM markets WHERE status = 'resolved'"
+            )
+            if pg_count == 0:
+                return CheckResult(ok=True, reason="No resolved markets in PG")
+            ch_result = self._ch.query(
+                "SELECT uniqExact(condition_id) AS cnt FROM trades_raw FINAL "
+                "WHERE condition_id IN ("
+                "  SELECT condition_id FROM markets WHERE status = 'resolved'"
+                ")"
+            )
+            ch_count = ch_result[0]["cnt"] if ch_result else 0
+            ratio = ch_count / pg_count
+            if ratio < 0.90:
+                return CheckResult(
+                    ok=False,
+                    reason=f"Resolved coverage {ratio:.0%} ({ch_count}/{pg_count})",
+                )
+            return CheckResult(ok=True)
+        except Exception as e:
+            return CheckResult(ok=False, reason=f"Resolved query error: {e}")
 
     async def run_all_checks(self) -> dict[str, CheckResult]:
         """Run all health checks and update readiness state."""
-        # Non-CH checks run inline (no I/O blocking)
         source_liveness = self.check_source_liveness()
-        metadata_freshness = self.check_metadata_freshness()
-        resolved_completeness = self.check_resolved_completeness()
 
-        # CH-querying checks run concurrently in threads to avoid blocking the loop
-        volume_reconciliation, dedup_sanity = await asyncio.gather(
+        # I/O checks run concurrently
+        (
+            volume_reconciliation,
+            dedup_sanity,
+            metadata_freshness,
+            resolved_completeness,
+        ) = await asyncio.gather(
             asyncio.to_thread(self.check_volume_reconciliation),
             asyncio.to_thread(self.check_dedup_sanity),
+            self.check_metadata_freshness(),
+            self.check_resolved_completeness(),
         )
 
         results = {
