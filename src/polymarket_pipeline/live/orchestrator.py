@@ -176,7 +176,7 @@ async def periodic_quality_check(
     protect_fn: Any,
 ) -> None:
     """Run quality checks periodically (independent of caught_up events)."""
-    await asyncio.sleep(settings.quality_check_interval_s)  # initial delay
+    await asyncio.sleep(settings.quality_initial_delay_s)  # short initial delay
     while True:
         await checker.run_all_checks()
         if checker.state.current == PipelineState.RED:
