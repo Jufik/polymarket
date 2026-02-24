@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     ch_database: str = "polymarket"
 
     # PostgreSQL
-    pg_dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
+    pg_dsn: str = ""  # Set via PM_PG_DSN env var or .env file
 
     # Quality thresholds
     quality_check_interval_s: int = 900

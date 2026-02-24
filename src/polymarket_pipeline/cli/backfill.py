@@ -27,7 +27,7 @@ from polymarket_pipeline.sinks.postgres import PostgresSink
 
 log = structlog.get_logger()
 
-PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
+PG_DSN_DEFAULT = ""  # Set via PM_PG_DSN env var or --pg-dsn flag
 
 # ---------------------------------------------------------------------------
 # Worker process globals (set once per worker via _init_worker)

@@ -12,7 +12,7 @@ from polymarket_pipeline.models import Event, Market, Tag, TokenMarketEntry
 class PostgresSink:
     """Async PostgreSQL sink using asyncpg connection pool."""
 
-    def __init__(self, dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"):
+    def __init__(self, dsn: str = ""):
         self._dsn = dsn
         self._pool: asyncpg.Pool | None = None
 
