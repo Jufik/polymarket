@@ -1,23 +1,21 @@
-"""Mempool ingestor — wraps Rust PyO3 sidecar for pending tx gossip."""
+"""Mempool ingestor -- wraps Rust PyO3 sidecar for pending tx gossip."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from typing import Any
 
 import structlog
 
 from polymarket_pipeline.live.ingestors._publish import safe_publish
+from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.live.normalizers.mempool import MempoolNormalizer
 
 log = structlog.get_logger()
 
-HEARTBEAT_INTERVAL = 10.0
 
-
-class MempoolIngestor:
+class MempoolIngestor(BaseIngestor):
     """Consumes decoded pending txs from the Rust mempool monitor.
 
     The Rust PyO3 module (polymarket_mempool) handles:
@@ -31,6 +29,8 @@ class MempoolIngestor:
     - Heartbeat reporting to pipeline.status
     """
 
+    source_name = "mempool"
+
     def __init__(
         self,
         broker: Any,
@@ -39,12 +39,9 @@ class MempoolIngestor:
         token_market_map: dict[str, tuple[str, str]] | None = None,
         listen_port: int = 30304,
     ) -> None:
-        self._broker = broker
-        self._topic = topic
-        self._status_topic = status_topic
+        super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._normalizer = MempoolNormalizer(token_market_map=token_market_map)
         self._listen_port = listen_port
-        self._trade_count: int = 0
         self._peers_active: int = 0
 
     async def _handle_trade(self, raw: dict[str, Any]) -> None:
@@ -64,30 +61,9 @@ class MempoolIngestor:
         )
         self._trade_count += 1
 
-    async def _publish_heartbeat(self) -> None:
-        """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps(
-            {
-                "source": "mempool",
-                "event": "heartbeat",
-                "trade_count": self._trade_count,
-                "peers_active": self._peers_active,
-                "ts": time.time(),
-            }
-        )
-        await safe_publish(
-            self._broker,
-            message=heartbeat,
-            topic=self._status_topic,
-            key=b"mempool",
-            source="mempool",
-        )
-
-    async def _heartbeat_loop(self) -> None:
-        """Publish heartbeat every HEARTBEAT_INTERVAL seconds."""
-        while True:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
-            await self._publish_heartbeat()
+    def _heartbeat_fields(self) -> dict[str, Any]:
+        """Mempool-specific heartbeat fields."""
+        return {"peers_active": self._peers_active}
 
     async def run(self) -> None:
         """Run the mempool ingestor.
