@@ -18,6 +18,7 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.normalizers.rtds import RTDSNormalizer
@@ -60,7 +61,8 @@ class RTDSIngestor:
         self._last_trade_ts: float = 0.0
         self._trade_count: int = 0
         self._connections_alive: int = 0
-        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._circuit_breaker = CircuitBreaker()
 
     # ── message handling (shared across connections) ──────────────────
 
@@ -100,7 +102,7 @@ class RTDSIngestor:
         trade_json = trade.model_dump_json()
 
         try:
-            self._queue.put_nowait(trade_json)
+            self._queue.put_nowait((trade.condition_id, trade_json))
         except asyncio.QueueFull:
             log.warning("rtds.queue_full", trade_id=trade.trade_id)
             return
@@ -111,18 +113,14 @@ class RTDSIngestor:
     async def _publish_loop(self) -> None:
         """Drain the backpressure queue and publish to Redpanda."""
         while True:
-            trade_json = await self._queue.get()
-            # Parse just enough to get condition_id for the key
-            try:
-                cid = json.loads(trade_json).get("condition_id", "")
-            except Exception:
-                cid = ""
+            cid, trade_json = await self._queue.get()
             await safe_publish(
                 self._broker,
                 message=trade_json,
                 topic=self._topic,
                 key=cid.encode(),
                 source="rtds",
+                circuit_breaker=self._circuit_breaker,
             )
 
     # ── heartbeat / ping helpers ─────────────────────────────────────
@@ -146,6 +144,7 @@ class RTDSIngestor:
             topic=self._status_topic,
             key=b"rtds",
             source="rtds",
+            circuit_breaker=self._circuit_breaker,
         )
 
     async def _heartbeat_loop(self) -> None:

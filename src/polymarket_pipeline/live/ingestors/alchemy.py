@@ -14,6 +14,7 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
 
@@ -47,7 +48,8 @@ class AlchemyIngestor:
         self._normalizer = PolygonRPCNormalizer(token_market_map=token_market_map)
         self._last_block: int = 0
         self._trade_count: int = 0
-        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._circuit_breaker = CircuitBreaker()
 
     async def _handle_message(self, raw: str) -> None:
         """Process a single raw WebSocket message from Alchemy.
@@ -88,7 +90,7 @@ class AlchemyIngestor:
         trade_json = trade.model_dump_json()
 
         try:
-            self._queue.put_nowait(trade_json)
+            self._queue.put_nowait((trade.condition_id, trade_json))
         except asyncio.QueueFull:
             log.warning("alchemy.queue_full", trade_id=trade.trade_id)
             return
@@ -99,17 +101,14 @@ class AlchemyIngestor:
     async def _publish_loop(self) -> None:
         """Drain the backpressure queue and publish to Redpanda."""
         while True:
-            trade_json = await self._queue.get()
-            try:
-                cid = json.loads(trade_json).get("condition_id", "")
-            except Exception:
-                cid = ""
+            cid, trade_json = await self._queue.get()
             await safe_publish(
                 self._broker,
                 message=trade_json,
                 topic=self._topic,
                 key=cid.encode(),
                 source="alchemy",
+                circuit_breaker=self._circuit_breaker,
             )
 
     async def _publish_heartbeat(self) -> None:
@@ -129,6 +128,7 @@ class AlchemyIngestor:
             topic=self._status_topic,
             key=b"alchemy",
             source="alchemy",
+            circuit_breaker=self._circuit_breaker,
         )
 
     async def _heartbeat_loop(self) -> None:
