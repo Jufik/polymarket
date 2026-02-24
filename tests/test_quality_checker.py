@@ -41,13 +41,13 @@ class TestSourceLiveness:
 
 
 class TestFullCheck:
-    def test_run_all_checks(self, checker):
+    async def test_run_all_checks(self, checker):
         """run_all_checks should return results dict and update state."""
         now = time.time()
         checker.record_heartbeat("rtds", now)
         checker.record_heartbeat("alchemy", now)
         # Mock ClickHouse queries to return reasonable data
         checker._ch.query.return_value = [{"cnt": 1000}]
-        results = checker.run_all_checks()
+        results = await checker.run_all_checks()
         assert isinstance(results, dict)
         assert "source_liveness" in results

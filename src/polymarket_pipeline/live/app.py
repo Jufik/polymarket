@@ -133,7 +133,7 @@ async def _periodic_quality_check() -> None:
     await asyncio.sleep(settings.quality_check_interval_s)  # initial delay
     while True:
         if _quality_checker is not None:
-            _quality_checker.run_all_checks()
+            await _quality_checker.run_all_checks()
             state = _quality_checker.state.current
             if state == PipelineState.RED:
                 await _auto_protect()
@@ -160,9 +160,11 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
 
     ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
 
-    # Check latest trade in ClickHouse
+    # Check latest trade in ClickHouse (run in thread to avoid blocking the loop)
     try:
-        rows = ch.query("SELECT max(timestamp) AS max_ts FROM trades_raw")
+        rows = await asyncio.to_thread(
+            ch.query, "SELECT max(timestamp) AS max_ts FROM trades_raw"
+        )
         max_ts = rows[0]["max_ts"] if rows else None
     except Exception:
         max_ts = None
@@ -333,7 +335,7 @@ async def handle_status(msg: str) -> None:
         _quality_checker.record_heartbeat(source, data.get("ts", time.time()))
     elif event == "caught_up":
         log.info("status.caught_up", source=source)
-        _quality_checker.run_all_checks()
+        await _quality_checker.run_all_checks()
         state = _quality_checker.state.current
 
         # Task 3.3: Auto-protect — if RED, close all positions
