@@ -202,6 +202,27 @@ def run(
             data = json.loads(msg)
             runner.handle_orderbook(data)
 
+        # Check if any strategy opts in to pending.signal
+        _pending_strategies = [
+            (s, c) for s, c in runner.strategies if c.subscribe_pending
+        ]
+
+        if _pending_strategies:
+
+            @broker.subscriber("pending.signal", group_id="strategy-runner")
+            async def handle_pending(msg: str) -> None:
+                import json
+
+                from polymarket_pipeline.models import NormalizedTrade
+
+                data = json.loads(msg)
+                trade = NormalizedTrade(**data)
+                for strategy, _config in _pending_strategies:
+                    intents = await strategy.on_trade(trade, runner.ctx)
+                    if intents:
+                        for intent in intents:
+                            await runner.gateway.submit(intent)
+
         await broker.start()
         logger.info(
             "strategy_cli.running",
