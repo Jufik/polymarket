@@ -15,6 +15,7 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.normalizers.rtds import RTDSNormalizer
 
 log = structlog.get_logger()
@@ -109,10 +110,12 @@ class RTDSIngestor:
         now = time.time()
         trade = trade.model_copy(update={"published_at": now})
         trade_json = trade.model_dump_json()
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=trade_json,
             topic=self._topic,
             key=trade.condition_id.encode(),
+            source="rtds",
         )
         self._last_trade_ts = now
         self._trade_count += 1
@@ -130,10 +133,12 @@ class RTDSIngestor:
             "pool_size": self._pool_size,
             "ts": time.time(),
         })
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=heartbeat,
             topic=self._status_topic,
             key=b"rtds",
+            source="rtds",
         )
 
     async def _heartbeat_loop(self) -> None:

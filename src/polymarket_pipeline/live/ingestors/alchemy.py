@@ -10,6 +10,7 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
 
 log = structlog.get_logger()
@@ -75,10 +76,12 @@ class AlchemyIngestor:
 
         trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=trade_json,
             topic=self._topic,
             key=trade.condition_id.encode(),
+            source="alchemy",
         )
 
         self._last_block = trade.block_number or self._last_block
@@ -93,10 +96,12 @@ class AlchemyIngestor:
             "trade_count": self._trade_count,
             "ts": time.time(),
         })
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=heartbeat,
             topic=self._status_topic,
             key=b"alchemy",
+            source="alchemy",
         )
 
     async def _heartbeat_loop(self) -> None:

@@ -9,6 +9,7 @@ from typing import Any
 
 import structlog
 
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.normalizers.mempool import MempoolNormalizer
 
 log = structlog.get_logger()
@@ -54,10 +55,12 @@ class MempoolIngestor:
 
         trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=trade_json,
             topic=self._topic,
             key=trade.condition_id.encode(),
+            source="mempool",
         )
         self._trade_count += 1
 
@@ -70,10 +73,12 @@ class MempoolIngestor:
             "peers_active": self._peers_active,
             "ts": time.time(),
         })
-        await self._broker.publish(
+        await safe_publish(
+            self._broker,
             message=heartbeat,
             topic=self._status_topic,
             key=b"mempool",
+            source="mempool",
         )
 
     async def _heartbeat_loop(self) -> None:
