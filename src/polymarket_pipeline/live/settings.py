@@ -83,3 +83,6 @@ class Settings(BaseSettings):
     # Position limits
     max_position_usd: float = 100.0
     max_total_exposure_usd: float = 500.0
+
+    # Logging
+    log_file: str = ""  # Empty means console only, e.g. "logs/pipeline.jsonl"
