@@ -70,3 +70,13 @@ class Settings(BaseSettings):
     # CLOB orderbook ingestor
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+
+    # CLOB API (execution)
+    clob_api_url: str = "https://clob.polymarket.com"
+    clob_api_key: str = ""
+    clob_api_secret: str = ""
+    clob_api_passphrase: str = ""
+
+    # Position limits
+    max_position_usd: float = 100.0
+    max_total_exposure_usd: float = 500.0
