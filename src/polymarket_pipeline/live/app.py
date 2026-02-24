@@ -35,7 +35,37 @@ async def _dashboard_placeholder(scope: Any, receive: Any, send: Any) -> None:
     await resp(scope, receive, send)
 
 
-asgi_app = app.as_asgi(asgi_routes=[("/dashboard", _dashboard_placeholder)])
+async def _health_live(scope: Any, receive: Any, send: Any) -> None:
+    """Liveness: 200 if process is running."""
+    from faststream.asgi import AsgiResponse
+
+    resp = AsgiResponse(
+        body=b'{"status":"alive"}',
+        status_code=200,
+        headers={"content-type": "application/json"},
+    )
+    await resp(scope, receive, send)
+
+
+async def _health_ready(scope: Any, receive: Any, send: Any) -> None:
+    """Readiness: 200 if pipeline state is READY, 503 otherwise."""
+    from faststream.asgi import AsgiResponse
+
+    if _quality_checker and _quality_checker.state.current.value == "ready":
+        body = b'{"status":"ready"}'
+        code = 200
+    else:
+        body = b'{"status":"not_ready"}'
+        code = 503
+    resp = AsgiResponse(body=body, status_code=code, headers={"content-type": "application/json"})
+    await resp(scope, receive, send)
+
+
+asgi_app = app.as_asgi(asgi_routes=[
+    ("/dashboard", _dashboard_placeholder),
+    ("/health/live", _health_live),
+    ("/health/ready", _health_ready),
+])
 
 # Shared state
 _quality_checker: QualityChecker | None = None
