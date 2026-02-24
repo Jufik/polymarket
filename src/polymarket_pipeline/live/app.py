@@ -11,11 +11,13 @@ import structlog
 from faststream import ContextRepo, FastStream
 from faststream.kafka import KafkaBroker
 
+from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
 from polymarket_pipeline.live.ingestors.mempool import MempoolIngestor
 from polymarket_pipeline.live.ingestors.pending_block import PendingBlockIngestor
 from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
 from polymarket_pipeline.live.quality.checker import QualityChecker
+from polymarket_pipeline.live.quality.state import PipelineState
 from polymarket_pipeline.live.settings import Settings
 
 log = structlog.get_logger()
@@ -75,6 +77,48 @@ async def _load_token_map() -> dict[str, tuple[str, str]]:
     return token_map
 
 
+async def _auto_protect() -> None:
+    """Automatically close all positions when pipeline state is RED."""
+    global _quality_checker
+    if _quality_checker is None:
+        return
+
+    _quality_checker.state.set_closing()
+    log.warning("auto_protect.triggered", state="CLOSING")
+
+    try:
+        import asyncpg
+
+        from polymarket_pipeline.execution.clob_client import ClobClient
+        from polymarket_pipeline.execution.panic import panic_close_all
+        from polymarket_pipeline.execution.position_tracker import PositionTracker
+
+        async with ClobClient(
+            base_url=settings.clob_api_url,
+            api_key=settings.clob_api_key,
+            api_secret=settings.clob_api_secret,
+            api_passphrase=settings.clob_api_passphrase,
+        ) as clob:
+            pool = await asyncpg.create_pool(dsn=settings.pg_dsn)
+            assert pool is not None  # noqa: S101
+            tracker = PositionTracker(pool=pool)
+            await tracker.initialize()
+            results = await panic_close_all(clob, tracker)
+            await pool.close()
+
+        success = sum(1 for r in results if r.success)
+        failed = sum(1 for r in results if not r.success)
+        log.warning("auto_protect.complete", closed=success, failed=failed)
+
+        if failed == 0:
+            _quality_checker.state.set_safe_stop()
+            log.warning("auto_protect.safe_stop")
+        else:
+            log.error("auto_protect.some_failures", failed=failed)
+    except Exception:
+        log.exception("auto_protect.error")
+
+
 async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
     """Check for gaps and run subgraph recovery if needed."""
     # Check if pm-recover already has an active job — don't interfere
@@ -107,10 +151,7 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
         return
 
     # Convert to unix timestamp if it's a datetime
-    if hasattr(max_ts, "timestamp"):
-        last_ts = int(max_ts.timestamp())
-    else:
-        last_ts = int(max_ts)
+    last_ts = int(max_ts.timestamp()) if hasattr(max_ts, "timestamp") else int(max_ts)
 
     gap_s = int(time.time()) - last_ts
     log.info("recovery.gap_check", gap_seconds=gap_s, threshold=settings.gap_threshold_s)
@@ -135,6 +176,15 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
         log.info("recovery.complete", trades_recovered=total)
     except TimeoutError:
         log.warning("recovery.timeout", timeout_s=300, from_ts=last_ts)
+
+    # Task 3.4: Emit caught_up after recovery completes
+    await safe_publish(
+        broker,
+        message=json.dumps({"event": "caught_up", "source": "subgraph_recovery"}),
+        topic="pipeline.status",
+        key=b"recovery",
+        source="recovery",
+    )
 
 
 @app.on_startup
@@ -216,9 +266,17 @@ async def on_startup(context: ContextRepo) -> None:
 
 @app.on_shutdown
 async def on_shutdown() -> None:
-    """Cancel ingestors and clean up."""
+    """Close positions, cancel ingestors, clean up."""
+    # 1. Close positions first (Task 3.6: position-aware shutdown)
+    try:
+        await _auto_protect()
+    except Exception:
+        log.exception("shutdown.auto_protect_error")
+
+    # 2. Cancel ingestors
     for task in _ingestor_tasks:
         task.cancel()
+    await asyncio.gather(*_ingestor_tasks, return_exceptions=True)
     _ingestor_tasks.clear()
     log.info("live_pipeline.stopped")
 
@@ -245,7 +303,13 @@ async def handle_status(msg: str) -> None:
         log.info("status.caught_up", source=source)
         _quality_checker.run_all_checks()
         state = _quality_checker.state.current
-        await broker.publish(
+
+        # Task 3.3: Auto-protect — if RED, close all positions
+        if state == PipelineState.RED:
+            await _auto_protect()
+
+        await safe_publish(
+            broker,
             message=json.dumps(
                 {
                     "event": state.value,
@@ -255,4 +319,5 @@ async def handle_status(msg: str) -> None:
             ),
             topic="pipeline.status",
             key=b"quality",
+            source="quality_gate",
         )
