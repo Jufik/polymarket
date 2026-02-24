@@ -38,12 +38,12 @@ class Settings(BaseSettings):
     # Quality thresholds
     quality_check_interval_s: int = 900
     source_liveness_timeout_s: int = 30
-    volume_drop_warn_pct: float = 0.50
     volume_drop_red_pct: float = 0.10
     enrichment_ratio_min: float = 0.80
 
     # Recovery
     gap_threshold_s: int = 600
+    recovery_timeout_s: int = 300  # Max time for in-app startup recovery
 
     # Dashboard
     dashboard_refresh_s: int = 5

@@ -192,11 +192,11 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
         status_topic="pipeline.status",
     )
     try:
-        async with asyncio.timeout(300):
+        async with asyncio.timeout(settings.recovery_timeout_s):
             total = await poller.recover(from_timestamp=last_ts)
         log.info("recovery.complete", trades_recovered=total)
     except TimeoutError:
-        log.warning("recovery.timeout", timeout_s=300, from_ts=last_ts)
+        log.warning("recovery.timeout", timeout_s=settings.recovery_timeout_s, from_ts=last_ts)
 
     # Task 3.4: Emit caught_up after recovery completes
     await safe_publish(
