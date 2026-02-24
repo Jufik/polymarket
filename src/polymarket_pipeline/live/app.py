@@ -74,8 +74,8 @@ async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
 
     # Check latest trade in ClickHouse
     try:
-        result = ch.execute("SELECT max(timestamp) FROM trades_raw")
-        max_ts = result[0][0] if result and result[0][0] else None
+        rows = ch.query("SELECT max(timestamp) AS max_ts FROM trades_raw")
+        max_ts = rows[0]["max_ts"] if rows else None
     except Exception:
         max_ts = None
 
