@@ -68,7 +68,8 @@ class TreeManager:
             tree.save(self._tree_path)
 
     def update_atomic(
-        self, fn: Callable[[ExplorationTree], Any],
+        self,
+        fn: Callable[[ExplorationTree], Any],
     ) -> Any:
         """Load tree, apply *fn*, save, return fn's result.
 
@@ -131,16 +132,20 @@ def _execute_script(
     tree_mgr.update_atomic(_set_running)
 
     if not script_path.exists():
+
         def _set_failed_missing(tree: ExplorationTree) -> None:
             tree.stages[stage_id].status = StageStatus.FAILED
+
         tree_mgr.update_atomic(_set_failed_missing)
         raise FileNotFoundError(f"Script not found: {script_path}")
 
     # 3. Import and run module.run()
     spec = importlib.util.spec_from_file_location(f"stage_{stage_id}", script_path)
     if spec is None or spec.loader is None:
+
         def _set_failed_spec(tree: ExplorationTree) -> None:
             tree.stages[stage_id].status = StageStatus.FAILED
+
         tree_mgr.update_atomic(_set_failed_spec)
         raise ImportError(f"Cannot load spec for {script_path}")
 
@@ -150,8 +155,10 @@ def _execute_script(
     spec.loader.exec_module(module)
 
     if not hasattr(module, "run"):
+
         def _set_failed_norun(tree: ExplorationTree) -> None:
             tree.stages[stage_id].status = StageStatus.FAILED
+
         tree_mgr.update_atomic(_set_failed_norun)
         raise AttributeError("Stage script missing run() function")
 
@@ -268,7 +275,10 @@ async def _run_single_pipeline(
         for attempt in range(1, max_retries + 1):
             try:
                 await asyncio.to_thread(
-                    _execute_script, tree_mgr, stage_id, callback,
+                    _execute_script,
+                    tree_mgr,
+                    stage_id,
+                    callback,
                 )
                 break  # success
             except Exception as run_err:
@@ -292,11 +302,15 @@ async def _run_single_pipeline(
                         f"{max_retries} attempts: {error_str}"
                     )
                     return PipelineResult(
-                        stage_id=stage_id, success=False, error=error_str,
+                        stage_id=stage_id,
+                        success=False,
+                        error=error_str,
                     )
 
                 callback.on_retry(
-                    tree_mgr.load().stages[stage_id], attempt, error_str,
+                    tree_mgr.load().stages[stage_id],
+                    attempt,
+                    error_str,
                 )
 
                 # Regenerate script with error context
@@ -322,9 +336,11 @@ async def _run_single_pipeline(
 
         context = build_exploration_context(tree_snapshot)
         analysis, agent_result = await review_stage(
-            stage, strategy_path,
+            stage,
+            strategy_path,
             on_event=callback.on_agent_event,
-            context=context, tree=tree_snapshot,
+            context=context,
+            tree=tree_snapshot,
         )
 
         # Save transcript
@@ -337,9 +353,7 @@ async def _run_single_pipeline(
             s.analysis = analysis
             s.status = StageStatus.REVIEWING
 
-            analysis_path = strategy_path / (
-                s.analysis_path or f"stages/{stage_id}/analysis.md"
-            )
+            analysis_path = strategy_path / (s.analysis_path or f"stages/{stage_id}/analysis.md")
             analysis_md = render_analysis_markdown(s, analysis, tree)
             analysis_path.write_text(analysis_md)
 
@@ -362,13 +376,12 @@ async def _run_single_pipeline(
             callback.on_warning(f"MLflow analysis logging skipped: {e}")
 
         # Step 5: Check for critical DQ issues -> self-heal
-        critical_issues = [
-            dq for dq in analysis.data_quality_issues if dq.severity == "critical"
-        ]
+        critical_issues = [dq for dq in analysis.data_quality_issues if dq.severity == "critical"]
 
         if critical_issues:
             callback.on_data_quality_alert(
-                tree_mgr.load().stages[stage_id], critical_issues,
+                tree_mgr.load().stages[stage_id],
+                critical_issues,
             )
             has_critical = await _dq_self_heal(
                 tree_mgr=tree_mgr,
@@ -381,12 +394,13 @@ async def _run_single_pipeline(
             )
             if has_critical:
                 return PipelineResult(
-                    stage_id=stage_id, success=True, has_critical_dq=True,
+                    stage_id=stage_id,
+                    success=True,
+                    has_critical_dq=True,
                 )
 
         callback.on_success(
-            f"[parallel] Pipeline complete: {stage_id} "
-            f"(confidence={analysis.confidence:.0%})"
+            f"[parallel] Pipeline complete: {stage_id} (confidence={analysis.confidence:.0%})"
         )
         return PipelineResult(stage_id=stage_id, success=True)
 
@@ -425,7 +439,9 @@ async def _dq_self_heal(
 
     for attempt in range(1, max_dq_retries + 1):
         callback.on_dq_retry(
-            tree_mgr.load().stages[stage_id], attempt, current_issues,
+            tree_mgr.load().stages[stage_id],
+            attempt,
+            current_issues,
         )
 
         # 1. Regenerate script with DQ context
@@ -456,7 +472,10 @@ async def _dq_self_heal(
         # 3. Re-run
         try:
             await asyncio.to_thread(
-                _execute_script, tree_mgr, stage_id, callback,
+                _execute_script,
+                tree_mgr,
+                stage_id,
+                callback,
             )
         except Exception as e:
             callback.on_error(f"[parallel] DQ re-run failed: {e}")
@@ -468,31 +487,30 @@ async def _dq_self_heal(
         context = build_exploration_context(tree_snapshot)
 
         analysis, agent_result = await review_stage(
-            stage, strategy_path,
+            stage,
+            strategy_path,
             on_event=callback.on_agent_event,
-            context=context, tree=tree_snapshot,
+            context=context,
+            tree=tree_snapshot,
         )
 
         stage_dir = strategy_path / "stages" / stage_id
         agent_result.save_transcript(stage_dir / "transcript.json")
 
         def _save_dq_analysis(
-            tree: ExplorationTree, a: ClaudeAnalysis = analysis,
+            tree: ExplorationTree,
+            a: ClaudeAnalysis = analysis,
         ) -> None:
             s = tree.stages[stage_id]
             s.analysis = a
             s.status = StageStatus.REVIEWING
-            ap = strategy_path / (
-                s.analysis_path or f"stages/{stage_id}/analysis.md"
-            )
+            ap = strategy_path / (s.analysis_path or f"stages/{stage_id}/analysis.md")
             ap.write_text(render_analysis_markdown(s, a, tree))
 
         tree_mgr.update_atomic(_save_dq_analysis)
 
         # 5. Check if fixed
-        new_critical = [
-            dq for dq in analysis.data_quality_issues if dq.severity == "critical"
-        ]
+        new_critical = [dq for dq in analysis.data_quality_issues if dq.severity == "critical"]
         if not new_critical:
             return False  # fixed
 
@@ -548,9 +566,7 @@ async def run_parallel_batch(
             results.append(raw)
         elif isinstance(raw, BaseException):
             cb.on_error(f"[parallel] Pipeline exception: {raw}")
-            results.append(
-                PipelineResult(stage_id="unknown", success=False, error=str(raw))
-            )
+            results.append(PipelineResult(stage_id="unknown", success=False, error=str(raw)))
         else:
             results.append(
                 PipelineResult(stage_id="unknown", success=False, error="Unexpected result")

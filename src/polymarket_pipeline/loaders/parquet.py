@@ -172,25 +172,27 @@ def load_file_fast(
     timestamps = pd.to_datetime(df["timestamp"].values, unit="s", utc=True)
 
     # 9. Build output DataFrame matching trades_raw schema
-    result = pd.DataFrame({
-        "trade_id": trade_ids,
-        "condition_id": condition_ids,
-        "asset_id": token_asset_id,
-        "side": np.where(is_buy, "BUY", "SELL"),
-        "price": price.astype(np.float32),
-        "size": tokens.astype(np.float32),
-        "amount_usd": usdc.astype(np.float32),
-        "fee_usd": fee.astype(np.float32),
-        "maker": df["maker"].values,
-        "taker": df["taker"].values,
-        "timestamp": timestamps,
-        "source": np.full(n, "goldsky_sink"),
-        "tx_hash": tx_hashes,
-        "order_hash": order_hashes,
-        "block_number": pd.array([None] * n, dtype=pd.Int64Dtype()),
-        "is_backfill": np.ones(n, dtype=bool),
-        "_version": np.full(n, 2, dtype=np.uint8),
-    })
+    result = pd.DataFrame(
+        {
+            "trade_id": trade_ids,
+            "condition_id": condition_ids,
+            "asset_id": token_asset_id,
+            "side": np.where(is_buy, "BUY", "SELL"),
+            "price": price.astype(np.float32),
+            "size": tokens.astype(np.float32),
+            "amount_usd": usdc.astype(np.float32),
+            "fee_usd": fee.astype(np.float32),
+            "maker": df["maker"].values,
+            "taker": df["taker"].values,
+            "timestamp": timestamps,
+            "source": np.full(n, "goldsky_sink"),
+            "tx_hash": tx_hashes,
+            "order_hash": order_hashes,
+            "block_number": pd.array([None] * n, dtype=pd.Int64Dtype()),
+            "is_backfill": np.ones(n, dtype=bool),
+            "_version": np.full(n, 2, dtype=np.uint8),
+        }
+    )
 
     return result, total_rows, dropped
 
@@ -205,9 +207,7 @@ def list_compact_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("compact_*.parquet"))
 
 
-def iter_row_groups_arrow(
-    path: Path, batch_size: int = 500_000
-) -> Iterator[Any]:
+def iter_row_groups_arrow(path: Path, batch_size: int = 500_000) -> Iterator[Any]:
     """Stream row groups from a compact parquet file as PyArrow RecordBatches.
 
     Yields one RecordBatch per row group for constant-memory insertion.

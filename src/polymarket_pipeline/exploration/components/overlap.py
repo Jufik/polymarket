@@ -51,18 +51,18 @@ def parent_overlap_analysis(
 
     # PnL vs volume rank correlation
     if len(df_all) > 0:
-        df_ranks = df_all.with_columns([
-            pl.col("estimated_pnl").rank(descending=True).alias("pnl_rank"),
-            pl.col("resolved_volume_usd").rank(descending=True).alias("vol_rank"),
-        ])
+        df_ranks = df_all.with_columns(
+            [
+                pl.col("estimated_pnl").rank(descending=True).alias("pnl_rank"),
+                pl.col("resolved_volume_usd").rank(descending=True).alias("vol_rank"),
+            ]
+        )
         rank_corr = float(df_ranks.select(pl.corr("pnl_rank", "vol_rank")).item())
         metrics["pnl_vs_volume_rank_correlation"] = round(rank_corr, 4)
 
         # Top-N overlap
         n = cfg.top_n_comparison
-        top_pnl = set(
-            df_all.sort("estimated_pnl", descending=True).head(n)["trader"].to_list()
-        )
+        top_pnl = set(df_all.sort("estimated_pnl", descending=True).head(n)["trader"].to_list())
         top_vol = set(
             df_all.sort("resolved_volume_usd", descending=True).head(n)["trader"].to_list()
         )

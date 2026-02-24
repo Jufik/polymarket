@@ -164,14 +164,10 @@ def translate_ch_to_duckdb(sql: str) -> str:
     sql = _replace_function(sql, "intDiv", _transform_int_div)
 
     # 11. toUnixTimestamp(x) -> epoch(x)::BIGINT
-    sql = _replace_function(
-        sql, "toUnixTimestamp", lambda a: f"CAST(epoch({a[0]}) AS BIGINT)"
-    )
+    sql = _replace_function(sql, "toUnixTimestamp", lambda a: f"CAST(epoch({a[0]}) AS BIGINT)")
 
     # 12. toDateTime('str') -> CAST('str' AS TIMESTAMP)
-    sql = _replace_function(
-        sql, "toDateTime", lambda a: f"CAST({a[0]} AS TIMESTAMP)"
-    )
+    sql = _replace_function(sql, "toDateTime", lambda a: f"CAST({a[0]} AS TIMESTAMP)")
 
     # 13. toFloat32(x) -> CAST(x AS FLOAT)
     sql = _replace_function(sql, "toFloat32", lambda a: f"CAST({a[0]} AS FLOAT)")
@@ -224,8 +220,7 @@ class DuckDBDataSource:
 
         if token_map_path.exists():
             self._conn.execute(
-                f"CREATE VIEW token_market_map AS "
-                f"SELECT * FROM read_parquet('{token_map_path}')"
+                f"CREATE VIEW token_market_map AS SELECT * FROM read_parquet('{token_map_path}')"
             )
         else:
             raise FileNotFoundError(
@@ -264,9 +259,7 @@ class DuckDBDataSource:
             )
             raise
 
-    def query_raw(
-        self, sql: str, params: dict[str, Any] | None = None
-    ) -> list[dict[str, Any]]:
+    def query_raw(self, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Run ClickHouse SQL (auto-translated) and return list of dicts."""
         translated = translate_ch_to_duckdb(sql)
         try:

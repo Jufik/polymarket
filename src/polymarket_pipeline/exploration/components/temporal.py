@@ -58,11 +58,13 @@ def temporal_consistency(
             metrics={"consistent_count": 0, "consistency_rate_pct": 0.0},
         )
 
-    resolved = resolved_markets_cte(ResolvedMarketsConfig(
-        lookback_start=cfg.lookback_start,
-        yes_threshold=cfg.yes_threshold,
-        no_threshold=cfg.no_threshold,
-    ))
+    resolved = resolved_markets_cte(
+        ResolvedMarketsConfig(
+            lookback_start=cfg.lookback_start,
+            yes_threshold=cfg.yes_threshold,
+            no_threshold=cfg.no_threshold,
+        )
+    )
 
     # Build trader trades subquery based on perspective
     pos_cfg = PositionsConfig(
@@ -163,14 +165,15 @@ def temporal_consistency(
     # Compute consistency for skilled traders
     if len(df_temporal) > 0:
         df_consistency = (
-            df_temporal
-            .filter(pl.col("trader").is_in(df_skilled["trader"]))
+            df_temporal.filter(pl.col("trader").is_in(df_skilled["trader"]))
             .group_by("trader")
-            .agg([
-                pl.col("period_positive").sum().alias("positive_periods"),
-                pl.col("sub_period").n_unique().alias("active_periods"),
-                pl.col("period_pnl").sum().alias("total_pnl_check"),
-            ])
+            .agg(
+                [
+                    pl.col("period_positive").sum().alias("positive_periods"),
+                    pl.col("sub_period").n_unique().alias("active_periods"),
+                    pl.col("period_pnl").sum().alias("total_pnl_check"),
+                ]
+            )
         )
 
         consistent_traders = df_consistency.filter(
@@ -181,9 +184,9 @@ def temporal_consistency(
         df_consistency.write_parquet(outputs_dir / "trader_consistency.parquet")
 
         # Final skilled + consistent traders
-        df_final = df_skilled.filter(
-            pl.col("trader").is_in(consistent_traders["trader"])
-        ).sort("estimated_pnl", descending=True)
+        df_final = df_skilled.filter(pl.col("trader").is_in(consistent_traders["trader"])).sort(
+            "estimated_pnl", descending=True
+        )
 
         path_final = outputs_dir / "skilled_traders_consistent.parquet"
         df_final.write_parquet(path_final)
@@ -249,8 +252,7 @@ def empirical_baseline(
     for _ in range(n_samples):
         sample = rng.choice(all_traders, size=sample_size, replace=False)
         sample_consistency = (
-            df_temporal
-            .filter(pl.col("trader").is_in(list(sample)))
+            df_temporal.filter(pl.col("trader").is_in(list(sample)))
             .group_by("trader")
             .agg(pl.col("period_positive").sum().alias("positive_periods"))
             .filter(pl.col("positive_periods") >= cfg.min_positive_periods)

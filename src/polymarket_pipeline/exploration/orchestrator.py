@@ -81,14 +81,10 @@ class RichOrchestratorCallback:
         metrics_str = ""
         if stage.metrics and stage.metrics.sample_size:
             metrics_str = f"\nSample size: {stage.metrics.sample_size:,}"
-        self.console.print(
-            f"[green]Stage completed:[/green] {stage.id}{metrics_str}"
-        )
+        self.console.print(f"[green]Stage completed:[/green] {stage.id}{metrics_str}")
 
     def on_data_quality_alert(self, stage: ExplorationStage, issues: list) -> None:
-        issues_text = "\n".join(
-            f"  [red]CRITICAL:[/red] {dq.description}" for dq in issues
-        )
+        issues_text = "\n".join(f"  [red]CRITICAL:[/red] {dq.description}" for dq in issues)
         self.console.print(
             Panel(
                 f"[red bold]Data quality issues detected in {stage.id}![/red bold]\n\n"
@@ -102,15 +98,11 @@ class RichOrchestratorCallback:
 
     def on_retry(self, stage: ExplorationStage, attempt: int, error: str) -> None:
         truncated = error[:200] + "..." if len(error) > 200 else error
-        self.console.print(
-            f"[yellow]Retry {attempt}: fixing script after error...[/yellow]"
-        )
+        self.console.print(f"[yellow]Retry {attempt}: fixing script after error...[/yellow]")
         self.console.print(f"[dim]{truncated}[/dim]")
 
     def on_dq_retry(self, stage: ExplorationStage, attempt: int, issues: list) -> None:
-        issues_text = "\n".join(
-            f"  - {dq.description}" for dq in issues
-        )
+        issues_text = "\n".join(f"  - {dq.description}" for dq in issues)
         self.console.print(
             Panel(
                 f"[yellow bold]DQ fix attempt {attempt} for {stage.id}[/yellow bold]\n\n"
@@ -190,14 +182,10 @@ def check_convergence(
 
     # 2. Diminishing returns: last N leaf stages averaged < threshold info gain
     leaves = tree.get_leaves()
-    analyzed_leaves = [
-        s for s in leaves if s.analysis is not None
-    ]
+    analyzed_leaves = [s for s in leaves if s.analysis is not None]
     if len(analyzed_leaves) >= CONVERGENCE_WINDOW:
         recent = analyzed_leaves[-CONVERGENCE_WINDOW:]
-        avg_gain = sum(s.analysis.information_gain for s in recent if s.analysis) / len(
-            recent
-        )
+        avg_gain = sum(s.analysis.information_gain for s in recent if s.analysis) / len(recent)
         if avg_gain < MIN_INFO_GAIN_THRESHOLD:
             return True, (
                 f"Diminishing returns: last {CONVERGENCE_WINDOW} leaves averaged "
@@ -274,9 +262,7 @@ class StrategyOrchestrator:
 
         # Handle resume
         if self.resume and state.paused:
-            self.callback.on_info(
-                f"Resuming from pause (was at stage: {state.paused_at_stage})"
-            )
+            self.callback.on_info(f"Resuming from pause (was at stage: {state.paused_at_stage})")
             # Transition paused stage back to REVIEWING
             if state.paused_at_stage:
                 paused_stage = tree.get_stage(state.paused_at_stage)
@@ -289,8 +275,7 @@ class StrategyOrchestrator:
             save_orchestrator_state(self.strategy, state)
         elif state.paused:
             self.callback.on_warning(
-                f"Strategy is paused: {state.pause_reason}\n"
-                "Use --resume to continue."
+                f"Strategy is paused: {state.pause_reason}\nUse --resume to continue."
             )
             return state
 
@@ -324,9 +309,8 @@ class StrategyOrchestrator:
             return False
 
         root = tree.get_stage(tree.root_id)
-        needs_bootstrap = (
-            root.status in (StageStatus.PENDING, StageStatus.FAILED)
-            or (root.status == StageStatus.COMPLETED and root.analysis is None)
+        needs_bootstrap = root.status in (StageStatus.PENDING, StageStatus.FAILED) or (
+            root.status == StageStatus.COMPLETED and root.analysis is None
         )
         if not root or not needs_bootstrap:
             return False
@@ -338,9 +322,7 @@ class StrategyOrchestrator:
             root.run_attempts = 0
             save_tree(self.strategy, tree)
 
-        self.callback.on_info(
-            f"Root stage '{root.id}' needs bootstrap — running with auto-fix..."
-        )
+        self.callback.on_info(f"Root stage '{root.id}' needs bootstrap — running with auto-fix...")
 
         # Step 1: Run with auto-healing (LLM rewrites script on failure)
         run_result = await run_stage_with_retry(
@@ -353,9 +335,7 @@ class StrategyOrchestrator:
             max_retries=3,
         )
         if not run_result.success:
-            self.callback.on_error(
-                f"Root stage failed after retries: {run_result.error}"
-            )
+            self.callback.on_error(f"Root stage failed after retries: {run_result.error}")
             state.paused = True
             state.pause_reason = f"Root stage failed after retries: {run_result.error}"
             state.paused_at_stage = root.id
@@ -377,11 +357,12 @@ class StrategyOrchestrator:
 
         # Step 3: Auto-fix DQ issues if any
         if review_result.has_critical_dq_issues:
-            self.callback.on_warning(
-                "Root stage has critical DQ issues — attempting auto-fix..."
-            )
+            self.callback.on_warning("Root stage has critical DQ issues — attempting auto-fix...")
             critical_issues = [
-                dq for dq in (review_result.analysis.data_quality_issues if review_result.analysis else [])
+                dq
+                for dq in (
+                    review_result.analysis.data_quality_issues if review_result.analysis else []
+                )
                 if dq.severity == "critical"
             ]
             tree = load_tree(self.strategy)
@@ -407,9 +388,7 @@ class StrategyOrchestrator:
         state.completed_stage_ids.append(root.id)
         save_orchestrator_state(self.strategy, state)
 
-        self.callback.on_success(
-            f"Root stage '{root.id}' bootstrapped successfully."
-        )
+        self.callback.on_success(f"Root stage '{root.id}' bootstrapped successfully.")
         return True
 
     # ------------------------------------------------------------------
@@ -429,7 +408,9 @@ class StrategyOrchestrator:
                 if brainstorm_result.has_pause_triggers():
                     tree = load_tree(self.strategy)
                     decision = await self.human.prompt(
-                        brainstorm_result, tree, self.brainstorm.brief,
+                        brainstorm_result,
+                        tree,
+                        self.brainstorm.brief,
                     )
                     if decision.action == "stop":
                         self.callback.on_info("Human chose to stop exploration.")
@@ -455,7 +436,9 @@ class StrategyOrchestrator:
 
             # Check convergence before picking next refinement
             should_stop, reason = check_convergence(
-                tree, context, self.max_children,
+                tree,
+                context,
+                self.max_children,
             )
             if should_stop:
                 self.callback.on_info(f"Convergence detected: {reason}")
@@ -463,7 +446,9 @@ class StrategyOrchestrator:
 
             # Step 2: Get suggestions (with context-aware filtering)
             suggestions, filtered = suggest_next_stages(
-                tree, max_suggestions=1, context=context,
+                tree,
+                max_suggestions=1,
+                context=context,
             )
             if filtered:
                 self.callback.on_info(
@@ -478,9 +463,7 @@ class StrategyOrchestrator:
 
             # Step 3: Check depth limit
             if parent.depth + 1 > self.max_depth:
-                self.callback.on_info(
-                    f"Max depth ({self.max_depth}) reached at {parent.id}."
-                )
+                self.callback.on_info(f"Max depth ({self.max_depth}) reached at {parent.id}.")
                 break
 
             # Step 4: Generate
@@ -544,7 +527,8 @@ class StrategyOrchestrator:
             if review_result.has_critical_dq_issues:
                 if self.max_dq_retries > 0 and review_result.analysis:
                     critical_issues = [
-                        dq for dq in review_result.analysis.data_quality_issues
+                        dq
+                        for dq in review_result.analysis.data_quality_issues
                         if dq.severity == "critical"
                     ]
                     tree = load_tree(self.strategy)
@@ -612,7 +596,9 @@ class StrategyOrchestrator:
 
             # Check convergence
             should_stop, reason = check_convergence(
-                tree, context, self.max_children,
+                tree,
+                context,
+                self.max_children,
             )
             if should_stop:
                 self.callback.on_info(f"Convergence detected: {reason}")
@@ -624,14 +610,14 @@ class StrategyOrchestrator:
 
             # Get N suggestions
             suggestions, filtered = suggest_next_stages(
-                tree, max_suggestions=batch_size, context=context,
+                tree,
+                max_suggestions=batch_size,
+                context=context,
             )
             if filtered:
                 self.callback.on_info(
                     f"Filtered {len(filtered)} refinements: "
-                    + ", ".join(
-                        f"{f.refinement_name} ({f.reason})" for f in filtered[:5]
-                    )
+                    + ", ".join(f"{f.refinement_name} ({f.reason})" for f in filtered[:5])
                 )
             if not suggestions:
                 self.callback.on_info("No more refinement suggestions available.")
@@ -639,13 +625,10 @@ class StrategyOrchestrator:
 
             # Filter by depth limit
             valid_suggestions = [
-                (parent, ref) for parent, ref in suggestions
-                if parent.depth + 1 <= self.max_depth
+                (parent, ref) for parent, ref in suggestions if parent.depth + 1 <= self.max_depth
             ]
             if not valid_suggestions:
-                self.callback.on_info(
-                    f"Max depth ({self.max_depth}) reached for all suggestions."
-                )
+                self.callback.on_info(f"Max depth ({self.max_depth}) reached for all suggestions.")
                 break
 
             self.callback.on_info(
@@ -671,22 +654,21 @@ class StrategyOrchestrator:
                     state.stages_completed += 1
                     state.completed_stage_ids.append(result.stage_id)
                 elif result.has_critical_dq:
-                    self.callback.on_warning(
-                        f"Stage {result.stage_id} has critical DQ issues."
-                    )
+                    self.callback.on_warning(f"Stage {result.stage_id} has critical DQ issues.")
+
                     # Pause the stage
                     def _pause_stage(
-                        tree: ExplorationTree, sid: str = result.stage_id,
+                        tree: ExplorationTree,
+                        sid: str = result.stage_id,
                     ) -> None:
                         s = tree.get_stage(sid)
                         if s:
                             s.status = StageStatus.PAUSED
+
                     tree_mgr.update_atomic(_pause_stage)
                     any_paused = True
                 elif not result.success:
-                    self.callback.on_error(
-                        f"Pipeline failed: {result.stage_id} — {result.error}"
-                    )
+                    self.callback.on_error(f"Pipeline failed: {result.stage_id} — {result.error}")
 
             save_orchestrator_state(self.strategy, state)
 
@@ -726,13 +708,12 @@ class StrategyOrchestrator:
                     # Attempt DQ self-healing
                     if self.max_dq_retries > 0 and review_result.analysis:
                         critical_issues = [
-                            dq for dq in review_result.analysis.data_quality_issues
+                            dq
+                            for dq in review_result.analysis.data_quality_issues
                             if dq.severity == "critical"
                         ]
                         # Look up parent and refinement for regeneration
-                        parent_stage = (
-                            tree.get_stage(stage.parent_id) if stage.parent_id else None
-                        )
+                        parent_stage = tree.get_stage(stage.parent_id) if stage.parent_id else None
                         stage_refinement = self._find_refinement(parent_stage, stage)
                         tree = load_tree(self.strategy)
                         stage = tree.get_stage(stage.id) or stage
@@ -764,26 +745,18 @@ class StrategyOrchestrator:
     def _apply_brainstorm(self, result: BrainstormResult) -> None:
         """Apply brainstorm results: evolve prompts, log learnings."""
         if result.platform_knowledge:
-            self.registry.evolve_platform([
-                pk.model_dump() for pk in result.platform_knowledge
-            ])
+            self.registry.evolve_platform([pk.model_dump() for pk in result.platform_knowledge])
             self.callback.on_info(
-                f"Brainstorm: added {len(result.platform_knowledge)} "
-                "platform knowledge entries"
+                f"Brainstorm: added {len(result.platform_knowledge)} platform knowledge entries"
             )
 
         if result.new_learnings:
-            self.registry.evolve_strategy([
-                entry.model_dump() for entry in result.new_learnings
-            ])
+            self.registry.evolve_strategy([entry.model_dump() for entry in result.new_learnings])
             hard = [
-                entry for entry in result.new_learnings
-                if entry.enforcement == "hard_constraint"
+                entry for entry in result.new_learnings if entry.enforcement == "hard_constraint"
             ]
             if hard:
-                self.callback.on_info(
-                    f"Brainstorm: {len(hard)} new hard constraints"
-                )
+                self.callback.on_info(f"Brainstorm: {len(hard)} new hard constraints")
 
         # Persist updated prompts
         self.registry.save(self.strategy)

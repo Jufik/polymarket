@@ -189,9 +189,7 @@ class PostgresSink:
         if not self._pool:
             return {}
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT asset_id, condition_id, outcome FROM token_market_map"
-            )
+            rows = await conn.fetch("SELECT asset_id, condition_id, outcome FROM token_market_map")
             return {r["asset_id"]: (r["condition_id"], r["outcome"]) for r in rows}
 
     # ── Recovery job tracking ─────────────────────────────────────────
@@ -250,9 +248,7 @@ class PostgresSink:
                 job_id,
             )
 
-    async def complete_recovery_job(
-        self, job_id: int, status: str = "completed"
-    ) -> None:
+    async def complete_recovery_job(self, job_id: int, status: str = "completed") -> None:
         """Mark job as completed or failed."""
         if not self._pool:
             return

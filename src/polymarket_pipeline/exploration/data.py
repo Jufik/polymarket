@@ -18,9 +18,7 @@ class DataSource(Protocol):
     """Protocol for exploration data sources (ClickHouse or DuckDB)."""
 
     def query_df(self, sql: str, params: dict[str, Any] | None = None) -> pl.DataFrame: ...
-    def query_raw(
-        self, sql: str, params: dict[str, Any] | None = None
-    ) -> list[dict[str, Any]]: ...
+    def query_raw(self, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]: ...
     def get_schema(self, table: str) -> list[dict[str, str]]: ...
 
 
@@ -35,17 +33,13 @@ class ExplorationDataSource:
     ) -> None:
         import clickhouse_connect
 
-        self._client = clickhouse_connect.get_client(
-            host=host, port=port, database=database
-        )
+        self._client = clickhouse_connect.get_client(host=host, port=port, database=database)
 
     def query_df(self, sql: str, params: dict[str, Any] | None = None) -> pl.DataFrame:
         """Run SQL in ClickHouse, return Polars DataFrame."""
         result = self._client.query(sql, parameters=params or {})
         if not result.result_rows:
-            return pl.DataFrame(
-                schema={name: pl.Utf8 for name in result.column_names}
-            )
+            return pl.DataFrame(schema={name: pl.Utf8 for name in result.column_names})
         return pl.DataFrame(
             data=result.result_rows,
             schema=result.column_names,
@@ -55,10 +49,7 @@ class ExplorationDataSource:
     def query_raw(self, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Run SQL, return list of dicts (for small results)."""
         result = self._client.query(sql, parameters=params or {})
-        return [
-            dict(zip(result.column_names, row, strict=False))
-            for row in result.result_rows
-        ]
+        return [dict(zip(result.column_names, row, strict=False)) for row in result.result_rows]
 
     def get_schema(self, table: str) -> list[dict[str, str]]:
         """Get column names and types for a table."""

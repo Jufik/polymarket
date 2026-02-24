@@ -66,13 +66,15 @@ class MempoolIngestor:
 
     async def _publish_heartbeat(self) -> None:
         """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps({
-            "source": "mempool",
-            "event": "heartbeat",
-            "trade_count": self._trade_count,
-            "peers_active": self._peers_active,
-            "ts": time.time(),
-        })
+        heartbeat = json.dumps(
+            {
+                "source": "mempool",
+                "event": "heartbeat",
+                "trade_count": self._trade_count,
+                "peers_active": self._peers_active,
+                "ts": time.time(),
+            }
+        )
         await safe_publish(
             self._broker,
             message=heartbeat,
