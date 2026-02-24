@@ -14,7 +14,7 @@ import structlog
 
 from polymarket_pipeline.models import NormalizedTrade
 from polymarket_pipeline.normalizers.sink import EXCHANGE_ADDRS, GoldskySinkNormalizer
-from polymarket_pipeline.trade_id import make_trade_id_chain
+from polymarket_pipeline.trade_id import make_trade_ids_chain_batch
 
 log = structlog.get_logger()
 
@@ -151,19 +151,16 @@ def load_file_fast(
     price = np.where(tokens > 0, np.round(usdc / tokens, 4), 0.0)
     fee = df["fee"].values.astype(np.float64) / 1e6
 
-    # 5+6. Hex encode + trade IDs in a single pass (avoid 3 separate loops)
+    # 5+6. Hex encode + batch trade IDs (vectorized, no per-row function calls)
     tx_raw = df["transaction_hash"].values
     oh_raw = df["order_hash"].values
     n = len(df)
-    tx_hashes = np.empty(n, dtype=object)
-    order_hashes = np.empty(n, dtype=object)
-    trade_ids = np.empty(n, dtype=object)
-    for i in range(n):
-        tx = "0x" + tx_raw[i].hex()
-        oh = "0x" + oh_raw[i].hex()
-        tx_hashes[i] = tx
-        order_hashes[i] = oh
-        trade_ids[i] = make_trade_id_chain(tx_hash=tx, order_hash=oh)
+    tx_hashes_list = ["0x" + b.hex() for b in tx_raw]
+    order_hashes_list = ["0x" + b.hex() for b in oh_raw]
+    trade_ids_list = make_trade_ids_chain_batch(tx_hashes_list, order_hashes_list)
+    tx_hashes = np.array(tx_hashes_list, dtype=object)
+    order_hashes = np.array(order_hashes_list, dtype=object)
+    trade_ids = np.array(trade_ids_list, dtype=object)
 
     # 7. Map token -> condition_id (pandas C-level hash lookup, cond_map pre-computed)
     condition_ids = pd.Series(token_asset_id).map(cond_map).fillna("unknown").values
