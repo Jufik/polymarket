@@ -36,11 +36,17 @@ class LiveExecutor:
         clob: ClobClient,
         tracker: PositionTracker,
         *,
+        token_market_map: dict[str, tuple[str, str]] | None = None,
         max_position_usd: float = 100.0,
         max_total_exposure_usd: float = 500.0,
     ) -> None:
         self._clob = clob
         self._tracker = tracker
+        # Reverse map: (condition_id, outcome) -> asset_id
+        self._asset_lookup: dict[tuple[str, str], str] = {}
+        if token_market_map:
+            for asset_id, (cid, outcome) in token_market_map.items():
+                self._asset_lookup[(cid, outcome)] = asset_id
         self._max_position_usd = max_position_usd
         self._max_total_exposure_usd = max_total_exposure_usd
 
@@ -72,12 +78,36 @@ class LiveExecutor:
                 error=rejection,
             )
 
+        # Resolve asset_id from intent or token_market_map
+        asset_id = intent.asset_id
+        if asset_id is None:
+            asset_id = self._asset_lookup.get((intent.condition_id, intent.outcome))
+        if asset_id is None:
+            logger.warning(
+                "live.no_asset_id",
+                condition_id=intent.condition_id,
+                outcome=intent.outcome,
+            )
+            return Fill(
+                intent_id=intent_id,
+                strategy=intent.strategy,
+                condition_id=intent.condition_id,
+                side=intent.side,
+                outcome=intent.outcome,
+                filled_price=0.0,
+                filled_size_usd=0.0,
+                fee_usd=0.0,
+                status=FillStatus.REJECTED,
+                filled_at=now,
+                error="asset_id not found in token_market_map",
+            )
+
         # Submit order via CLOB
         side = OrderSide.BUY if intent.side == "BUY" else OrderSide.SELL
         order_type = OrderType.LIMIT if intent.max_price is not None else OrderType.MARKET
         result = await self._clob.submit_order(
             condition_id=intent.condition_id,
-            asset_id=intent.condition_id,  # Use condition_id as asset_id fallback
+            asset_id=asset_id,
             side=side,
             size=intent.size_usd,
             price=intent.max_price,
@@ -113,7 +143,7 @@ class LiveExecutor:
             intent_id=intent_id,
             strategy=intent.strategy,
             condition_id=intent.condition_id,
-            asset_id=intent.condition_id,
+            asset_id=asset_id,
             side=intent.side,
             outcome=intent.outcome,
             price=filled_price,

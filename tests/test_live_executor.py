@@ -64,6 +64,10 @@ class MockPositionTracker:
         )
 
 
+# Default token_market_map for tests: asset_id -> (condition_id, outcome)
+_TEST_TOKEN_MAP = {"asset_yes_abc123": ("0xabc123", "YES")}
+
+
 def _make_intent(
     *,
     condition_id: str = "0xabc123",
@@ -94,7 +98,11 @@ async def test_live_executor_fills_successfully() -> None:
     """Happy path: CLOB returns success, fill is recorded."""
     clob = MockClobClient()
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker, max_position_usd=100.0, max_total_exposure_usd=500.0)
+    executor = LiveExecutor(
+        clob, tracker,
+        token_market_map=_TEST_TOKEN_MAP,
+        max_position_usd=100.0, max_total_exposure_usd=500.0,
+    )
 
     intent = _make_intent(size_usd=10.0, max_price=0.60)
     fill = await executor.execute(intent)
@@ -133,7 +141,11 @@ async def test_live_executor_rejects_over_position_limit() -> None:
     )
     clob = MockClobClient()
     tracker = MockPositionTracker(positions=[existing], total_exposure=95.0)
-    executor = LiveExecutor(clob, tracker, max_position_usd=100.0, max_total_exposure_usd=500.0)
+    executor = LiveExecutor(
+        clob, tracker,
+        token_market_map=_TEST_TOKEN_MAP,
+        max_position_usd=100.0, max_total_exposure_usd=500.0,
+    )
 
     intent = _make_intent(condition_id="0xabc123", size_usd=10.0)
     fill = await executor.execute(intent)
@@ -154,7 +166,11 @@ async def test_live_executor_rejects_over_total_exposure() -> None:
     """Total exposure at 490 USD, trying to add 20 USD with limit=500 -> REJECTED."""
     clob = MockClobClient()
     tracker = MockPositionTracker(total_exposure=490.0)
-    executor = LiveExecutor(clob, tracker, max_position_usd=1000.0, max_total_exposure_usd=500.0)
+    executor = LiveExecutor(
+        clob, tracker,
+        token_market_map=_TEST_TOKEN_MAP,
+        max_position_usd=1000.0, max_total_exposure_usd=500.0,
+    )
 
     intent = _make_intent(size_usd=20.0)
     fill = await executor.execute(intent)
@@ -174,7 +190,7 @@ async def test_live_executor_handles_order_failure() -> None:
     failed_result = OrderResult(order_id="", success=False, error="insufficient balance")
     clob = MockClobClient(result=failed_result)
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker)
+    executor = LiveExecutor(clob, tracker, token_market_map=_TEST_TOKEN_MAP)
 
     intent = _make_intent(size_usd=10.0)
     fill = await executor.execute(intent)
@@ -204,7 +220,11 @@ async def test_live_executor_allows_under_limits() -> None:
     )
     clob = MockClobClient()
     tracker = MockPositionTracker(positions=[existing], total_exposure=25.0)
-    executor = LiveExecutor(clob, tracker, max_position_usd=100.0, max_total_exposure_usd=500.0)
+    executor = LiveExecutor(
+        clob, tracker,
+        token_market_map=_TEST_TOKEN_MAP,
+        max_position_usd=100.0, max_total_exposure_usd=500.0,
+    )
 
     intent = _make_intent(condition_id="0xabc123", size_usd=10.0)
     fill = await executor.execute(intent)
@@ -218,7 +238,7 @@ async def test_live_executor_market_order_when_no_max_price() -> None:
     """When max_price is None, order_type should be MARKET."""
     clob = MockClobClient()
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker)
+    executor = LiveExecutor(clob, tracker, token_market_map=_TEST_TOKEN_MAP)
 
     intent = _make_intent(max_price=None)
     fill = await executor.execute(intent)
@@ -232,7 +252,7 @@ async def test_live_executor_limit_order_when_max_price_set() -> None:
     """When max_price is set, order_type should be LIMIT."""
     clob = MockClobClient()
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker)
+    executor = LiveExecutor(clob, tracker, token_market_map=_TEST_TOKEN_MAP)
 
     intent = _make_intent(max_price=0.65)
     fill = await executor.execute(intent)

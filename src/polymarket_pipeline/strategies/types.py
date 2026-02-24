@@ -54,6 +54,7 @@ class TradeIntent:
     max_price: float | None
     reason: str
     signal_time: float
+    asset_id: str | None = None
 
 
 @dataclass(frozen=True)
