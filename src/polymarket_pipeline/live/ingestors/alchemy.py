@@ -139,10 +139,12 @@ class AlchemyIngestor:
 
     async def run(self) -> None:
         """Run the Alchemy ingestor with auto-reconnect."""
+        heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         publish_task = asyncio.create_task(self._publish_loop())
         try:
             await self._connection_loop()
         finally:
+            heartbeat_task.cancel()
             publish_task.cancel()
 
     async def _connection_loop(self) -> None:
@@ -171,12 +173,8 @@ class AlchemyIngestor:
                     )
                     await ws.send(subscribe)
 
-                    heartbeat_task = asyncio.create_task(self._heartbeat_loop())
-                    try:
-                        async for raw in ws:
-                            await self._handle_message(raw)
-                    finally:
-                        heartbeat_task.cancel()
+                    async for raw in ws:
+                        await self._handle_message(raw)
 
             except websockets.ConnectionClosed as e:
                 log.warning("alchemy.disconnected", reason=str(e), backoff=backoff)
