@@ -61,11 +61,13 @@ async def _health_ready(scope: Any, receive: Any, send: Any) -> None:
     await resp(scope, receive, send)
 
 
-asgi_app = app.as_asgi(asgi_routes=[
-    ("/dashboard", _dashboard_placeholder),
-    ("/health/live", _health_live),
-    ("/health/ready", _health_ready),
-])
+asgi_app = app.as_asgi(
+    asgi_routes=[
+        ("/dashboard", _dashboard_placeholder),
+        ("/health/live", _health_live),
+        ("/health/ready", _health_ready),
+    ]
+)
 
 # Shared state
 _quality_checker: QualityChecker | None = None

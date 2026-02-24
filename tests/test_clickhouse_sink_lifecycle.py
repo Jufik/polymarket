@@ -1,4 +1,5 @@
 """Tests for ClickHouseSink lifecycle methods."""
+
 from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
 
