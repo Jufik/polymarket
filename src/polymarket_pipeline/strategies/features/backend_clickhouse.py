@@ -5,6 +5,7 @@ Runs SQL queries against ClickHouse and returns results as Polars DataFrames.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import polars as pl
@@ -59,10 +60,15 @@ class ClickHouseBackend:
 
         return pl.DataFrame(rows)
 
+    _VALID_CID = re.compile(r"^0x[0-9a-fA-F]+$")
+
     async def query_trades(self, condition_ids: list[str] | None = None) -> pl.DataFrame:
         """Query trades from ClickHouse, optionally filtered."""
         query = "SELECT * FROM trades_raw FINAL"
         if condition_ids:
+            for cid in condition_ids:
+                if not self._VALID_CID.match(cid):
+                    raise ValueError(f"Invalid condition_id format: {cid!r}")
             ids_str = ", ".join(f"'{cid}'" for cid in condition_ids)
             query += f" WHERE condition_id IN ({ids_str})"
         return await self._execute(query)
