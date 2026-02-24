@@ -2677,6 +2677,7 @@ all = [
     { name = "clickhouse-connect" },
     { name = "duckdb" },
     { name = "eth-abi" },
+    { name = "fastapi" },
     { name = "fastparquet" },
     { name = "faststream", extra = ["kafka"] },
     { name = "gql", extra = ["aiohttp"] },
@@ -2698,6 +2699,11 @@ all = [
     { name = "typer" },
     { name = "uvicorn" },
     { name = "websockets" },
+]
+api = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "uvicorn" },
 ]
 clickhouse = [
     { name = "clickhouse-connect" },
@@ -2759,9 +2765,11 @@ requires-dist = [
     { name = "clickhouse-connect", marker = "extra == 'exploration'", specifier = ">=0.7" },
     { name = "duckdb", marker = "extra == 'compact'", specifier = ">=1.1" },
     { name = "eth-abi", marker = "extra == 'live'", specifier = ">=5.0" },
+    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115" },
     { name = "fastparquet", marker = "extra == 'sink'", specifier = ">=2024.0" },
     { name = "faststream", extras = ["kafka"], marker = "extra == 'live'", specifier = ">=0.5" },
     { name = "gql", extras = ["aiohttp"], marker = "extra == 'live'", specifier = ">=3.5" },
+    { name = "httpx", marker = "extra == 'api'", specifier = ">=0.27" },
     { name = "httpx", marker = "extra == 'http'", specifier = ">=0.27" },
     { name = "mlflow", marker = "extra == 'exploration'", specifier = ">=2.19.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
@@ -2771,7 +2779,7 @@ requires-dist = [
     { name = "polars", marker = "extra == 'strategy'", specifier = ">=1.15.0" },
     { name = "polyfactory", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "polymarket-mempool", marker = "extra == 'live'", editable = "crates/polymarket-mempool" },
-    { name = "polymarket-pipeline", extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "strategy", "dev"], marker = "extra == 'all'" },
+    { name = "polymarket-pipeline", extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "api", "live", "strategy", "dev"], marker = "extra == 'all'" },
     { name = "pyarrow", marker = "extra == 'compact'", specifier = ">=14.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pydantic", marker = "extra == 'strategy'", specifier = ">=2.0" },
@@ -2784,11 +2792,12 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.0" },
     { name = "structlog", marker = "extra == 'strategy'", specifier = ">=24.0" },
     { name = "typer", marker = "extra == 'exploration'", specifier = ">=0.14.0" },
+    { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'live'", specifier = ">=0.30" },
     { name = "websockets", marker = "extra == 'live'", specifier = ">=13.0" },
     { name = "websockets", marker = "extra == 'websocket'", specifier = ">=13.0" },
 ]
-provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "live", "strategy", "dev", "all"]
+provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "api", "live", "strategy", "dev", "all"]
 
 [[package]]
 name = "prettytable"
