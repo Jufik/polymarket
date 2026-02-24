@@ -65,6 +65,7 @@ asgi_app = app.as_asgi(
 # Shared state
 _quality_checker: QualityChecker | None = None
 _ingestor_tasks: list[asyncio.Task[Any]] = []
+_auto_protect_lock = asyncio.Lock()
 
 
 async def _load_token_map() -> dict[str, tuple[str, str]]:
@@ -83,40 +84,48 @@ async def _auto_protect() -> None:
     if _quality_checker is None:
         return
 
-    _quality_checker.state.set_closing()
-    log.warning("auto_protect.triggered", state="CLOSING")
+    async with _auto_protect_lock:
+        # Skip if already closing/stopped (re-entrancy guard)
+        if _quality_checker.state.current in (PipelineState.CLOSING, PipelineState.SAFE_STOP):
+            log.info("auto_protect.already_closing", state=_quality_checker.state.current.value)
+            return
 
-    try:
-        import asyncpg
+        _quality_checker.state.set_closing()
+        log.warning("auto_protect.triggered", state="CLOSING")
 
-        from polymarket_pipeline.execution.clob_client import ClobClient
-        from polymarket_pipeline.execution.panic import panic_close_all
-        from polymarket_pipeline.execution.position_tracker import PositionTracker
+        try:
+            import asyncpg
 
-        async with ClobClient(
-            base_url=settings.clob_api_url,
-            api_key=settings.clob_api_key,
-            api_secret=settings.clob_api_secret,
-            api_passphrase=settings.clob_api_passphrase,
-        ) as clob:
-            pool = await asyncpg.create_pool(dsn=settings.pg_dsn)
-            assert pool is not None  # noqa: S101
-            tracker = PositionTracker(pool=pool)
-            await tracker.initialize()
-            results = await panic_close_all(clob, tracker)
-            await pool.close()
+            from polymarket_pipeline.execution.clob_client import ClobClient
+            from polymarket_pipeline.execution.panic import panic_close_all
+            from polymarket_pipeline.execution.position_tracker import PositionTracker
 
-        success = sum(1 for r in results if r.success)
-        failed = sum(1 for r in results if not r.success)
-        log.warning("auto_protect.complete", closed=success, failed=failed)
+            async with ClobClient(
+                base_url=settings.clob_api_url,
+                api_key=settings.clob_api_key,
+                api_secret=settings.clob_api_secret,
+                api_passphrase=settings.clob_api_passphrase,
+            ) as clob:
+                pool = await asyncpg.create_pool(dsn=settings.pg_dsn)
+                if pool is None:
+                    log.error("auto_protect.pool_creation_failed")
+                    return
+                tracker = PositionTracker(pool=pool)
+                await tracker.initialize()
+                results = await panic_close_all(clob, tracker)
+                await pool.close()
 
-        if failed == 0:
-            _quality_checker.state.set_safe_stop()
-            log.warning("auto_protect.safe_stop")
-        else:
-            log.error("auto_protect.some_failures", failed=failed)
-    except Exception:
-        log.exception("auto_protect.error")
+            success = sum(1 for r in results if r.success)
+            failed = sum(1 for r in results if not r.success)
+            log.warning("auto_protect.complete", closed=success, failed=failed)
+
+            if failed == 0:
+                _quality_checker.state.set_safe_stop()
+                log.warning("auto_protect.safe_stop")
+            else:
+                log.error("auto_protect.some_failures", failed=failed)
+        except Exception:
+            log.exception("auto_protect.error")
 
 
 async def _check_and_recover(token_map: dict[str, tuple[str, str]]) -> None:
