@@ -1,11 +1,10 @@
 """Tests for RTDS ingestor — WS connection management + Redpanda publish."""
 
+import asyncio
 import json
 from unittest.mock import AsyncMock
 
 import pytest
-
-from polymarket_pipeline.models import Source
 
 
 @pytest.fixture
@@ -40,7 +39,12 @@ class TestRTDSIngestor:
 
         await ingestor._handle_message(json.dumps(trade_msg), conn_id=0)
 
-        # Should have published one trade
+        # Message is now in the backpressure queue — drain it via _publish_loop
+        assert ingestor._queue.qsize() == 1
+        task = asyncio.create_task(ingestor._publish_loop())
+        await asyncio.sleep(0.05)
+        task.cancel()
+
         assert mock_broker.publish.call_count == 1
         call_args = mock_broker.publish.call_args
         # Verify the published message is valid JSON containing expected fields
@@ -53,6 +57,7 @@ class TestRTDSIngestor:
 
         ingestor = RTDSIngestor(broker=mock_broker, topic="trades.raw")
         await ingestor._handle_message("PING", conn_id=0)
+        assert ingestor._queue.qsize() == 0
         assert mock_broker.publish.call_count == 0
 
     async def test_non_trade_type_not_published(self, mock_broker):
@@ -61,6 +66,7 @@ class TestRTDSIngestor:
 
         ingestor = RTDSIngestor(broker=mock_broker, topic="trades.raw")
         await ingestor._handle_message(json.dumps({"type": "other", "data": {}}), conn_id=0)
+        assert ingestor._queue.qsize() == 0
         assert mock_broker.publish.call_count == 0
 
     async def test_heartbeat_published_to_status(self, mock_broker):
@@ -101,9 +107,16 @@ class TestRTDSIngestor:
         await ingestor._handle_message(trade_msg, conn_id=0)
         await ingestor._handle_message(trade_msg, conn_id=1)
 
-        # Should have published only once
-        assert mock_broker.publish.call_count == 1
+        # Should have enqueued only once (dedup drops the second)
+        assert ingestor._queue.qsize() == 1
         assert ingestor._trade_count == 1
+
+        # Drain the queue and verify only one publish
+        task = asyncio.create_task(ingestor._publish_loop())
+        await asyncio.sleep(0.05)
+        task.cancel()
+
+        assert mock_broker.publish.call_count == 1
 
     async def test_heartbeat_includes_pool_info(self, mock_broker):
         """Heartbeat should report pool_size and connections_alive."""

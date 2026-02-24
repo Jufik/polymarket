@@ -1,10 +1,10 @@
 """Tests for Alchemy eth_subscribe ingestor."""
 
+import asyncio
 import json
 from unittest.mock import AsyncMock
 
 import pytest
-
 from eth_abi import encode
 
 
@@ -76,6 +76,12 @@ class TestAlchemyIngestor:
         msg = _make_subscription_result()
         await ingestor._handle_message(json.dumps(msg))
 
+        # Message is now in the backpressure queue — drain it via _publish_loop
+        assert ingestor._queue.qsize() == 1
+        task = asyncio.create_task(ingestor._publish_loop())
+        await asyncio.sleep(0.05)  # let the loop process one item
+        task.cancel()
+
         assert mock_broker.publish.call_count == 1
 
     async def test_taker_duplicate_not_published(self, mock_broker):
@@ -92,6 +98,7 @@ class TestAlchemyIngestor:
         )
         await ingestor._handle_message(json.dumps(msg))
 
+        assert ingestor._queue.qsize() == 0
         assert mock_broker.publish.call_count == 0
 
     async def test_subscription_response_ignored(self, mock_broker):
