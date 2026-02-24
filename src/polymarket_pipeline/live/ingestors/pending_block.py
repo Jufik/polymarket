@@ -88,7 +88,7 @@ class PendingBlockIngestor:
         self._trade_count: int = 0
         self._poll_count: int = 0
         self._tx_count: int = 0
-        self._tx_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._tx_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
 
     def _extract_new_txs(self, result: dict[str, Any], source: str) -> list[dict[str, Any]]:
         """Extract new Polymarket txs from a pending block response."""
@@ -156,7 +156,13 @@ class PendingBlockIngestor:
                             new_txs = self._extract_new_txs(result, name)
 
                             for tx in new_txs:
-                                await self._tx_queue.put(tx)
+                                try:
+                                    self._tx_queue.put_nowait(tx)
+                                except asyncio.QueueFull:
+                                    log.warning(
+                                        "pending_block.queue_full",
+                                        dropped_tx=tx.get("hash", "?"),
+                                    )
 
                         except TimeoutError:
                             log.debug("pending_block.poll_timeout", source=name)
@@ -180,7 +186,12 @@ class PendingBlockIngestor:
             tx = await self._tx_queue.get()
             self._tx_count += 1
 
-            trades = self._normalizer.decode_tx(tx)
+            try:
+                trades = self._normalizer.decode_tx(tx)
+            except Exception:
+                log.exception("pending_block.decode_error", tx_hash=tx.get("hash", "?"))
+                continue
+
             for trade in trades:
                 trade = trade.model_copy(update={"published_at": time.time()})
                 await self._broker.publish(
