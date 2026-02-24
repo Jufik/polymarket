@@ -2672,6 +2672,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "alembic" },
     { name = "asyncpg" },
     { name = "claude-agent-sdk" },
     { name = "clickhouse-connect" },
@@ -2743,6 +2744,7 @@ live = [
     { name = "websockets" },
 ]
 postgres = [
+    { name = "alembic" },
     { name = "asyncpg" },
 ]
 sink = [
@@ -2761,6 +2763,7 @@ websocket = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.3" },
+    { name = "alembic", marker = "extra == 'postgres'", specifier = ">=1.14" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
     { name = "claude-agent-sdk", marker = "extra == 'exploration'" },
     { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=0.7" },
