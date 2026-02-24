@@ -28,7 +28,15 @@ CID = "0xintegration_market"
 SKILLED = ["0xalice", "0xbob", "0xcharlie", "0xdave", "0xeve"]
 
 
-def _trade(maker: str, ts: int, side: str = "SELL") -> NormalizedTrade:
+def _now() -> int:
+    import time
+
+    return int(time.time())
+
+
+def _trade(maker: str, ts: int | None = None, side: str = "SELL") -> NormalizedTrade:
+    if ts is None:
+        ts = _now()
     return NormalizedTrade(
         trade_id=f"int:{maker}:{ts}",
         condition_id=CID,
@@ -136,9 +144,10 @@ async def test_full_paper_dev_flow(backend: PolarsBackend) -> None:
     await runner.initialize()
 
     # Feed 3 SELL trades from skilled traders -> should trigger NO signal
-    await runner._handle_trade(_trade("0xalice", 1000, "SELL"))
-    await runner._handle_trade(_trade("0xbob", 1001, "SELL"))
-    await runner._handle_trade(_trade("0xcharlie", 1002, "SELL"))
+    now = _now()
+    await runner._handle_trade(_trade("0xalice", now, "SELL"))
+    await runner._handle_trade(_trade("0xbob", now + 1, "SELL"))
+    await runner._handle_trade(_trade("0xcharlie", now + 2, "SELL"))
 
     # Verify signal fired
     assert runner._intents_submitted == 1
@@ -161,7 +170,7 @@ async def test_provider_features_visible_in_context(backend: PolarsBackend) -> N
     await runner.initialize()
 
     # Feed a trade to trigger context update
-    await runner._handle_trade(_trade("0xalice", 2000))
+    await runner._handle_trade(_trade("0xalice"))
 
     # Check context has the feature
     skilled = await ctx.get_features("skilled_traders")
