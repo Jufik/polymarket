@@ -37,7 +37,7 @@ import structlog
 
 log = structlog.get_logger()
 
-PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@192.168.0.148:15432/polymarket"
+PG_DSN_DEFAULT = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
 
 # Worker process globals
 _worker_cond_map: dict[str, str] = {}

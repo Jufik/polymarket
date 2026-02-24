@@ -29,7 +29,7 @@ class ExplorationDataSource:
 
     def __init__(
         self,
-        host: str = "192.168.0.148",
+        host: str = "localhost",
         port: int = 18123,
         database: str = "polymarket",
     ) -> None:
@@ -74,7 +74,7 @@ def create_data_source(
     backend: str = "clickhouse",
     compact_dir: Path | None = None,
     metadata_dir: Path | None = None,
-    ch_host: str = "192.168.0.148",
+    ch_host: str = "localhost",
     ch_port: int = 18123,
 ) -> DataSource:
     """Factory for exploration data sources.
