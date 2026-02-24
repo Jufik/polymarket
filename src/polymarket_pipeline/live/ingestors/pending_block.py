@@ -23,6 +23,7 @@ import structlog
 import websockets
 
 from polymarket_pipeline.constants import FEE_MODULE_ADDRS
+from polymarket_pipeline.live.circuit_breaker import CircuitBreaker
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.normalizers.pending_block import PendingBlockNormalizer
 
@@ -90,6 +91,7 @@ class PendingBlockIngestor:
         self._poll_count: int = 0
         self._tx_count: int = 0
         self._tx_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
+        self._circuit_breaker = CircuitBreaker()
 
     def _extract_new_txs(self, result: dict[str, Any], source: str) -> list[dict[str, Any]]:
         """Extract new Polymarket txs from a pending block response."""
@@ -205,6 +207,7 @@ class PendingBlockIngestor:
                     topic=self._topic,
                     key=trade.condition_id.encode(),
                     source="pending_block",
+                    circuit_breaker=self._circuit_breaker,
                 )
                 self._trade_count += 1
 
@@ -236,6 +239,7 @@ class PendingBlockIngestor:
             topic=self._status_topic,
             key=b"pending_block",
             source="pending_block",
+            circuit_breaker=self._circuit_breaker,
         )
 
     async def _heartbeat_loop(self) -> None:
