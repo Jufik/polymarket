@@ -3,6 +3,8 @@
 Market metadata is served via the PostgreSQL engine (reads directly from PG).
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 import clickhouse_connect
@@ -20,6 +22,25 @@ class ClickHouseSink:
         database: str = "polymarket",
     ) -> None:
         self._client = clickhouse_connect.get_client(host=host, port=port, database=database)
+
+    def close(self) -> None:
+        """Close the underlying connection."""
+        if self._client:
+            self._client.close()
+
+    def ping(self) -> bool:
+        """Return True if ClickHouse is reachable."""
+        try:
+            self._client.command("SELECT 1")
+            return True
+        except Exception:
+            return False
+
+    def __enter__(self) -> ClickHouseSink:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     def insert_trades(self, trades: list[NormalizedTrade]) -> None:
         """Insert a batch of normalized trades."""
