@@ -18,7 +18,7 @@ class PipelineSettings(BaseSettings):
 
     data_dir: str = "data"
     raw_parquet_dir: str = "order_filled"
-    pg_dsn: str = "postgresql://polymarket:polymarket@localhost:15432/polymarket"
+    pg_dsn: str = ""  # Set via PM_PG_DSN env var or .env file
     ch_host: str = "localhost"
     ch_port: int = 18123
     ch_database: str = "polymarket"
