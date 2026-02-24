@@ -67,6 +67,7 @@ target-version = "py311"
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
 
 [project.scripts]
+pm-api = "polymarket_pipeline.api.app:main"
 pm-panic = "polymarket_pipeline.cli.panic:main"
 pm-explore = "polymarket_pipeline.cli.explore:app"
 pm-live = "polymarket_pipeline.cli.live:main"
