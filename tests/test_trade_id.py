@@ -1,6 +1,10 @@
 """Tests for trade_id generation."""
 
-from polymarket_pipeline.trade_id import make_trade_id_chain, make_trade_id_ws
+from polymarket_pipeline.trade_id import (
+    make_trade_id_chain,
+    make_trade_id_ws,
+    make_trade_ids_chain_batch,
+)
 
 
 def test_chain_trade_id_deterministic() -> None:
@@ -49,3 +53,27 @@ def test_ws_and_chain_never_collide() -> None:
     ws_id = make_trade_id_ws(asset_id="123", timestamp_ms=1000, price="0.5", size="10")
     assert chain_id[:6] == "chain:"
     assert ws_id[:3] == "ws:"
+
+
+def test_batch_matches_individual() -> None:
+    """Batch function must produce identical results to individual calls."""
+    txs = ["0xabc", "0xdef", "0x123"]
+    ohs = ["0x111", "0x222", "0x333"]
+    batch = make_trade_ids_chain_batch(txs, ohs)
+    individual = [
+        make_trade_id_chain(tx_hash=t, order_hash=o) for t, o in zip(txs, ohs, strict=True)
+    ]
+    assert batch == individual
+
+
+def test_batch_empty() -> None:
+    """Empty input returns empty output."""
+    assert make_trade_ids_chain_batch([], []) == []
+
+
+def test_batch_length_mismatch_raises() -> None:
+    """Mismatched lengths should raise ValueError (strict=True)."""
+    import pytest
+
+    with pytest.raises(ValueError):
+        make_trade_ids_chain_batch(["0xa"], ["0x1", "0x2"])
