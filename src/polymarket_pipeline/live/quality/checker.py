@@ -23,6 +23,7 @@ class QualityChecker:
         self._pg_pool = pg_pool
         self._state = ReadinessState(degraded_grace_s=settings.degraded_grace_s)
         self._heartbeats: dict[str, float] = {}
+        self._last_quality_message: dict[str, Any] | None = None
 
     @property
     def state(self) -> ReadinessState:
@@ -42,6 +43,23 @@ class QualityChecker:
     def liveness_timeout_s(self) -> int:
         """Source liveness timeout in seconds."""
         return self._settings.source_liveness_timeout_s
+
+    @property
+    def last_quality_message(self) -> dict[str, Any] | None:
+        """Last serialized quality state message (for publishing)."""
+        return self._last_quality_message
+
+    def to_quality_message(self) -> dict[str, Any]:
+        """Serialize current quality state for the pipeline.quality topic."""
+        return {
+            "event": "quality_state",
+            "state": self._state.current.value,
+            "failures": self._state.failures,
+            "degraded_since": self._state.degraded_since,
+            "time_until_red": self._state.time_until_red,
+            "heartbeats": dict(self._heartbeats),
+            "ts": time.time(),
+        }
 
     def record_heartbeat(self, source: str, ts: float) -> None:
         """Record a heartbeat from an ingestor source."""
@@ -199,6 +217,7 @@ class QualityChecker:
             "resolved_completeness": resolved_completeness,
         }
         self._state.update(results)
+        self._last_quality_message = self.to_quality_message()
         log.info(
             "quality.check_complete",
             state=self._state.current,
