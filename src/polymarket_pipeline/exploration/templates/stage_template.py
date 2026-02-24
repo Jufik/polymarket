@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import polars as pl
-
 from polymarket_pipeline.exploration.data import ExplorationDataSource
 from polymarket_pipeline.exploration.tree import StageMetrics
 

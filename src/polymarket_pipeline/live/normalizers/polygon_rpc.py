@@ -12,7 +12,6 @@ from polymarket_pipeline.constants import EXCHANGE_ADDRS, USDC_SCALE
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
 
-
 # OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker,
 #             uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled,
 #             uint256 takerAmountFilled, uint256 fee)

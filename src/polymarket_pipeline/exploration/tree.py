@@ -7,7 +7,6 @@ the refinement tree.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -380,10 +379,10 @@ def render_analysis_markdown(
         f"## Summary\n\n{analysis.summary}\n\n"
         f"## Key Insights\n\n"
         + "".join(f"- {insight}\n" for insight in analysis.key_insights)
-        + f"\n## Concerns\n\n"
+        + "\n## Concerns\n\n"
         + "".join(f"- {concern}\n" for concern in analysis.concerns)
         + dq_md
-        + f"\n## Proposed Refinements\n\n"
+        + "\n## Proposed Refinements\n\n"
         + "\n".join(refinements_md)
         + f"\n## Exploration Tree\n\n```mermaid\n{tree.to_mermaid()}\n```\n"
     )

@@ -3,8 +3,6 @@
 import json
 from unittest.mock import AsyncMock
 
-import pytest
-
 from polymarket_pipeline.live.ingestors.mempool import MempoolIngestor
 
 
