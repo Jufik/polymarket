@@ -81,31 +81,6 @@ class TradeSink(Protocol):
     def write(self, trades: list[NormalizedTrade]) -> None: ...
 
 
-class RedpandaSink:
-    """Publishes trades to Redpanda (original behavior).
-
-    NOTE: ``write()`` must be called from within a running asyncio event loop
-    (e.g. inside ``SubgraphPoller.recover()``).  It schedules publishes as
-    tasks on the current loop rather than using the broken
-    ``run_until_complete`` pattern which crashes inside an already-running loop.
-    """
-
-    def __init__(self, broker: Any, topic: str) -> None:
-        self._broker = broker
-        self._topic = topic
-
-    def write(self, trades: list[NormalizedTrade]) -> None:
-        loop = asyncio.get_running_loop()
-        for t in trades:
-            loop.create_task(
-                self._broker.publish(
-                    message=t.model_dump_json(),
-                    topic=self._topic,
-                    key=t.condition_id.encode(),
-                )
-            )
-
-
 class ClickHouseDirectSink:
     """Inserts trades directly into ClickHouse (bypass Redpanda)."""
 
