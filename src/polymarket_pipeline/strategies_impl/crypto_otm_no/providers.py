@@ -43,6 +43,7 @@ class CryptoMarketProvider:
         self._pattern = re.compile(question_pattern, re.IGNORECASE)
         self._assets = assets or frozenset({"BTC", "ETH", "SOL", "XRP"})
         self._markets: dict[str, MarketInfo] = {}
+        self._volumes: dict[str, float] = {}
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Batch compute eligible crypto markets from historical metadata."""
@@ -50,10 +51,12 @@ class CryptoMarketProvider:
 
         if markets_df.is_empty():
             self._markets = {}
+            self._volumes = {}
             logger.info("crypto_markets.compute", count=0)
             return
 
         result: dict[str, MarketInfo] = {}
+        volumes: dict[str, float] = {}
         for row in markets_df.iter_rows(named=True):
             category = row.get("category")
             question = row.get("question", "")
@@ -81,7 +84,13 @@ class CryptoMarketProvider:
                 category=category,
             )
 
+            # Track volume if available
+            volume = row.get("volume")
+            if volume is not None:
+                volumes[condition_id] = float(volume)
+
         self._markets = result
+        self._volumes = volumes
         logger.info("crypto_markets.compute", count=len(self._markets))
 
     async def on_trade(self, trade: NormalizedTrade) -> None:
@@ -92,5 +101,8 @@ class CryptoMarketProvider:
         await self.compute(backend)
 
     def get_features(self) -> dict[str, Any]:
-        """Return ``{"crypto_markets": dict[str, MarketInfo]}``."""
-        return {"crypto_markets": self._markets}
+        """Return crypto markets and volumes."""
+        return {
+            "crypto_markets": self._markets,
+            "crypto_markets_volume": self._volumes,
+        }

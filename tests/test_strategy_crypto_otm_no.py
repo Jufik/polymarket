@@ -422,3 +422,48 @@ class TestComputeSignals:
 
         result = strat.compute_signals(trades, markets)
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Volume filter (event-driven path)
+# ---------------------------------------------------------------------------
+
+
+class TestVolumeFilter:
+    async def test_skips_low_volume_market(self) -> None:
+        """Markets below min_volume_usd should be skipped."""
+        strat = _make_strategy(min_volume_usd=100.0)
+        ctx = _ctx_with_market(BTC_ABOVE_MARKET)
+        ctx.update_features({"crypto_markets_volume": {CID_BTC: 30.0}})
+
+        result = await strat.on_trade(_trade(cid=CID_BTC, price=0.10), ctx)
+        assert result is None
+
+    async def test_accepts_sufficient_volume_market(self) -> None:
+        """Markets at or above min_volume_usd should be accepted."""
+        strat = _make_strategy(min_volume_usd=50.0)
+        ctx = _ctx_with_market(BTC_ABOVE_MARKET)
+        ctx.update_features({"crypto_markets_volume": {CID_BTC: 200.0}})
+
+        result = await strat.on_trade(_trade(cid=CID_BTC, price=0.10), ctx)
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].outcome == "NO"
+
+    async def test_no_volume_feature_still_fires(self) -> None:
+        """When no volume data is available, signal should still fire."""
+        strat = _make_strategy(min_volume_usd=50.0)
+        ctx = _ctx_with_market(BTC_ABOVE_MARKET)
+        # No crypto_markets_volume feature set
+
+        result = await strat.on_trade(_trade(cid=CID_BTC, price=0.10), ctx)
+        assert result is not None
+
+    async def test_zero_min_volume_disables_filter(self) -> None:
+        """min_volume_usd=0 should disable the filter."""
+        strat = _make_strategy(min_volume_usd=0.0)
+        ctx = _ctx_with_market(BTC_ABOVE_MARKET)
+        ctx.update_features({"crypto_markets_volume": {CID_BTC: 0.0}})
+
+        result = await strat.on_trade(_trade(cid=CID_BTC, price=0.10), ctx)
+        assert result is not None
