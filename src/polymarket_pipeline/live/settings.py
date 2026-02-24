@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     clob_api_secret: str = ""
     clob_api_passphrase: str = ""
 
+    # Self-protection
+    degraded_grace_s: float = 300.0  # 5 minutes before DEGRADED -> RED
+
     # Position limits
     max_position_usd: float = 100.0
     max_total_exposure_usd: float = 500.0
