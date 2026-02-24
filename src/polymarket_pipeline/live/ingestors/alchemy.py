@@ -50,6 +50,8 @@ class AlchemyIngestor:
         self._trade_count: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
         self._circuit_breaker = CircuitBreaker()
+        self._drops_queue_full: int = 0
+        self._drops_taker_dedup: int = 0
 
     async def _handle_message(self, raw: str) -> None:
         """Process a single raw WebSocket message from Alchemy.
@@ -84,6 +86,7 @@ class AlchemyIngestor:
 
         trade = self._normalizer.normalize(result)
         if trade is None:
+            self._drops_taker_dedup += 1
             return  # taker duplicate dropped
 
         trade = trade.model_copy(update={"published_at": time.time()})
@@ -92,7 +95,12 @@ class AlchemyIngestor:
         try:
             self._queue.put_nowait((trade.condition_id, trade_json))
         except asyncio.QueueFull:
-            log.warning("alchemy.queue_full", trade_id=trade.trade_id)
+            self._drops_queue_full += 1
+            log.warning(
+                "alchemy.queue_full",
+                trade_id=trade.trade_id,
+                total_drops=self._drops_queue_full,
+            )
             return
 
         self._last_block = trade.block_number or self._last_block
@@ -119,6 +127,8 @@ class AlchemyIngestor:
                 "event": "heartbeat",
                 "last_block": self._last_block,
                 "trade_count": self._trade_count,
+                "drops_queue_full": self._drops_queue_full,
+                "drops_taker_dedup": self._drops_taker_dedup,
                 "ts": time.time(),
             }
         )
