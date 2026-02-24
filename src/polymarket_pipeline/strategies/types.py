@@ -65,9 +65,19 @@ class Position:
     strategy: str
     qty_yes: float = 0.0
     qty_no: float = 0.0
-    avg_entry_price: float = 0.0
+    avg_entry_yes: float = 0.0
+    avg_entry_no: float = 0.0
     cost_basis: float = 0.0
     realized_pnl: float = 0.0
+
+    @property
+    def avg_entry_price(self) -> float:
+        """Backward compat: returns YES avg if holding YES, else NO avg."""
+        if self.qty_yes > 0:
+            return self.avg_entry_yes
+        if self.qty_no > 0:
+            return self.avg_entry_no
+        return 0.0
 
 
 @dataclass(frozen=True)

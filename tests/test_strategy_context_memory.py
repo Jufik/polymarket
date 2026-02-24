@@ -26,7 +26,7 @@ def sample_position() -> Position:
         strategy="copy_no",
         qty_yes=0.0,
         qty_no=10.0,
-        avg_entry_price=0.65,
+        avg_entry_no=0.65,
         cost_basis=6.5,
         realized_pnl=0.0,
     )
