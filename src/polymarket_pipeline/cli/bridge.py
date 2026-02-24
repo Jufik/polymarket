@@ -8,6 +8,7 @@ Usage:
 
 Outputs JSON to stdout. Errors go to stderr with non-zero exit code.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -175,16 +176,18 @@ def suggest_next(strategy: str, n: int = 3) -> list[dict[str, Any]]:
 
     result: list[dict[str, Any]] = []
     for parent_stage, refinement in suggestions:
-        result.append({
-            "parent_id": parent_stage.id,
-            "parent_name": parent_stage.name,
-            "refinement_name": refinement.name,
-            "refinement_type": refinement.refinement_type.value,
-            "description": refinement.description,
-            "hypothesis": refinement.hypothesis,
-            "priority": refinement.priority,
-            "estimated_complexity": refinement.estimated_complexity,
-        })
+        result.append(
+            {
+                "parent_id": parent_stage.id,
+                "parent_name": parent_stage.name,
+                "refinement_name": refinement.name,
+                "refinement_type": refinement.refinement_type.value,
+                "description": refinement.description,
+                "hypothesis": refinement.hypothesis,
+                "priority": refinement.priority,
+                "estimated_complexity": refinement.estimated_complexity,
+            }
+        )
     return result
 
 

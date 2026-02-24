@@ -31,11 +31,13 @@ class MakerFractionConfig(ComponentConfig):
 
 def maker_volume_fraction_cte(cfg: MakerFractionConfig) -> str:
     """CTE computing maker volume fraction per trader in resolved markets."""
-    resolved = resolved_markets_cte(ResolvedMarketsConfig(
-        lookback_start=cfg.lookback_start,
-        yes_threshold=cfg.yes_threshold,
-        no_threshold=cfg.no_threshold,
-    ))
+    resolved = resolved_markets_cte(
+        ResolvedMarketsConfig(
+            lookback_start=cfg.lookback_start,
+            yes_threshold=cfg.yes_threshold,
+            no_threshold=cfg.no_threshold,
+        )
+    )
     return f"""{resolved},
 maker_volume_fraction AS (
     SELECT

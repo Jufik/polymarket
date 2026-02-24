@@ -15,7 +15,7 @@ def _make_mempool_trade(
     taker: str = "0x" + "b2" * 20,
     token_id: str = "12345",
     maker_amount: int = 1_000_000_000,  # 1000 tokens (USDC scale)
-    taker_amount: int = 500_000_000,    # 500 USDC
+    taker_amount: int = 500_000_000,  # 500 USDC
     fee_rate_bps: int = 150,
     side: int = 0,  # 0=BUY, 1=SELL
     expiration: int = 1708500000,
@@ -56,7 +56,7 @@ class TestMempoolNormalizer:
         """BUY: side=0, taker pays USDC, maker provides tokens."""
         raw = _make_mempool_trade(
             maker_amount=1_000_000_000,  # 1000 tokens
-            taker_amount=500_000_000,    # 500 USDC
+            taker_amount=500_000_000,  # 500 USDC
             side=0,
         )
         trade = normalizer_with_map.normalize(raw)
@@ -74,8 +74,8 @@ class TestMempoolNormalizer:
     def test_sell_trade(self, normalizer_with_map):
         """SELL: side=1, maker pays USDC, taker provides tokens."""
         raw = _make_mempool_trade(
-            maker_amount=300_000_000,    # 300 USDC
-            taker_amount=500_000_000,    # 500 tokens
+            maker_amount=300_000_000,  # 300 USDC
+            taker_amount=500_000_000,  # 500 tokens
             side=1,
         )
         trade = normalizer_with_map.normalize(raw)

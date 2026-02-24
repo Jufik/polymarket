@@ -80,12 +80,13 @@ class AlignedStrategy:
             ]
         return None
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
-        df = trades.group_by("condition_id").agg(pl.len().alias("cnt")).filter(
-            pl.col("cnt") >= 2
-        ).collect()
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
+        df = (
+            trades.group_by("condition_id")
+            .agg(pl.len().alias("cnt"))
+            .filter(pl.col("cnt") >= 2)
+            .collect()
+        )
         if df.is_empty():
             return pl.DataFrame({"condition_id": pl.Series([], dtype=pl.Utf8)})
         return df.select("condition_id")
@@ -119,9 +120,7 @@ class MisalignedStrategy:
             )
         ]
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         df = trades.select("condition_id").unique().collect()
         return df
 
@@ -138,9 +137,7 @@ class EmptyStrategy:
     ) -> list[TradeIntent] | None:
         return None
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         return pl.DataFrame({"condition_id": pl.Series([], dtype=pl.Utf8)})
 
 
@@ -255,9 +252,7 @@ async def test_missing_in_replay_detected() -> None:
                 ]
             return None
 
-        def compute_signals(
-            self, trades: pl.LazyFrame, markets: pl.LazyFrame
-        ) -> pl.DataFrame:
+        def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
             # Vectorized signals for both cid_A and cid_B
             return pl.DataFrame({"condition_id": ["cid_A", "cid_B"]})
 
@@ -301,9 +296,7 @@ async def test_extra_in_replay_detected() -> None:
                 )
             ]
 
-        def compute_signals(
-            self, trades: pl.LazyFrame, markets: pl.LazyFrame
-        ) -> pl.DataFrame:
+        def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
             # Only cid_A
             return pl.DataFrame({"condition_id": ["cid_A"]})
 

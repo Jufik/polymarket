@@ -140,7 +140,9 @@ async def write_file(args: dict[str, Any]) -> dict[str, Any]:
     path = Path(args["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(args["content"])
-    return {"content": [{"type": "text", "text": f"Written {len(args['content'])} bytes to {path}"}]}
+    return {
+        "content": [{"type": "text", "text": f"Written {len(args['content'])} bytes to {path}"}]
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +186,9 @@ Principles:
 - Push computation to ClickHouse SQL, not Python
 """
 
-_REVIEWER_SYSTEM = _BASE_SYSTEM + """
+_REVIEWER_SYSTEM = (
+    _BASE_SYSTEM
+    + """
 You are reviewing a completed exploration stage. Your job:
 1. Read the stage outputs (summary.json, any Parquet files)
 2. Query ClickHouse to validate or challenge the findings
@@ -251,8 +255,11 @@ information_gain (0.0-1.0): How much genuinely NEW information this stage produc
 vs what was already known from parent/sibling stages. 1.0 = entirely novel findings,
 0.0 = redundant with prior work.
 """
+)
 
-_GENERATOR_SYSTEM = _BASE_SYSTEM + """
+_GENERATOR_SYSTEM = (
+    _BASE_SYSTEM
+    + """
 You are generating a Python stage script for a strategy exploration.
 
 The script must follow this contract:
@@ -268,17 +275,22 @@ The script must follow this contract:
 Use get_schema to inspect actual table columns before writing SQL.
 Return ONLY the Python code, no markdown wrapping.
 """
+)
 
-_EXPLORER_SYSTEM = _BASE_SYSTEM + """
+_EXPLORER_SYSTEM = (
+    _BASE_SYSTEM
+    + """
 You are exploring the Polymarket dataset to discover trading opportunities.
 Query the data freely, look for patterns, anomalies, and exploitable signals.
 Report your findings clearly with supporting statistics.
 """
+)
 
 
 # ---------------------------------------------------------------------------
 # MCP server and agent options
 # ---------------------------------------------------------------------------
+
 
 def _build_mcp_server():
     return create_sdk_mcp_server(
@@ -381,20 +393,14 @@ def _build_context_section(
         path_lines = []
         for s in path:
             conf = f" (confidence={s.analysis.confidence:.0%})" if s.analysis else ""
-            rec = (
-                f", recommendation={s.analysis.branch_recommendation.value}"
-                if s.analysis
-                else ""
-            )
+            rec = f", recommendation={s.analysis.branch_recommendation.value}" if s.analysis else ""
             path_lines.append(f"  {s.id}: {s.name}{conf}{rec}")
         parts.append("Exploration path (root -> current):\n" + "\n".join(path_lines))
 
     # 2. Sibling stage summaries (max 5)
     if stage.parent_id:
         siblings = [
-            s
-            for s in tree.get_children(stage.parent_id)
-            if s.id != stage.id and s.analysis
+            s for s in tree.get_children(stage.parent_id) if s.id != stage.id and s.analysis
         ]
         if siblings:
             sib_lines = []
@@ -414,16 +420,14 @@ def _build_context_section(
     if context.established_facts:
         facts = context.established_facts[:10]
         parts.append(
-            "Established facts from prior stages:\n"
-            + "\n".join(f"  - {f}" for f in facts)
+            "Established facts from prior stages:\n" + "\n".join(f"  - {f}" for f in facts)
         )
 
     # 4. Rejected directions (max 10)
     if context.rejected_directions:
         rejected = context.rejected_directions[:10]
         parts.append(
-            "Rejected directions (do NOT re-propose):\n"
-            + "\n".join(f"  - {r}" for r in rejected)
+            "Rejected directions (do NOT re-propose):\n" + "\n".join(f"  - {r}" for r in rejected)
         )
 
     # 5. Already-explored refinement names
@@ -470,9 +474,7 @@ async def generate_stage_script(
         prompt_parts.append(f"Refinement type: {refinement.refinement_type.value}")
         prompt_parts.append(f"Expected outcome: {refinement.expected_outcome}")
         if refinement.filter_conditions:
-            prompt_parts.append(
-                f"Filter conditions: {json.dumps(refinement.filter_conditions)}"
-            )
+            prompt_parts.append(f"Filter conditions: {json.dumps(refinement.filter_conditions)}")
         if refinement.new_features:
             prompt_parts.append(f"New features to compute: {refinement.new_features}")
 
@@ -566,21 +568,25 @@ def suggest_next_stages(
         rec = branch_statuses.get(stage.id, BranchRecommendation.CONTINUE)
         if rec in (BranchRecommendation.REJECT, BranchRecommendation.CONVERGE):
             for ref in stage.analysis.proposed_refinements:
-                filtered.append(FilteredRefinement(
-                    parent_id=stage.id,
-                    refinement_name=ref.name,
-                    reason=f"branch {rec.value}",
-                ))
+                filtered.append(
+                    FilteredRefinement(
+                        parent_id=stage.id,
+                        refinement_name=ref.name,
+                        reason=f"branch {rec.value}",
+                    )
+                )
             continue
 
         # Skip low-confidence parents
         if stage.analysis.confidence < 0.3:
             for ref in stage.analysis.proposed_refinements:
-                filtered.append(FilteredRefinement(
-                    parent_id=stage.id,
-                    refinement_name=ref.name,
-                    reason=f"parent confidence {stage.analysis.confidence:.0%} < 30%",
-                ))
+                filtered.append(
+                    FilteredRefinement(
+                        parent_id=stage.id,
+                        refinement_name=ref.name,
+                        reason=f"parent confidence {stage.analysis.confidence:.0%} < 30%",
+                    )
+                )
             continue
 
         info_gain = stage.analysis.information_gain
@@ -589,20 +595,24 @@ def suggest_next_stages(
             # Consumed refinement filtering: skip if already has a child
             ref_key = f"{stage.id}::{ref.name}"
             if ref_key in consumed_keys:
-                filtered.append(FilteredRefinement(
-                    parent_id=stage.id,
-                    refinement_name=ref.name,
-                    reason="already consumed (child exists)",
-                ))
+                filtered.append(
+                    FilteredRefinement(
+                        parent_id=stage.id,
+                        refinement_name=ref.name,
+                        reason="already consumed (child exists)",
+                    )
+                )
                 continue
 
             # Global name dedup: skip if name exists anywhere as a stage name
             if ref.name in executed_names:
-                filtered.append(FilteredRefinement(
-                    parent_id=stage.id,
-                    refinement_name=ref.name,
-                    reason="name already used globally",
-                ))
+                filtered.append(
+                    FilteredRefinement(
+                        parent_id=stage.id,
+                        refinement_name=ref.name,
+                        reason="name already used globally",
+                    )
+                )
                 continue
 
             # Path-aware scoring: lower is better
@@ -669,38 +679,44 @@ async def _run_agent(
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:
                     if isinstance(block, TextBlock):
-                        _append({
-                            "role": "assistant",
-                            "type": "text",
-                            "text": block.text,
-                        })
+                        _append(
+                            {
+                                "role": "assistant",
+                                "type": "text",
+                                "text": block.text,
+                            }
+                        )
                     elif isinstance(block, ThinkingBlock):
-                        _append({
-                            "role": "assistant",
-                            "type": "thinking",
-                            "text": block.text,
-                        })
+                        _append(
+                            {
+                                "role": "assistant",
+                                "type": "thinking",
+                                "text": block.text,
+                            }
+                        )
                     elif isinstance(block, ToolUseBlock):
-                        _append({
-                            "role": "assistant",
-                            "type": "tool_use",
-                            "tool": block.name,
-                            "tool_use_id": block.id,
-                            "input": block.input,
-                        })
+                        _append(
+                            {
+                                "role": "assistant",
+                                "type": "tool_use",
+                                "tool": block.name,
+                                "tool_use_id": block.id,
+                                "input": block.input,
+                            }
+                        )
                     elif isinstance(block, ToolResultBlock):
-                        _append({
-                            "role": "tool",
-                            "type": "tool_result",
-                            "tool_use_id": block.tool_use_id,
-                            "content": block.content,
-                            "is_error": block.is_error,
-                        })
+                        _append(
+                            {
+                                "role": "tool",
+                                "type": "tool_result",
+                                "tool_use_id": block.tool_use_id,
+                                "content": block.content,
+                                "is_error": block.is_error,
+                            }
+                        )
 
                 # Extract last text from this message
-                text_parts = [
-                    b.text for b in msg.content if isinstance(b, TextBlock)
-                ]
+                text_parts = [b.text for b in msg.content if isinstance(b, TextBlock)]
                 if text_parts:
                     result.last_text = "\n".join(text_parts)
 

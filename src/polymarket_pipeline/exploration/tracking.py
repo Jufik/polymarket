@@ -107,9 +107,7 @@ class ExplorationTracker:
 
         with mlflow.start_run(run_id=stage.mlflow_run_id):
             mlflow.set_tag("analysis_confidence", str(analysis.confidence))
-            mlflow.set_tag(
-                "num_proposed_refinements", str(len(analysis.proposed_refinements))
-            )
+            mlflow.set_tag("num_proposed_refinements", str(len(analysis.proposed_refinements)))
             mlflow.log_metric("analysis_confidence", analysis.confidence)
 
             if analysis_path.exists():

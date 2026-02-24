@@ -82,10 +82,10 @@ class DataQualityIssue(BaseModel):
 
 
 class BranchRecommendation(str, Enum):
-    CONTINUE = "continue"   # More refinements are promising
-    PIVOT = "pivot"         # Approach is failing, try something different
-    CONVERGE = "converge"   # Findings stable, no more refinements needed
-    REJECT = "reject"       # Hypothesis definitively rejected
+    CONTINUE = "continue"  # More refinements are promising
+    PIVOT = "pivot"  # Approach is failing, try something different
+    CONVERGE = "converge"  # Findings stable, no more refinements needed
+    REJECT = "reject"  # Hypothesis definitively rejected
 
 
 class ClaudeAnalysis(BaseModel):
@@ -248,8 +248,7 @@ class ExplorationTree(BaseModel):
         return [
             s
             for s in self.stages.values()
-            if s.status in (StageStatus.COMPLETED, StageStatus.REVIEWING)
-            and s.analysis is not None
+            if s.status in (StageStatus.COMPLETED, StageStatus.REVIEWING) and s.analysis is not None
         ]
 
     def to_mermaid(self) -> str:
@@ -271,9 +270,7 @@ class ExplorationTree(BaseModel):
             for child_id in stage.children_ids:
                 child = self.stages.get(child_id)
                 if child and child.refinement_type:
-                    lines.append(
-                        f"    {stage.id} -->|{child.refinement_type.value}| {child_id}"
-                    )
+                    lines.append(f"    {stage.id} -->|{child.refinement_type.value}| {child_id}")
                 else:
                     lines.append(f"    {stage.id} --> {child_id}")
 
@@ -367,9 +364,7 @@ def render_analysis_markdown(
     if analysis.data_quality_issues:
         dq_md = "\n## Data Quality Issues\n\n"
         for issue in analysis.data_quality_issues:
-            icon = {"critical": "!!!", "warning": "!!", "info": "i"}.get(
-                issue.severity, "?"
-            )
+            icon = {"critical": "!!!", "warning": "!!", "info": "i"}.get(issue.severity, "?")
             dq_md += f"- **[{icon}] {issue.severity.upper()}**: {issue.description}\n"
             if issue.affected_metric:
                 dq_md += f"  - Affected metric: {issue.affected_metric}\n"

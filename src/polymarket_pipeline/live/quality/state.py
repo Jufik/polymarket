@@ -43,9 +43,7 @@ class ReadinessState:
 
     @property
     def failures(self) -> list[str]:
-        return [
-            f"{name}: {r.reason}" for name, r in self._last_results.items() if not r.ok
-        ]
+        return [f"{name}: {r.reason}" for name, r in self._last_results.items() if not r.ok]
 
     @property
     def degraded_since(self) -> float | None:

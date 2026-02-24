@@ -271,30 +271,34 @@ def _build_tps_chart_js(chart_data: dict[str, Any]) -> str:
     datasets = []
     for source, minute_data in sorted(chart_data["tps"].items()):
         color = source_colors.get(source, "#94a3b8")
-        datasets.append({
-            "label": f"{source} TPS",
-            "data": [minute_data.get(m, 0) for m in labels],
-            "borderColor": color,
-            "backgroundColor": color + "33",
-            "yAxisID": "y",
-            "tension": 0.3,
-            "fill": True,
-        })
+        datasets.append(
+            {
+                "label": f"{source} TPS",
+                "data": [minute_data.get(m, 0) for m in labels],
+                "borderColor": color,
+                "backgroundColor": color + "33",
+                "yAxisID": "y",
+                "tension": 0.3,
+                "fill": True,
+            }
+        )
 
     for source, minute_data in sorted(chart_data["delivery_lag"].items()):
         color = lag_colors.get(source, "#f472b6")
         values = [minute_data.get(m, None) for m in labels]
         if any(v is not None for v in values):
-            datasets.append({
-                "label": f"{source} lag (s)",
-                "data": values,
-                "borderColor": color,
-                "backgroundColor": color + "00",
-                "yAxisID": "y1",
-                "tension": 0.3,
-                "borderDash": [5, 3],
-                "pointRadius": 2,
-            })
+            datasets.append(
+                {
+                    "label": f"{source} lag (s)",
+                    "data": values,
+                    "borderColor": color,
+                    "backgroundColor": color + "00",
+                    "yAxisID": "y1",
+                    "tension": 0.3,
+                    "borderDash": [5, 3],
+                    "pointRadius": 2,
+                }
+            )
 
     config = {
         "type": "line",
@@ -304,13 +308,15 @@ def _build_tps_chart_js(chart_data: dict[str, Any]) -> str:
             "interaction": {"mode": "index", "intersect": False},
             "scales": {
                 "y": {
-                    "type": "linear", "position": "left",
+                    "type": "linear",
+                    "position": "left",
                     "title": {"display": True, "text": "Trades / sec", "color": "#94a3b8"},
                     "ticks": {"color": "#94a3b8"},
                     "grid": {"color": "#1e293b"},
                 },
                 "y1": {
-                    "type": "linear", "position": "right",
+                    "type": "linear",
+                    "position": "right",
                     "title": {"display": True, "text": "Delivery Lag (s)", "color": "#c084fc"},
                     "ticks": {"color": "#c084fc"},
                     "grid": {"drawOnChartArea": False},
@@ -325,8 +331,7 @@ def _build_tps_chart_js(chart_data: dict[str, Any]) -> str:
     }
 
     return (
-        f"const ctx1 = document.getElementById('tpsChart');"
-        f"new Chart(ctx1, {json.dumps(config)});"
+        f"const ctx1 = document.getElementById('tpsChart');new Chart(ctx1, {json.dumps(config)});"
     )
 
 
@@ -418,9 +423,7 @@ def _build_waterfall_chart_js(chart_data: dict[str, Any]) -> str:
 # ── HTML builder ─────────────────────────────────────────────────────────
 
 
-def build_dashboard_html(
-    checker: QualityChecker, refresh_s: int = 5
-) -> str:
+def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> str:
     """Build the full HTML dashboard page."""
     checker.run_all_checks()
 
@@ -440,21 +443,14 @@ def build_dashboard_html(
         ts = heartbeats.get(src)
         age = _fmt_age(ts)
         ok = ts is not None and (now - ts) < checker.liveness_timeout_s
-        producer_rows += (
-            f"<tr><td>{src}</td><td>{age}</td>"
-            f"<td>{_status_dot(ok)}</td></tr>\n"
-        )
+        producer_rows += f"<tr><td>{src}</td><td>{age}</td><td>{_status_dot(ok)}</td></tr>\n"
 
     # Check rows
     check_rows = ""
     for name, result in results.items():
-        detail = result.reason if result.reason else (
-            "OK" if result.ok else "FAIL"
-        )
+        detail = result.reason if result.reason else ("OK" if result.ok else "FAIL")
         check_rows += (
-            f"<tr><td>{name}</td>"
-            f"<td>{_status_dot(result.ok)}</td>"
-            f"<td>{detail}</td></tr>\n"
+            f"<tr><td>{name}</td><td>{_status_dot(result.ok)}</td><td>{detail}</td></tr>\n"
         )
 
     return f"""\
@@ -584,21 +580,15 @@ def build_dashboard_html(
 </html>"""
 
 
-def make_dashboard_route(
-    checker: QualityChecker, refresh_s: int = 5
-) -> Any:
+def make_dashboard_route(checker: QualityChecker, refresh_s: int = 5) -> Any:
     """Create an ASGI app that serves the dashboard HTML."""
 
-    async def _handle(
-        scope: Any, receive: Any, send: Any
-    ) -> None:
+    async def _handle(scope: Any, receive: Any, send: Any) -> None:
         html = build_dashboard_html(checker, refresh_s=refresh_s)
         response = AsgiResponse(
             body=html.encode(),
             status_code=200,
-            headers={
-                "content-type": "text/html; charset=utf-8"
-            },
+            headers={"content-type": "text/html; charset=utf-8"},
         )
         await response(scope, receive, send)
 

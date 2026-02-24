@@ -114,13 +114,15 @@ class AlchemyIngestor:
 
     async def _publish_heartbeat(self) -> None:
         """Publish heartbeat to pipeline.status."""
-        heartbeat = json.dumps({
-            "source": "alchemy",
-            "event": "heartbeat",
-            "last_block": self._last_block,
-            "trade_count": self._trade_count,
-            "ts": time.time(),
-        })
+        heartbeat = json.dumps(
+            {
+                "source": "alchemy",
+                "event": "heartbeat",
+                "last_block": self._last_block,
+                "trade_count": self._trade_count,
+                "ts": time.time(),
+            }
+        )
         await safe_publish(
             self._broker,
             message=heartbeat,
@@ -153,18 +155,20 @@ class AlchemyIngestor:
                     backoff = RECONNECT_BASE
                     log.info("alchemy.connected")
 
-                    subscribe = json.dumps({
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": "eth_subscribe",
-                        "params": [
-                            "logs",
-                            {
-                                "address": [CTF_EXCHANGE, NEGRISK_EXCHANGE],
-                                "topics": [[ORDER_FILLED_SIG]],
-                            },
-                        ],
-                    })
+                    subscribe = json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "eth_subscribe",
+                            "params": [
+                                "logs",
+                                {
+                                    "address": [CTF_EXCHANGE, NEGRISK_EXCHANGE],
+                                    "topics": [[ORDER_FILLED_SIG]],
+                                },
+                            ],
+                        }
+                    )
                     await ws.send(subscribe)
 
                     heartbeat_task = asyncio.create_task(self._heartbeat_loop())

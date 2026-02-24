@@ -69,16 +69,20 @@ def compute_market_pnl(
     """Compute per-trader, per-market PnL and save to parquet."""
     cfg = config if isinstance(config, PnLConfig) else PnLConfig()
 
-    resolved = resolved_markets_cte(ResolvedMarketsConfig(
-        lookback_start=cfg.lookback_start,
-        yes_threshold=cfg.yes_threshold,
-        no_threshold=cfg.no_threshold,
-    ))
-    pos = positions_cte(PositionsConfig(
-        lookback_start=cfg.lookback_start,
-        perspective=cfg.perspective,
-        max_maker_volume_fraction=cfg.max_maker_volume_fraction,
-    ))
+    resolved = resolved_markets_cte(
+        ResolvedMarketsConfig(
+            lookback_start=cfg.lookback_start,
+            yes_threshold=cfg.yes_threshold,
+            no_threshold=cfg.no_threshold,
+        )
+    )
+    pos = positions_cte(
+        PositionsConfig(
+            lookback_start=cfg.lookback_start,
+            perspective=cfg.perspective,
+            max_maker_volume_fraction=cfg.max_maker_volume_fraction,
+        )
+    )
 
     df_market_pnl = db.query_df(f"""
         WITH
@@ -130,16 +134,20 @@ def compute_trader_aggregates(
     """Aggregate per-market PnL to trader-level features."""
     cfg = config if isinstance(config, PnLConfig) else PnLConfig()
 
-    resolved = resolved_markets_cte(ResolvedMarketsConfig(
-        lookback_start=cfg.lookback_start,
-        yes_threshold=cfg.yes_threshold,
-        no_threshold=cfg.no_threshold,
-    ))
-    pos = positions_cte(PositionsConfig(
-        lookback_start=cfg.lookback_start,
-        perspective=cfg.perspective,
-        max_maker_volume_fraction=cfg.max_maker_volume_fraction,
-    ))
+    resolved = resolved_markets_cte(
+        ResolvedMarketsConfig(
+            lookback_start=cfg.lookback_start,
+            yes_threshold=cfg.yes_threshold,
+            no_threshold=cfg.no_threshold,
+        )
+    )
+    pos = positions_cte(
+        PositionsConfig(
+            lookback_start=cfg.lookback_start,
+            perspective=cfg.perspective,
+            max_maker_volume_fraction=cfg.max_maker_volume_fraction,
+        )
+    )
     market_pnl = _market_pnl_cte()
 
     df = db.query_df(f"""

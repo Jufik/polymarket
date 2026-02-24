@@ -1,6 +1,6 @@
 """Tests for ClickHouse migration runner."""
 
-from polymarket_pipeline.live.ch_migrate import MIGRATIONS_TABLE, CREATE_MIGRATIONS_TABLE
+from polymarket_pipeline.live.ch_migrate import CREATE_MIGRATIONS_TABLE, MIGRATIONS_TABLE
 
 
 def test_migrations_table_name():

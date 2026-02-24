@@ -129,15 +129,17 @@ class RTDSIngestor:
 
     async def _publish_heartbeat(self) -> None:
         """Publish heartbeat to pipeline.status topic."""
-        heartbeat = json.dumps({
-            "source": "rtds",
-            "event": "heartbeat",
-            "last_trade_ts": self._last_trade_ts,
-            "trade_count": self._trade_count,
-            "connections_alive": self._connections_alive,
-            "pool_size": self._pool_size,
-            "ts": time.time(),
-        })
+        heartbeat = json.dumps(
+            {
+                "source": "rtds",
+                "event": "heartbeat",
+                "last_trade_ts": self._last_trade_ts,
+                "trade_count": self._trade_count,
+                "connections_alive": self._connections_alive,
+                "pool_size": self._pool_size,
+                "ts": time.time(),
+            }
+        )
         await safe_publish(
             self._broker,
             message=heartbeat,
@@ -183,10 +185,12 @@ class RTDSIngestor:
                         alive=self._connections_alive,
                     )
 
-                    subscribe = json.dumps({
-                        "action": "subscribe",
-                        "subscriptions": [{"topic": "activity", "type": "trades"}],
-                    })
+                    subscribe = json.dumps(
+                        {
+                            "action": "subscribe",
+                            "subscriptions": [{"topic": "activity", "type": "trades"}],
+                        }
+                    )
                     await ws.send(subscribe)
 
                     ping_task = asyncio.create_task(self._ping_loop(ws))
@@ -239,10 +243,7 @@ class RTDSIngestor:
         """Run the RTDS ingestor with a pool of redundant connections."""
         heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         publish_task = asyncio.create_task(self._publish_loop())
-        conn_tasks = [
-            asyncio.create_task(self._connection_loop(i))
-            for i in range(self._pool_size)
-        ]
+        conn_tasks = [asyncio.create_task(self._connection_loop(i)) for i in range(self._pool_size)]
 
         try:
             await asyncio.gather(heartbeat_task, publish_task, *conn_tasks)

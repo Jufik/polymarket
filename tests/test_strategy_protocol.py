@@ -60,23 +60,17 @@ class DummyStrategy:
     ) -> list[TradeIntent] | None:
         return None
 
-    async def on_market_update(
-        self, update: Any, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_market_update(self, update: Any, ctx: StrategyContext) -> list[TradeIntent] | None:
         return None
 
-    async def on_timer(
-        self, now: float, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_timer(self, now: float, ctx: StrategyContext) -> list[TradeIntent] | None:
         return None
 
 
 class DummyVectorized:
     """Minimal class satisfying VectorizedStrategy protocol."""
 
-    def compute_signals(
-        self, trades: pl.LazyFrame, markets: pl.LazyFrame
-    ) -> pl.DataFrame:
+    def compute_signals(self, trades: pl.LazyFrame, markets: pl.LazyFrame) -> pl.DataFrame:
         return pl.DataFrame()
 
 
@@ -102,9 +96,7 @@ class IncompleteStrategy:
     ) -> list[TradeIntent] | None:
         return None
 
-    async def on_market_update(
-        self, update: Any, ctx: StrategyContext
-    ) -> list[TradeIntent] | None:
+    async def on_market_update(self, update: Any, ctx: StrategyContext) -> list[TradeIntent] | None:
         return None
 
     # on_timer intentionally missing
@@ -274,9 +266,7 @@ class TestExecutor:
 
 
 class _StubBackend:
-    async def query_trades(
-        self, condition_ids: list[str] | None = None
-    ) -> pl.DataFrame:
+    async def query_trades(self, condition_ids: list[str] | None = None) -> pl.DataFrame:
         return pl.DataFrame()
 
     async def query_markets(self) -> pl.DataFrame:

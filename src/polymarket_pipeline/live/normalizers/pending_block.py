@@ -27,13 +27,13 @@ ORDER_TUPLE = (
 )
 
 MATCH_ORDERS_TYPES = [
-    ORDER_TUPLE,            # takerOrder
-    f"{ORDER_TUPLE}[]",     # makerOrders
-    "uint256",              # takerFillAmount
-    "uint256",              # takerReceiveAmount
-    "uint256[]",            # makerFillAmounts
-    "uint256",              # takerFeeAmount
-    "uint256[]",            # makerFeeAmounts
+    ORDER_TUPLE,  # takerOrder
+    f"{ORDER_TUPLE}[]",  # makerOrders
+    "uint256",  # takerFillAmount
+    "uint256",  # takerReceiveAmount
+    "uint256[]",  # makerFillAmounts
+    "uint256",  # takerFeeAmount
+    "uint256[]",  # makerFeeAmounts
 ]
 
 # Order struct field indices
