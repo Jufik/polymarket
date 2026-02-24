@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Lint
+        run: uv run ruff check src/ tests/
+
+      - name: Format check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Type check
+        run: uv run mypy --strict src/
+
+      - name: Unit tests
+        run: |
+          uv run pytest tests/ -x -q \
+            --ignore=tests/test_loader_parquet.py \
+            --ignore=tests/test_e2e_backfill.py \
+            --ignore=tests/test_market_sync.py \
+            --ignore=tests/test_sink_clickhouse.py \
+            --ignore=tests/test_sink_postgres.py \
+            --ignore=tests/test_ingestor_subgraph.py
