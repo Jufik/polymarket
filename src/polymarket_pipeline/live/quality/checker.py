@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -85,9 +86,10 @@ class QualityChecker:
 
             ratio = current / avg_hourly
             if ratio < self._settings.volume_drop_red_pct:
+                threshold = self._settings.volume_drop_red_pct
                 return CheckResult(
                     ok=False,
-                    reason=f"Volume {ratio:.1%} of average (< {self._settings.volume_drop_red_pct:.0%})",
+                    reason=f"Volume {ratio:.1%} of average (< {threshold:.0%})",
                 )
             return CheckResult(ok=True)
         except Exception as e:
@@ -118,9 +120,10 @@ class QualityChecker:
 
             ratio = row["v2"] / total
             if ratio < self._settings.enrichment_ratio_min:
+                min_ratio = self._settings.enrichment_ratio_min
                 return CheckResult(
                     ok=False,
-                    reason=f"Enrichment ratio {ratio:.1%} < {self._settings.enrichment_ratio_min:.0%}",
+                    reason=f"Enrichment ratio {ratio:.1%} < {min_ratio:.0%}",
                 )
             return CheckResult(ok=True)
         except Exception as e:
@@ -134,14 +137,25 @@ class QualityChecker:
         """
         return CheckResult(ok=True, reason="stub — PG metadata not yet integrated")
 
-    def run_all_checks(self) -> dict[str, CheckResult]:
+    async def run_all_checks(self) -> dict[str, CheckResult]:
         """Run all health checks and update readiness state."""
+        # Non-CH checks run inline (no I/O blocking)
+        source_liveness = self.check_source_liveness()
+        metadata_freshness = self.check_metadata_freshness()
+        resolved_completeness = self.check_resolved_completeness()
+
+        # CH-querying checks run concurrently in threads to avoid blocking the loop
+        volume_reconciliation, dedup_sanity = await asyncio.gather(
+            asyncio.to_thread(self.check_volume_reconciliation),
+            asyncio.to_thread(self.check_dedup_sanity),
+        )
+
         results = {
-            "source_liveness": self.check_source_liveness(),
-            "volume_reconciliation": self.check_volume_reconciliation(),
-            "metadata_freshness": self.check_metadata_freshness(),
-            "dedup_sanity": self.check_dedup_sanity(),
-            "resolved_completeness": self.check_resolved_completeness(),
+            "source_liveness": source_liveness,
+            "volume_reconciliation": volume_reconciliation,
+            "metadata_freshness": metadata_freshness,
+            "dedup_sanity": dedup_sanity,
+            "resolved_completeness": resolved_completeness,
         }
         self._state.update(results)
         log.info(
