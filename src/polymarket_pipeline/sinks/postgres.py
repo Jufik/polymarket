@@ -196,11 +196,31 @@ class PostgresSink:
 
     # ── Recovery job tracking ─────────────────────────────────────────
 
+    _RECOVERY_JOBS_DDL = """
+        CREATE TABLE IF NOT EXISTS recovery_jobs (
+            id SERIAL PRIMARY KEY,
+            from_ts BIGINT NOT NULL,
+            cursor_ts BIGINT NOT NULL,
+            target_ts BIGINT NOT NULL,
+            total_published INTEGER DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'running',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_recovery_jobs_status
+            ON recovery_jobs(status);
+    """
+
+    async def _ensure_recovery_table(self, conn: Any) -> None:
+        """Create recovery_jobs table if it doesn't exist."""
+        await conn.execute(self._RECOVERY_JOBS_DDL)
+
     async def create_recovery_job(self, from_ts: int, target_ts: int) -> int:
         """Create a new recovery job, returns job ID."""
         if not self._pool:
             raise RuntimeError("PostgresSink not connected")
         async with self._pool.acquire() as conn:
+            await self._ensure_recovery_table(conn)
             row = await conn.fetchrow(
                 """
                 INSERT INTO recovery_jobs (from_ts, cursor_ts, target_ts, status)
@@ -252,6 +272,7 @@ class PostgresSink:
         if not self._pool:
             return None
         async with self._pool.acquire() as conn:
+            await self._ensure_recovery_table(conn)
             row = await conn.fetchrow(
                 """
                 SELECT id, from_ts, cursor_ts, target_ts, total_published, status,
