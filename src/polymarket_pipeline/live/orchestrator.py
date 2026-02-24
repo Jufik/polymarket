@@ -170,6 +170,32 @@ async def check_and_recover(
     )
 
 
+async def supervise_tasks(
+    tasks: list[asyncio.Task[Any]],
+    checker: QualityChecker | None,
+) -> None:
+    """Watch ingestor tasks and log if any crash unexpectedly.
+
+    Does NOT restart them — the quality checker will detect stale heartbeats
+    and trigger auto-protect.  This just provides immediate crash visibility.
+    """
+    while tasks:
+        done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            tasks.remove(task)
+            if task.cancelled():
+                log.info("task.cancelled", task_name=task.get_name())
+            elif exc := task.exception():
+                log.error(
+                    "task.crashed",
+                    task_name=task.get_name(),
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+            else:
+                log.info("task.completed", task_name=task.get_name())
+
+
 async def periodic_quality_check(
     checker: QualityChecker,
     settings: Settings,

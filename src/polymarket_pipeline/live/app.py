@@ -17,6 +17,7 @@ from polymarket_pipeline.live.orchestrator import (
     create_ingestors,
     load_token_map,
     periodic_quality_check,
+    supervise_tasks,
 )
 from polymarket_pipeline.live.protection import auto_protect
 from polymarket_pipeline.live.quality.checker import QualityChecker
@@ -110,6 +111,11 @@ async def on_startup(context: ContextRepo) -> None:
 
     # Launch ingestors as background tasks
     _ingestor_tasks.extend(create_ingestors(broker, settings, token_map))
+
+    # Supervisor watches for ingestor crashes (immediate visibility)
+    _ingestor_tasks.append(
+        asyncio.create_task(supervise_tasks(list(_ingestor_tasks), _quality_checker))
+    )
 
     log.info("live_pipeline.ingestors_started", count=len(_ingestor_tasks))
 
