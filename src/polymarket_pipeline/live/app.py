@@ -106,7 +106,9 @@ async def on_startup(context: ContextRepo) -> None:
             await auto_protect(_quality_checker, settings)
 
     _ingestor_tasks.append(
-        asyncio.create_task(periodic_quality_check(_quality_checker, settings, _protect))
+        asyncio.create_task(
+            periodic_quality_check(_quality_checker, settings, _protect, broker)
+        )
     )
 
     # Launch ingestors as background tasks
