@@ -39,3 +39,13 @@ async def safe_publish(
         if circuit_breaker is not None:
             circuit_breaker.record_failure()
         return False
+    except (ConnectionError, OSError) as exc:
+        log.warning("publish.connection_error", source=source, topic=topic, error=str(exc))
+        if circuit_breaker is not None:
+            circuit_breaker.record_failure()
+        return False
+    except Exception:
+        log.exception("publish.unexpected_error", source=source, topic=topic)
+        if circuit_breaker is not None:
+            circuit_breaker.record_failure()
+        return False
