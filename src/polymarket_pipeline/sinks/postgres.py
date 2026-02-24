@@ -199,6 +199,7 @@ class PostgresSink:
             id SERIAL PRIMARY KEY,
             from_ts BIGINT NOT NULL,
             cursor_ts BIGINT NOT NULL,
+            cursor_id TEXT NOT NULL DEFAULT '',
             target_ts BIGINT NOT NULL,
             total_published INTEGER DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'running',
@@ -212,6 +213,13 @@ class PostgresSink:
     async def _ensure_recovery_table(self, conn: Any) -> None:
         """Create recovery_jobs table if it doesn't exist."""
         await conn.execute(self._RECOVERY_JOBS_DDL)
+        # Add cursor_id column if missing (for existing tables)
+        await conn.execute("""
+            DO $$ BEGIN
+                ALTER TABLE recovery_jobs ADD COLUMN cursor_id TEXT NOT NULL DEFAULT '';
+            EXCEPTION WHEN duplicate_column THEN NULL;
+            END $$;
+        """)
 
     async def create_recovery_job(self, from_ts: int, target_ts: int) -> int:
         """Create a new recovery job, returns job ID."""
@@ -231,19 +239,20 @@ class PostgresSink:
             return int(row["id"])  # type: ignore[index]
 
     async def update_recovery_cursor(
-        self, job_id: int, cursor_ts: int, total_published: int
+        self, job_id: int, cursor_ts: int, total_published: int, cursor_id: str = ""
     ) -> None:
-        """Update cursor position and total published count."""
+        """Update cursor position, cursor_id, and total published count."""
         if not self._pool:
             return
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
                 UPDATE recovery_jobs
-                SET cursor_ts = $1, total_published = $2, updated_at = NOW()
-                WHERE id = $3
+                SET cursor_ts = $1, cursor_id = $2, total_published = $3, updated_at = NOW()
+                WHERE id = $4
                 """,
                 cursor_ts,
+                cursor_id,
                 total_published,
                 job_id,
             )
@@ -271,8 +280,8 @@ class PostgresSink:
             await self._ensure_recovery_table(conn)
             row = await conn.fetchrow(
                 """
-                SELECT id, from_ts, cursor_ts, target_ts, total_published, status,
-                       created_at, updated_at
+                SELECT id, from_ts, cursor_ts, cursor_id, target_ts, total_published,
+                       status, created_at, updated_at
                 FROM recovery_jobs
                 WHERE status IN ('running', 'failed')
                 ORDER BY id DESC
