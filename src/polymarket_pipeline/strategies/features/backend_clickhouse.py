@@ -32,23 +32,26 @@ class ClickHouseBackend:
         self._port = port
         self._database = database
 
+        import httpx
+
+        self._client = httpx.AsyncClient(
+            base_url=f"http://{host}:{port}",
+            timeout=30.0,
+        )
+
     async def _execute(self, query: str) -> pl.DataFrame:
         """Execute a SQL query and return results as a Polars DataFrame."""
         import json
 
-        import httpx
-
-        url = f"http://{self._host}:{self._port}"
         full_query = f"{query} FORMAT JSONEachRow"
 
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                url,
-                content=full_query,
-                params={"database": self._database},
-                headers={"Content-Type": "text/plain"},
-            )
-            resp.raise_for_status()
+        resp = await self._client.post(
+            "/",
+            content=full_query,
+            params={"database": self._database},
+            headers={"Content-Type": "text/plain"},
+        )
+        resp.raise_for_status()
 
         text = resp.text.strip()
         if not text:
@@ -80,3 +83,7 @@ class ClickHouseBackend:
     async def query_custom(self, query: str, **params: Any) -> pl.DataFrame:
         """Run an arbitrary SQL query."""
         return await self._execute(query)
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client."""
+        await self._client.aclose()
