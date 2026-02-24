@@ -61,14 +61,16 @@ class ReadinessState:
     def update(self, results: dict[str, CheckResult]) -> None:
         """Update state based on new check results."""
         self._last_results = results
+
+        # Terminal states are sticky -- never transition back
+        if self._state in (PipelineState.CLOSING, PipelineState.SAFE_STOP):
+            return
+
         all_ok = all(r.ok for r in results.values())
 
         if all_ok:
             self._state = PipelineState.READY
             self._degraded_since = None
-        elif self._state in (PipelineState.CLOSING, PipelineState.SAFE_STOP):
-            # Don't transition back from terminal states
-            pass
         elif self._state == PipelineState.RED:
             # Stay in RED until manually reset or CLOSING
             pass
