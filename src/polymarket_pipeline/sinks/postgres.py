@@ -8,6 +8,8 @@ import asyncpg  # type: ignore[import-untyped]
 
 from polymarket_pipeline.models import Event, Market, Tag, TokenMarketEntry
 
+_BATCH_SIZE = 5000
+
 
 class PostgresSink:
     """Async PostgreSQL sink using asyncpg connection pool."""
@@ -15,6 +17,18 @@ class PostgresSink:
     def __init__(self, dsn: str = ""):
         self._dsn = dsn
         self._pool: asyncpg.Pool | None = None
+
+    @staticmethod
+    async def _executemany_chunked(
+        conn: asyncpg.Connection,
+        sql: str,
+        rows: list[Any],
+        batch_size: int = _BATCH_SIZE,
+    ) -> None:
+        """Execute in chunks to avoid oversized packets and enable progress."""
+        for start in range(0, len(rows), batch_size):
+            chunk = rows[start : start + batch_size]
+            await conn.executemany(sql, chunk)
 
     async def connect(self) -> None:
         self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
@@ -79,7 +93,7 @@ class PostgresSink:
         ]
 
         async with self._pool.acquire() as conn:
-            await conn.executemany(sql, rows)
+            await self._executemany_chunked(conn, sql, rows)
 
     async def upsert_markets(self, markets: list[Market]) -> None:
         """Upsert markets into PostgreSQL. Must be called after upsert_events (FK)."""
@@ -131,7 +145,7 @@ class PostgresSink:
         ]
 
         async with self._pool.acquire() as conn:
-            await conn.executemany(sql, rows)
+            await self._executemany_chunked(conn, sql, rows)
 
     async def upsert_tags(self, tags: list[Tag]) -> None:
         """Upsert tags into PostgreSQL. Must be called before upsert_event_tags (FK)."""
@@ -149,7 +163,7 @@ class PostgresSink:
         rows = [(t.id, t.label, t.slug) for t in tags]
 
         async with self._pool.acquire() as conn:
-            await conn.executemany(sql, rows)
+            await self._executemany_chunked(conn, sql, rows)
 
     async def upsert_event_tags(self, pairs: list[tuple[int, int]]) -> None:
         """Upsert event-tag associations. Call after upsert_events and upsert_tags."""
@@ -163,7 +177,7 @@ class PostgresSink:
         """
 
         async with self._pool.acquire() as conn:
-            await conn.executemany(sql, pairs)
+            await self._executemany_chunked(conn, sql, pairs)
 
     async def upsert_token_map(self, entries: list[TokenMarketEntry]) -> None:
         """Upsert token-market mappings. Call after upsert_markets (FK constraint)."""
@@ -182,7 +196,7 @@ class PostgresSink:
         rows = [(e.asset_id, e.condition_id, e.outcome, e.winner) for e in entries]
 
         async with self._pool.acquire() as conn:
-            await conn.executemany(sql, rows)
+            await self._executemany_chunked(conn, sql, rows)
 
     async def fetch_token_market_map(self) -> dict[str, tuple[str, str]]:
         """Load asset_id -> (condition_id, outcome) map from token_market_map table."""
