@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     dashboard_refresh_s: int = 5
     dashboard_port: int = 8099
 
+    # RTDS redundant connection pool
+    rtds_pool_size: int = 2
+    rtds_rotation_interval_s: int = 300
+
     # Mempool monitor (Rust PyO3 sidecar)
     mempool_enabled: bool = False
     mempool_listen_port: int = 30304

@@ -80,6 +80,20 @@ CREATE TABLE IF NOT EXISTS pipeline_health (
     status VARCHAR(20)
 );
 
+-- Recovery job tracking (pm-recover cursor persistence)
+CREATE TABLE IF NOT EXISTS recovery_jobs (
+    id SERIAL PRIMARY KEY,
+    from_ts BIGINT NOT NULL,
+    cursor_ts BIGINT NOT NULL,
+    target_ts BIGINT NOT NULL,
+    total_published INTEGER DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'running',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_jobs_status ON recovery_jobs(status);
+
 CREATE INDEX IF NOT EXISTS idx_markets_event_id ON markets(event_id);
 CREATE INDEX IF NOT EXISTS idx_token_map_condition ON token_market_map(condition_id);
 CREATE INDEX IF NOT EXISTS idx_health_source ON pipeline_health(source, checked_at);
