@@ -6,13 +6,14 @@ import asyncio
 import json
 import time
 from collections import deque
-from typing import Any
+from typing import Any, Protocol
 
 import structlog
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 
 from polymarket_pipeline.live.normalizers.subgraph import SubgraphNormalizer
+from polymarket_pipeline.models import NormalizedTrade
 
 log = structlog.get_logger()
 
@@ -68,39 +69,81 @@ query FetchOrdersSticky($timestamp: String!, $id_gt: String!, $first: Int!) {
 """)
 
 
+class TradeSink(Protocol):
+    """Anything that can receive a batch of normalized trades."""
+
+    def write(self, trades: list[NormalizedTrade]) -> None: ...
+
+
+class RedpandaSink:
+    """Publishes trades to Redpanda (original behavior)."""
+
+    def __init__(self, broker: Any, topic: str) -> None:
+        self._broker = broker
+        self._topic = topic
+        self._loop = asyncio.get_event_loop()
+
+    def write(self, trades: list[NormalizedTrade]) -> None:
+        for t in trades:
+            self._loop.run_until_complete(
+                self._broker.publish(
+                    message=t.model_dump_json(),
+                    topic=self._topic,
+                    key=t.condition_id.encode(),
+                )
+            )
+
+
+class ClickHouseDirectSink:
+    """Inserts trades directly into ClickHouse (bypass Redpanda)."""
+
+    def __init__(self, ch_host: str, ch_port: int, ch_database: str) -> None:
+        from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
+
+        self._sink = ClickHouseSink(host=ch_host, port=ch_port, database=ch_database)
+
+    def write(self, trades: list[NormalizedTrade]) -> None:
+        self._sink.insert_trades(trades)
+
+
 class SubgraphPoller:
     """Polls Goldsky Subgraph to recover missed trades after an outage."""
 
     def __init__(
         self,
-        broker: Any,
-        subgraph_url: str,
-        token_market_map: dict[str, tuple[str, str]],
+        broker: Any = None,
+        subgraph_url: str = "",
+        token_market_map: dict[str, tuple[str, str]] | None = None,
         topic: str = "trades.raw",
         status_topic: str = "pipeline.status",
         batch_size: int = DEFAULT_BATCH_SIZE,
+        sink: TradeSink | None = None,
     ) -> None:
         self._broker = broker
         self._subgraph_url = subgraph_url
         self._topic = topic
         self._status_topic = status_topic
         self._batch_size = batch_size
-        self._normalizer = SubgraphNormalizer(token_market_map=token_market_map)
+        self._sink = sink
+        self._normalizer = SubgraphNormalizer(token_market_map=token_market_map or {})
 
-    async def _process_batch(self, events: list[dict[str, Any]]) -> int:
-        """Normalize and publish a batch of subgraph events. Returns count published."""
-        published = 0
+    def _normalize_batch(self, events: list[dict[str, Any]]) -> list[NormalizedTrade]:
+        """Normalize a batch of subgraph events, filtering taker dups."""
+        trades = []
         for event in events:
             trade = self._normalizer.normalize(event)
-            if trade is None:
-                continue
+            if trade is not None:
+                trades.append(trade)
+        return trades
+
+    async def _publish_batch_redpanda(self, trades: list[NormalizedTrade]) -> None:
+        """Publish trades to Redpanda (async)."""
+        for t in trades:
             await self._broker.publish(
-                message=trade.model_dump_json(),
+                message=t.model_dump_json(),
                 topic=self._topic,
-                key=trade.condition_id.encode(),
+                key=t.condition_id.encode(),
             )
-            published += 1
-        return published
 
     async def _execute_with_retry(self, client: Client, query: Any, variables: dict[str, Any]) -> dict[str, Any]:
         """Execute a GQL query with exponential backoff retry on transient errors."""
@@ -173,7 +216,15 @@ class SubgraphPoller:
                 if not events:
                     break
 
-                published = await self._process_batch(events)
+                trades = self._normalize_batch(events)
+                published = len(trades)
+
+                # Write to sink (direct CH or Redpanda)
+                if self._sink is not None:
+                    self._sink.write(trades)
+                elif self._broker is not None:
+                    await self._publish_batch_redpanda(trades)
+
                 total += published
 
                 last = events[-1]
@@ -223,16 +274,19 @@ class SubgraphPoller:
                     break
 
             total_wall = time.monotonic() - recovery_start
-            await self._broker.publish(
-                message=json.dumps({
-                    "source": "subgraph",
-                    "event": "caught_up",
-                    "total_recovered": total,
-                    "ts": time.time(),
-                }),
-                topic=self._status_topic,
-                key=b"subgraph",
-            )
+
+            # Status message to Redpanda if broker available
+            if self._broker is not None:
+                await self._broker.publish(
+                    message=json.dumps({
+                        "source": "subgraph",
+                        "event": "caught_up",
+                        "total_recovered": total,
+                        "ts": time.time(),
+                    }),
+                    topic=self._status_topic,
+                    key=b"subgraph",
+                )
 
             log.info(
                 "subgraph.recovery_complete",
