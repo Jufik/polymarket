@@ -170,25 +170,36 @@ class LiveRunner:
         self.ctx.set_orderbook(condition_id, ob)
 
     async def _timer_loop(self) -> None:
-        """Periodic timer callbacks for strategies.
-
-        .. warning::
-
-           Timer-originated intents currently bypass ``check_risk_gate()``.
-           This is a known placeholder -- timer-based strategies should NOT
-           be used in live mode until risk gating is wired here.
-           See: 2026-02-24 code review, issue C-STR-1.
-        """
+        """Periodic timer callbacks for strategies."""
         while True:
             await asyncio.sleep(self.timer_interval_s)
             now = time.time()
-            for strategy, _config in self.strategies:
+            for strategy, config in self.strategies:
                 intents = await strategy.on_timer(now, self.ctx)
                 if intents:
                     for intent in intents:
-                        # TODO(C-STR-1): wire check_risk_gate + position tracking here
-                        await self.gateway.submit(intent)
+                        # Risk gate
+                        positions = self.ctx.get_all_positions()
+                        allowed, reason = check_risk_gate(
+                            intent, config, positions, self._last_trade_times, time.time()
+                        )
+                        if not allowed:
+                            logger.info(
+                                "timer_intent.rejected",
+                                strategy=strategy.name,
+                                reason=reason,
+                                condition_id=intent.condition_id,
+                            )
+                            continue
+
+                        fill = await self.gateway.submit(intent)
                         self._intents_submitted += 1
+
+                        # Position tracking
+                        old_pos = await self.ctx.get_position(fill.condition_id)
+                        new_pos = apply_fill_to_position(old_pos, fill)
+                        self.ctx.set_position(fill.condition_id, new_pos)
+                        self._last_trade_times[intent.strategy] = fill.filled_at
 
     async def _refresh_loop(self) -> None:
         """Periodic provider refresh (expensive recomputation)."""
