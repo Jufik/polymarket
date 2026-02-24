@@ -36,6 +36,7 @@ class StrategyConfig:
     cooldown_s: int
     params: dict[str, Any] = field(default_factory=dict)
     features: list[str] = field(default_factory=list)
+    subscribe_pending: bool = False
 
 
 def load_strategy_configs(
@@ -75,6 +76,7 @@ def load_strategy_configs(
             cooldown_s=int(section["cooldown_s"]),
             params=params,
             features=features,
+            subscribe_pending=bool(section.get("subscribe_pending", False)),
         )
 
         if enabled_only and not cfg.enabled:
