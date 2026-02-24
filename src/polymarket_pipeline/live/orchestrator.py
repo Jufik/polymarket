@@ -200,11 +200,23 @@ async def periodic_quality_check(
     checker: QualityChecker,
     settings: Settings,
     protect_fn: Any,
+    broker: KafkaBroker | None = None,
 ) -> None:
     """Run quality checks periodically (independent of caught_up events)."""
     await asyncio.sleep(settings.quality_initial_delay_s)  # short initial delay
     while True:
         await checker.run_all_checks()
+
+        # Publish quality state for API consumption
+        if broker is not None and checker.last_quality_message is not None:
+            await safe_publish(
+                broker,
+                message=json.dumps(checker.last_quality_message),
+                topic="pipeline.quality",
+                key=b"quality",
+                source="quality_checker",
+            )
+
         if checker.state.current == PipelineState.RED:
             await protect_fn()
         await asyncio.sleep(settings.quality_check_interval_s)
