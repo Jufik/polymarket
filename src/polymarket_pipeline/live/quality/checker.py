@@ -19,7 +19,7 @@ class QualityChecker:
     def __init__(self, settings: Settings, clickhouse: Any) -> None:
         self._settings = settings
         self._ch = clickhouse
-        self._state = ReadinessState()
+        self._state = ReadinessState(degraded_grace_s=settings.degraded_grace_s)
         self._heartbeats: dict[str, float] = {}
 
     @property
