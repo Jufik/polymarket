@@ -15,7 +15,7 @@ class ClickHouseSink:
 
     def __init__(
         self,
-        host: str = "192.168.0.148",
+        host: str = "localhost",
         port: int = 18123,
         database: str = "polymarket",
     ) -> None:
