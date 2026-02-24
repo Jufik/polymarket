@@ -1,6 +1,5 @@
 """Tests for Goldsky Subgraph recovery poller."""
 
-import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,8 +13,8 @@ def mock_broker():
 
 
 class TestSubgraphPoller:
-    async def test_single_batch_published(self, mock_broker):
-        """A batch of events should produce published trades."""
+    async def test_single_batch_normalized(self, mock_broker):
+        """A batch of events should produce normalized trades."""
         from polymarket_pipeline.live.ingestors.subgraph import SubgraphPoller
 
         events = [
@@ -42,9 +41,9 @@ class TestSubgraphPoller:
             topic="trades.raw",
         )
 
-        count = await poller._process_batch(events)
-        assert count == 1
-        assert mock_broker.publish.call_count == 1
+        trades = poller._normalize_batch(events)
+        assert len(trades) == 1
+        assert trades[0].condition_id == "cond_abc"
 
     async def test_taker_duplicates_skipped(self, mock_broker):
         """Exchange contract takers should be skipped."""
@@ -72,6 +71,5 @@ class TestSubgraphPoller:
             token_market_map={},
             topic="trades.raw",
         )
-        count = await poller._process_batch(events)
-        assert count == 0
-        assert mock_broker.publish.call_count == 0
+        trades = poller._normalize_batch(events)
+        assert len(trades) == 0
