@@ -1,13 +1,14 @@
 """Subgraph recovery CLI — fills gaps from ClickHouse max timestamp to now.
 
-Default behavior (no args): queries ClickHouse for the latest trade, then
-uses the Goldsky Subgraph to recover all trades from that point to now.
-Publishes to Redpanda trades.raw topic.
+Default behavior: queries ClickHouse for the latest trade, fetches all trades
+since then from Goldsky Subgraph, and inserts directly into ClickHouse.
+Restartable — always resumes from where ClickHouse left off.
 
 Usage:
-    pm-recover                                      # auto-detect from ClickHouse
+    pm-recover                                      # auto from CH, write to CH
+    pm-recover --batch-size 250                     # smaller batches (fewer 502s)
     pm-recover --from-timestamp 1771249303          # explicit start
-    pm-recover --from-parquet order_filled/         # scan Parquet for max ts
+    pm-recover --redpanda                           # write to Redpanda instead of CH
 """
 
 from __future__ import annotations
@@ -62,6 +63,7 @@ async def run_recovery(
     from_timestamp: int | None = None,
     from_parquet: str | None = None,
     batch_size: int = 500,
+    use_redpanda: bool = False,
 ) -> None:
     """Run subgraph recovery from the given starting point."""
     from polymarket_pipeline.live.settings import Settings
@@ -100,6 +102,8 @@ async def run_recovery(
         from_ts=start_ts,
         gap_seconds=gap_s,
         gap_hours=round(gap_s / 3600, 1),
+        sink="redpanda" if use_redpanda else "clickhouse",
+        batch_size=batch_size,
     )
 
     # Load token_map from PostgreSQL
@@ -109,19 +113,36 @@ async def run_recovery(
         token_map = await pg.fetch_token_market_map()
     log.info("token_map.loaded", entries=len(token_map))
 
-    # Run recovery — publish to Redpanda
-    from faststream.kafka import KafkaBroker
-
     from polymarket_pipeline.live.ingestors.subgraph import SubgraphPoller
 
-    async with KafkaBroker(settings.redpanda_url) as broker:
+    if use_redpanda:
+        # Write to Redpanda (needs a consumer to drain into CH)
+        from faststream.kafka import KafkaBroker
+
+        async with KafkaBroker(settings.redpanda_url) as broker:
+            poller = SubgraphPoller(
+                broker=broker,
+                subgraph_url=settings.subgraph_url,
+                token_market_map=token_map,
+                topic="trades.raw",
+                status_topic="pipeline.status",
+                batch_size=batch_size,
+            )
+            total = await poller.recover(from_timestamp=start_ts)
+    else:
+        # Direct to ClickHouse (default — restartable, no Redpanda needed)
+        from polymarket_pipeline.live.ingestors.subgraph import ClickHouseDirectSink
+
+        ch_sink = ClickHouseDirectSink(
+            ch_host=pipeline.ch_host,
+            ch_port=pipeline.ch_port,
+            ch_database=pipeline.ch_database,
+        )
         poller = SubgraphPoller(
-            broker=broker,
             subgraph_url=settings.subgraph_url,
             token_market_map=token_map,
-            topic="trades.raw",
-            status_topic="pipeline.status",
             batch_size=batch_size,
+            sink=ch_sink,
         )
         total = await poller.recover(from_timestamp=start_ts)
 
@@ -150,6 +171,11 @@ def main() -> None:
         default=500,
         help="Goldsky subgraph query batch size (default: 500)",
     )
+    parser.add_argument(
+        "--redpanda",
+        action="store_true",
+        help="Write to Redpanda instead of directly to ClickHouse",
+    )
     args = parser.parse_args()
 
     structlog.configure(processors=[structlog.dev.ConsoleRenderer()])
@@ -159,6 +185,7 @@ def main() -> None:
             from_timestamp=args.from_timestamp,
             from_parquet=args.from_parquet,
             batch_size=args.batch_size,
+            use_redpanda=args.redpanda,
         )
     )
 
