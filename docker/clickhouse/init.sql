@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS polymarket.trades_raw (
     _version UInt8,
 
     -- Ingestion
-    ingested_at DateTime64(3) DEFAULT now64()
+    ingested_at DateTime64(3) DEFAULT now64(),
+    published_at Float64 DEFAULT 0
 )
 ENGINE = ReplacingMergeTree(_version)
 PARTITION BY toYYYYMM(timestamp)
