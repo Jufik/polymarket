@@ -1,4 +1,8 @@
-"""Alchemy eth_subscribe ingestor -- Polygon RPC logs for OrderFilled events."""
+"""Alchemy eth_subscribe ingestor -- Polygon RPC logs for OrderFilled events.
+
+A bounded asyncio.Queue decouples the WS read loop from Redpanda publishing so
+that a slow broker never stalls log ingestion.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +26,7 @@ NEGRISK_EXCHANGE = "0xc5d563a36ae78145c45a50134d48a1215220f80a"
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 HEARTBEAT_INTERVAL = 10.0
+_QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 
 
 class AlchemyIngestor:
@@ -42,9 +47,14 @@ class AlchemyIngestor:
         self._normalizer = PolygonRPCNormalizer(token_market_map=token_market_map)
         self._last_block: int = 0
         self._trade_count: int = 0
+        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
 
     async def _handle_message(self, raw: str) -> None:
-        """Process a single raw WebSocket message from Alchemy."""
+        """Process a single raw WebSocket message from Alchemy.
+
+        Normalizes and enqueues for async publishing so the WS read loop is
+        never blocked by a slow broker.
+        """
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
@@ -76,16 +86,31 @@ class AlchemyIngestor:
 
         trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
-        await safe_publish(
-            self._broker,
-            message=trade_json,
-            topic=self._topic,
-            key=trade.condition_id.encode(),
-            source="alchemy",
-        )
+
+        try:
+            self._queue.put_nowait(trade_json)
+        except asyncio.QueueFull:
+            log.warning("alchemy.queue_full", trade_id=trade.trade_id)
+            return
 
         self._last_block = trade.block_number or self._last_block
         self._trade_count += 1
+
+    async def _publish_loop(self) -> None:
+        """Drain the backpressure queue and publish to Redpanda."""
+        while True:
+            trade_json = await self._queue.get()
+            try:
+                cid = json.loads(trade_json).get("condition_id", "")
+            except Exception:
+                cid = ""
+            await safe_publish(
+                self._broker,
+                message=trade_json,
+                topic=self._topic,
+                key=cid.encode(),
+                source="alchemy",
+            )
 
     async def _publish_heartbeat(self) -> None:
         """Publish heartbeat to pipeline.status."""
@@ -112,6 +137,14 @@ class AlchemyIngestor:
 
     async def run(self) -> None:
         """Run the Alchemy ingestor with auto-reconnect."""
+        publish_task = asyncio.create_task(self._publish_loop())
+        try:
+            await self._connection_loop()
+        finally:
+            publish_task.cancel()
+
+    async def _connection_loop(self) -> None:
+        """Reconnect loop for the Alchemy WebSocket."""
         backoff = RECONNECT_BASE
         while True:
             try:

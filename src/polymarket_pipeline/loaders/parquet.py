@@ -7,7 +7,6 @@ precision (max 76). DuckDB casts to lossy DOUBLE. Do NOT use other readers.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +14,7 @@ import structlog
 
 from polymarket_pipeline.models import NormalizedTrade
 from polymarket_pipeline.normalizers.sink import EXCHANGE_ADDRS, GoldskySinkNormalizer
+from polymarket_pipeline.trade_id import make_trade_id_chain
 
 log = structlog.get_logger()
 
@@ -163,7 +163,7 @@ def load_file_fast(
         oh = "0x" + oh_raw[i].hex()
         tx_hashes[i] = tx
         order_hashes[i] = oh
-        trade_ids[i] = "chain:" + sha256((tx + ":" + oh).encode()).digest()[:8].hex()
+        trade_ids[i] = make_trade_id_chain(tx_hash=tx, order_hash=oh)
 
     # 7. Map token -> condition_id (pandas C-level hash lookup, cond_map pre-computed)
     condition_ids = pd.Series(token_asset_id).map(cond_map).fillna("unknown").values
