@@ -1,4 +1,4 @@
-"""Run all three strategies (vectorized) against ClickHouse.
+"""Run all four strategies (vectorized) against ClickHouse.
 
 Usage:
     uv run python scripts/run_vectorized_strategies.py
@@ -304,6 +304,116 @@ async def main() -> None:
                     print(
                         f"    Total bet size: ${result_s1.signals['size_usd'].sum():,.0f}"
                     )
+
+        # -------------------------------------------------------------------
+        # 5. S3 — Consensus Copy (consistency-filtered skilled pool)
+        # -------------------------------------------------------------------
+        print("\n=== S3: Consensus Copy ===")
+
+        from pathlib import Path
+
+        data_dir = Path("data/derived")
+        required_files = [
+            data_dir / "trader_market_pnl.parquet",
+            data_dir / "markets_resolved.parquet",
+            data_dir / "maker_volume_fractions.parquet",
+        ]
+
+        if all(f.exists() for f in required_files):
+            from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
+                load_skilled_provider,
+            )
+
+            provider = load_skilled_provider(
+                data_dir=data_dir,
+                train_start="2023-01-01",
+                train_end="2026-02-01",
+                min_periods=6,
+                min_markets=10,
+                max_mvf=0.10,
+                max_median_entry=0.90,
+            )
+
+            # Consistency mode computes synchronously — backend unused
+            from unittest.mock import AsyncMock
+
+            await provider.compute(AsyncMock())
+            skilled_pool = provider.get_features()["skilled_traders"]
+            print(f"  Consistency-filtered pool: {len(skilled_pool)} traders")
+
+            if skilled_pool:
+                # Query trades for skilled traders
+                makers_str = ", ".join(f"'{m}'" for m in list(skilled_pool)[:200])
+                trades_s3 = await query_ch(
+                    client,
+                    f"""
+                    SELECT
+                        condition_id,
+                        CAST(price AS Float64) as price,
+                        toUnixTimestamp64Milli(timestamp) / 1000.0 as published_at,
+                        maker,
+                        side
+                    FROM polymarket.trades_raw FINAL
+                    WHERE maker IN ({makers_str})
+                    LIMIT 5000000
+                    """,
+                )
+                print(f"  Skilled trades loaded: {len(trades_s3):,}")
+
+                if not trades_s3.is_empty():
+                    from polymarket_pipeline.strategies_impl.consensus_copy.config import (
+                        ConsensusCopyConfig,
+                    )
+                    from polymarket_pipeline.strategies_impl.consensus_copy.strategy import (
+                        ConsensusCopyStrategy,
+                    )
+                    from polymarket_pipeline.strategies.runners.vectorized import (
+                        VectorizedRunner,
+                    )
+
+                    cfg_s3 = ConsensusCopyConfig(
+                        skilled_traders=skilled_pool,
+                        min_traders=5,
+                        agreement_pct=0.80,
+                        direction="NO",
+                        base_bet_usd=10.0,
+                    )
+                    strat_s3 = ConsensusCopyStrategy(config=cfg_s3)
+                    runner_s3 = VectorizedRunner(strat_s3)
+
+                    result_s3 = runner_s3.run(
+                        trades_s3.lazy(),
+                        markets_df.lazy(),
+                    )
+
+                    print(f"  Total signals: {result_s3.total_signals}")
+                    if result_s3.total_signals > 0:
+                        print(f"  Signal breakdown:")
+                        print(
+                            f"    Unique markets: "
+                            f"{result_s3.signals['condition_id'].n_unique()}"
+                        )
+                        print(
+                            f"    Total bet size: "
+                            f"${result_s3.signals['size_usd'].sum():,.0f}"
+                        )
+                        # Show sample
+                        print(f"\n  Sample signals (first 10):")
+                        sample = result_s3.signals.head(10).join(
+                            markets_df.select("condition_id", "question"),
+                            on="condition_id",
+                            how="left",
+                        )
+                        for row in sample.iter_rows(named=True):
+                            q = row.get("question", "?")[:60]
+                            print(
+                                f"    {row['outcome']} ${row['size_usd']:.0f} "
+                                f"@ signal_time={row['signal_time']:.0f} | {q}"
+                            )
+        else:
+            missing = [f.name for f in required_files if not f.exists()]
+            print(f"  SKIPPED — missing derived data: {', '.join(missing)}")
+            print("  Run: uv run python scripts/build_data.py --step derived")
 
         # -------------------------------------------------------------------
         # Summary
