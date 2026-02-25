@@ -352,6 +352,7 @@ async def test_graded_pool_provider_basic() -> None:
             + [f"0xmkt{i}" for i in range(30)]
             + [f"0xmkt{i}" for i in range(10)],
             "side": ["BUY"] * 100,
+            "price": [0.50] * 100,
             "published_at": [float(i) for i in range(100)],
         }
     )
@@ -392,6 +393,7 @@ async def test_graded_pool_provider_refresh_swaps_atomically() -> None:
             "maker": ["0xA"] * 50,
             "condition_id": [f"0xmkt{i}" for i in range(50)],
             "side": ["BUY"] * 50,
+            "price": [0.50] * 50,
             "published_at": [float(i) for i in range(50)],
         }
     )
@@ -400,6 +402,7 @@ async def test_graded_pool_provider_refresh_swaps_atomically() -> None:
             "maker": ["0xB"] * 50,
             "condition_id": [f"0xmkt{i}" for i in range(50)],
             "side": ["BUY"] * 50,
+            "price": [0.50] * 50,
             "published_at": [float(i) for i in range(50)],
         }
     )
@@ -417,3 +420,93 @@ async def test_graded_pool_provider_refresh_swaps_atomically() -> None:
     pool = provider.get_features()["pool_traders"]
     assert "0xB" in pool
     assert "0xA" not in pool
+
+
+# ---------------------------------------------------------------------------
+# Grading filter tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_graded_pool_filters_by_longshot_yes_fraction() -> None:
+    """Only traders with longshot_yes_fraction > 0.15 should pass."""
+    # Trader A: 20 markets, 5 are YES buys at <0.50 → longshot_yes_frac = 0.25 (passes)
+    # Trader B: 20 markets, 1 is YES buy at <0.50 → longshot_yes_frac = 0.05 (fails)
+    rows_a_longshot = [
+        {"maker": "0xA", "condition_id": f"0xm{i}", "side": "BUY", "price": 0.30, "published_at": float(i)}
+        for i in range(5)
+    ]
+    rows_a_normal = [
+        {"maker": "0xA", "condition_id": f"0xm{i}", "side": "SELL", "price": 0.70, "published_at": float(i)}
+        for i in range(5, 20)
+    ]
+    rows_b_longshot = [
+        {"maker": "0xB", "condition_id": "0xn0", "side": "BUY", "price": 0.25, "published_at": 0.0}
+    ]
+    rows_b_normal = [
+        {"maker": "0xB", "condition_id": f"0xn{i}", "side": "SELL", "price": 0.75, "published_at": float(i)}
+        for i in range(1, 20)
+    ]
+
+    trades_df = pl.DataFrame(rows_a_longshot + rows_a_normal + rows_b_longshot + rows_b_normal)
+
+    backend = AsyncMock()
+    backend.query_trades = AsyncMock(return_value=trades_df)
+
+    provider = GradedPoolProvider(min_markets=10, min_longshot_yes_frac=0.15)
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert "0xA" in pool   # 0.25 >= 0.15
+    assert "0xB" not in pool  # 0.05 < 0.15
+
+
+@pytest.mark.asyncio
+async def test_graded_pool_excludes_high_no_fraction() -> None:
+    """Traders with no_fraction > 0.60 should be excluded."""
+    # Trader C: 20 markets, 15 are SELL (NO), no_frac = 0.75 → excluded
+    rows_c = (
+        [{"maker": "0xC", "condition_id": f"0xp{i}", "side": "SELL", "price": 0.80, "published_at": float(i)} for i in range(15)]
+        + [{"maker": "0xC", "condition_id": f"0xp{i}", "side": "BUY", "price": 0.30, "published_at": float(i)} for i in range(15, 20)]
+    )
+    # Trader D: 20 markets, 8 SELL, 12 BUY (4 longshot YES) → no_frac=0.40, longshot=0.20 → passes
+    rows_d = (
+        [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "SELL", "price": 0.70, "published_at": float(i)} for i in range(8)]
+        + [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "BUY", "price": 0.30, "published_at": float(i)} for i in range(8, 12)]
+        + [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "BUY", "price": 0.60, "published_at": float(i)} for i in range(12, 20)]
+    )
+
+    trades_df = pl.DataFrame(rows_c + rows_d)
+
+    backend = AsyncMock()
+    backend.query_trades = AsyncMock(return_value=trades_df)
+
+    provider = GradedPoolProvider(min_markets=10, min_longshot_yes_frac=0.15, max_no_fraction=0.60)
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert "0xC" not in pool  # no_frac 0.75 > 0.60
+    assert "0xD" in pool      # no_frac 0.40, longshot_yes 0.20
+
+
+@pytest.mark.asyncio
+async def test_graded_pool_backward_compat_no_grading() -> None:
+    """When no grading params given, behaves like before (market count only)."""
+    trades_df = pl.DataFrame({
+        "maker": ["0xA"] * 60 + ["0xB"] * 30,
+        "condition_id": [f"0xmkt{i}" for i in range(60)] + [f"0xmkt{i}" for i in range(30)],
+        "side": ["BUY"] * 90,
+        "price": [0.50] * 90,
+        "published_at": [float(i) for i in range(90)],
+    })
+
+    backend = AsyncMock()
+    backend.query_trades = AsyncMock(return_value=trades_df)
+
+    # No grading params → old behavior
+    provider = GradedPoolProvider(min_markets=20)
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert "0xA" in pool
+    assert "0xB" in pool
