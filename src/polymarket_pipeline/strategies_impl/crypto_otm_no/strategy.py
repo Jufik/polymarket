@@ -166,6 +166,7 @@ class CryptoOTMNoStrategy:
             pl.lit("BUY").alias("side"),
             pl.lit("NO").alias("outcome"),
             pl.lit(self._cfg.base_bet_usd).alias("size_usd"),
+            pl.col("price").alias("entry_price"),
         )
 
         return result.collect()
