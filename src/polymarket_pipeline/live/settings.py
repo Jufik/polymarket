@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     # CLOB orderbook ingestor
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+    clob_markets_events_topic: str = "markets.events"
 
     # CLOB API (execution)
     clob_api_url: str = "https://clob.polymarket.com"
