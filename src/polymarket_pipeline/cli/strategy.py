@@ -45,6 +45,9 @@ def _register_providers() -> None:
     from polymarket_pipeline.strategies_impl.crypto_otm_no.providers import (
         CryptoMarketProvider,
     )
+    from polymarket_pipeline.strategies_impl.market_size.providers import (
+        MarketSizeProvider,
+    )
     from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
         GradedPoolProvider,
     )
@@ -56,6 +59,7 @@ def _register_providers() -> None:
     _PROVIDER_REGISTRY["crypto_markets"] = CryptoMarketProvider
     _PROVIDER_REGISTRY["will_markets"] = WillMarketProvider
     _PROVIDER_REGISTRY["pool_traders"] = GradedPoolProvider
+    _PROVIDER_REGISTRY["market_size"] = MarketSizeProvider
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +168,17 @@ def _build_runner(
         if pname in _PROVIDER_REGISTRY:
             pcfg = provider_configs.get(pname)
             params = pcfg.params if pcfg else {}
-            provider = _PROVIDER_REGISTRY[pname](**params)
+
+            # Special case: skilled_traders with data_dir uses consistency mode
+            if pname == "skilled_traders" and "data_dir" in params:
+                from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
+                    load_skilled_provider,
+                )
+
+                provider = load_skilled_provider(**params)
+            else:
+                provider = _PROVIDER_REGISTRY[pname](**params)
+
             providers.append(provider)
 
     # Create strategies
