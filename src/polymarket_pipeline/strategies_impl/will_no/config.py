@@ -40,6 +40,7 @@ class WillNoConfig:
     max_volume_usd: float = 0.0
     question_pattern: str = r"^Will\b"
     max_bucket: str | None = None
+    dual_sided: bool = False
 
     def __init__(
         self,
@@ -52,6 +53,7 @@ class WillNoConfig:
         max_volume_usd: float = 0.0,
         question_pattern: str = r"^Will\b",
         max_bucket: str | None = None,
+        dual_sided: bool = False,
     ) -> None:
         object.__setattr__(self, "yes_price_min", yes_price_min)
         object.__setattr__(self, "yes_price_max", yes_price_max)
@@ -72,3 +74,4 @@ class WillNoConfig:
         object.__setattr__(self, "max_volume_usd", max_volume_usd)
         object.__setattr__(self, "question_pattern", question_pattern)
         object.__setattr__(self, "max_bucket", max_bucket)
+        object.__setattr__(self, "dual_sided", dual_sided)
