@@ -239,6 +239,19 @@ def run(
         await runner.initialize()
         await runner.start_background_loops()
 
+        # Subscribe to market events for pool refresh
+        from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer
+
+        market_consumer = MarketEventsConsumer(
+            pg_pool=None,  # PG updates handled by main pipeline
+            runner=runner,
+            debounce_s=5.0,
+        )
+
+        @broker.subscriber("markets.events", group_id="strategy-market-events")
+        async def handle_market_event(msg: str) -> None:
+            await market_consumer.handle(msg)
+
         @broker.subscriber("trades.raw", group_id="strategy-runner")
         async def handle_trade(msg: str) -> None:
             import json
