@@ -92,6 +92,7 @@ def create_ingestors(
             topic="orderbooks.raw",
             status_topic="pipeline.status",
             token_market_map=token_map,
+            markets_events_topic=settings.clob_markets_events_topic,
         )
         tasks.append(asyncio.create_task(clob_ob.run()))
 
