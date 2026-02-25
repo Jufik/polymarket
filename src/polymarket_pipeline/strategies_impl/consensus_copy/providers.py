@@ -148,8 +148,47 @@ class SkilledTradersProvider:
         """No-op — skilled set is refreshed periodically, not per-trade."""
 
     async def refresh(self, backend: FeatureBackend) -> None:
-        """Re-query and atomically swap the skilled set."""
-        await self.compute(backend)
+        """Re-query and atomically swap the skilled set.
+
+        If the backend has CH-specific query methods (``query_consistency_pnl``,
+        ``query_resolved_markets``, ``query_mvf``), use them to fetch fresh data
+        from ClickHouse derived views. Otherwise fall back to ``compute()``.
+        """
+        if (
+            self._use_consistency
+            and hasattr(backend, "query_consistency_pnl")
+            and hasattr(backend, "query_resolved_markets")
+            and hasattr(backend, "query_mvf")
+        ):
+            await self._refresh_from_ch(backend)
+        else:
+            await self.compute(backend)
+
+    async def _refresh_from_ch(self, backend: Any) -> None:
+        """Refresh using ClickHouse derived views."""
+        from polymarket_pipeline.strategies_impl.consensus_copy.consistency import (
+            filter_consistent_traders,
+        )
+
+        assert self._train_start is not None  # noqa: S101
+        assert self._train_end is not None  # noqa: S101
+
+        pnl = await backend.query_consistency_pnl()
+        resolved = await backend.query_resolved_markets()
+        mvf = await backend.query_mvf()
+
+        self._skilled = filter_consistent_traders(
+            pnl=pnl,
+            resolved=resolved,
+            mvf=mvf,
+            train_start=self._train_start,
+            train_end=self._train_end,
+            min_periods=self._min_periods,
+            min_markets=self._min_markets,
+            max_mvf=self._max_mvf,
+            max_median_entry=self._max_median_entry,
+        )
+        logger.info("skilled_traders.ch_refresh", count=len(self._skilled))
 
     def get_features(self) -> dict[str, Any]:
         """Return ``{"skilled_traders": frozenset[str]}``."""

@@ -254,3 +254,58 @@ async def test_provider_legacy_mode_no_dataframes() -> None:
     pool = provider.get_features()["skilled_traders"]
     assert "0xA" in pool
     assert "0xB" not in pool
+
+
+@pytest.mark.asyncio
+async def test_provider_refresh_queries_ch_backend(
+    resolved: pl.DataFrame, mvf: pl.DataFrame
+) -> None:
+    """refresh() should re-query CH backend and update skilled set."""
+    from unittest.mock import AsyncMock
+
+    from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
+        SkilledTradersProvider,
+    )
+
+    # Start with consistency mode (static DataFrames)
+    pnl = pl.DataFrame({
+        "trader": ["0xGood"] * 12,
+        "condition_id": [f"0xm{i}" for i in range(12)],
+        "market_pnl": [10.0] * 12,
+        "first_trade": [_ts(2025, 1)] * 2 + [_ts(2025, 2)] * 2 + [_ts(2025, 3)] * 2
+            + [_ts(2025, 4)] * 2 + [_ts(2025, 5)] * 2 + [_ts(2025, 6)] * 2,
+        "net_yes_tokens": [1.0] * 12,
+        "wavg_yes_entry_price": [0.30] * 12,
+    })
+
+    provider = SkilledTradersProvider(
+        pnl_df=pnl,
+        resolved_df=resolved,
+        mvf_df=mvf,
+        train_start=_ts(2025, 1),
+        train_end=_ts(2025, 7),
+    )
+
+    # Initial compute
+    backend = AsyncMock()
+    await provider.compute(backend)
+    assert "0xGood" in provider.get_features()["skilled_traders"]
+
+    # Mock a CH backend that has query_consistency_pnl, query_resolved_markets, query_mvf
+    ch_backend = AsyncMock()
+    # Return new data where 0xGood has a bad month -> no longer qualifies
+    bad_pnl = pl.DataFrame({
+        "trader": ["0xGood"] * 12,
+        "condition_id": [f"0xm{i}" for i in range(12)],
+        "market_pnl": [10.0] * 10 + [-5.0, -5.0],
+        "first_trade": [_ts(2025, 1)] * 2 + [_ts(2025, 2)] * 2 + [_ts(2025, 3)] * 2
+            + [_ts(2025, 4)] * 2 + [_ts(2025, 5)] * 2 + [_ts(2025, 6)] * 2,
+        "net_yes_tokens": [1.0] * 12,
+        "wavg_yes_entry_price": [0.30] * 12,
+    })
+    ch_backend.query_consistency_pnl = AsyncMock(return_value=bad_pnl)
+    ch_backend.query_resolved_markets = AsyncMock(return_value=resolved)
+    ch_backend.query_mvf = AsyncMock(return_value=mvf)
+
+    await provider.refresh(ch_backend)
+    assert "0xGood" not in provider.get_features()["skilled_traders"]
