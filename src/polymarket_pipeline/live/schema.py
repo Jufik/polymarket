@@ -106,6 +106,114 @@ FROM orderbook_kafka
 """
 
 
+# ======================================================================
+# Derived feature tables (live-updating from trades_raw)
+# ======================================================================
+
+MARKETS_RESOLVED_VIEW = """
+CREATE OR REPLACE VIEW markets_resolved AS
+SELECT
+    m.condition_id,
+    m.resolution_value,
+    m.winner_outcome,
+    m.resolved_at,
+    tm.asset_id,
+    tm.outcome,
+    tm.winner AS token_won
+FROM markets m
+INNER JOIN token_market_map tm ON m.condition_id = tm.condition_id
+WHERE m.resolution_value = 1
+"""
+
+TRADER_VOLUMES_TABLE = """
+CREATE TABLE IF NOT EXISTS trader_volumes (
+    trader          String,
+    maker_vol       Float64,
+    taker_vol       Float64
+) ENGINE = SummingMergeTree((maker_vol, taker_vol))
+ORDER BY trader
+"""
+
+TRADER_VOLUMES_MAKER_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS trader_volumes_maker_mv
+TO trader_volumes AS
+SELECT
+    maker AS trader,
+    amount_usd AS maker_vol,
+    0 AS taker_vol
+FROM trades_raw
+WHERE maker IS NOT NULL AND maker != ''
+"""
+
+TRADER_VOLUMES_TAKER_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS trader_volumes_taker_mv
+TO trader_volumes AS
+SELECT
+    taker AS trader,
+    0 AS maker_vol,
+    amount_usd AS taker_vol
+FROM trades_raw
+WHERE taker IS NOT NULL AND taker != ''
+"""
+
+TRADER_TRADE_AGG_TABLE = """
+CREATE TABLE IF NOT EXISTS trader_trade_agg (
+    trader          String,
+    condition_id    LowCardinality(String),
+    asset_id        String,
+    net_tokens      Float64,
+    net_usd         Float64,
+    total_fees      Float64,
+    volume          Float64,
+    trade_count     UInt64,
+    first_trade     SimpleAggregateFunction(min, DateTime64(3)),
+    last_trade      SimpleAggregateFunction(max, DateTime64(3)),
+    price_x_vol     Float64
+) ENGINE = SummingMergeTree(
+    (net_tokens, net_usd, total_fees, volume, trade_count, price_x_vol)
+)
+ORDER BY (trader, condition_id, asset_id)
+"""
+
+TRADER_TRADE_AGG_MAKER_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS trader_trade_agg_maker_mv
+TO trader_trade_agg AS
+SELECT
+    maker AS trader,
+    condition_id,
+    asset_id,
+    if(side = 'BUY', toFloat64(size), -toFloat64(size)) AS net_tokens,
+    if(side = 'BUY', -toFloat64(amount_usd), toFloat64(amount_usd)) AS net_usd,
+    toFloat64(fee_usd) AS total_fees,
+    toFloat64(amount_usd) AS volume,
+    toUInt64(1) AS trade_count,
+    timestamp AS first_trade,
+    timestamp AS last_trade,
+    toFloat64(price) * toFloat64(amount_usd) AS price_x_vol
+FROM trades_raw
+WHERE maker IS NOT NULL AND maker != ''
+"""
+
+TRADER_TRADE_AGG_TAKER_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS trader_trade_agg_taker_mv
+TO trader_trade_agg AS
+SELECT
+    taker AS trader,
+    condition_id,
+    asset_id,
+    if(side = 'BUY', -toFloat64(size), toFloat64(size)) AS net_tokens,
+    if(side = 'BUY', toFloat64(amount_usd), -toFloat64(amount_usd)) AS net_usd,
+    toFloat64(fee_usd) AS total_fees,
+    toFloat64(amount_usd) AS volume,
+    toUInt64(1) AS trade_count,
+    timestamp AS first_trade,
+    timestamp AS last_trade,
+    toFloat64(price) * toFloat64(amount_usd) AS price_x_vol
+FROM trades_raw
+WHERE taker IS NOT NULL AND taker != ''
+"""
+
+
 def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> None:
     """Create all Kafka engine tables and materialized views.
 
@@ -121,3 +229,12 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
         ORDERBOOK_KAFKA_TABLE.format(broker_list=broker_list)
     )
     clickhouse.execute(ORDERBOOK_KAFKA_MV)  # type: ignore[attr-defined]
+
+    # Derived feature tables (must come after trades_raw)
+    clickhouse.execute(TRADER_VOLUMES_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_TRADE_AGG_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(MARKETS_RESOLVED_VIEW)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_VOLUMES_MAKER_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_VOLUMES_TAKER_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_TRADE_AGG_MAKER_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_TRADE_AGG_TAKER_MV)  # type: ignore[attr-defined]
