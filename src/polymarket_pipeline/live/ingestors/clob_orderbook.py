@@ -35,11 +35,23 @@ class CLOBOrderbookIngestor(BaseIngestor):
         topic: str = "orderbooks.raw",
         status_topic: str = "pipeline.status",
         token_market_map: dict[str, tuple[str, str]] | None = None,
+        markets_events_topic: str = "markets.events",
     ) -> None:
         super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._ws_url = ws_url
         self._token_map = token_market_map or {}
+        self._markets_events_topic = markets_events_topic
         self._update_count: int = 0
+        self._market_event_count: int = 0
+
+    def _subscription_payload(self) -> dict[str, Any]:
+        """Build the WS subscription message."""
+        return {
+            "type": "market",
+            "markets": [],
+            "assets_ids": [],
+            "custom_feature_enabled": True,
+        }
 
     async def _handle_message(self, raw: str) -> None:
         """Process a single raw WS message."""
@@ -49,9 +61,8 @@ class CLOBOrderbookIngestor(BaseIngestor):
             log.warning("clob_orderbook.invalid_json", raw=raw[:100])
             return
 
-        # Only process price_change events.
-        # The CLOB WS sends messages in format: [{"event_type": "price_change", ...}]
-        # or {"event_type": "price_change", ...}
+        # The CLOB WS sends messages in format: [{"event_type": "...", ...}]
+        # or {"event_type": "...", ...}
         events: list[dict[str, Any]]
         if isinstance(msg, list):
             events = msg
@@ -61,10 +72,11 @@ class CLOBOrderbookIngestor(BaseIngestor):
             return
 
         for event in events:
-            if event.get("event_type") != "price_change":
-                continue
-
-            await self._process_price_change(event)
+            event_type = event.get("event_type")
+            if event_type == "price_change":
+                await self._process_price_change(event)
+            elif event_type in ("market_resolved", "new_market"):
+                await self._process_market_event(event)
 
     async def _process_price_change(self, event: dict[str, Any]) -> None:
         """Extract best_bid/best_ask from a price_change event and publish."""
@@ -113,9 +125,30 @@ class CLOBOrderbookIngestor(BaseIngestor):
         )
         self._update_count += 1
 
+    async def _process_market_event(self, event: dict[str, Any]) -> None:
+        """Forward market_resolved / new_market events to the events topic."""
+        condition_id = event.get("condition_id", "")
+        payload = {
+            "type": event["event_type"],
+            "condition_id": condition_id,
+            "payload": event,
+            "timestamp": event.get("timestamp", time.time()),
+        }
+        await safe_publish(
+            self._broker,
+            message=json.dumps(payload),
+            topic=self._markets_events_topic,
+            key=condition_id.encode() if condition_id else b"unknown",
+            source="clob_orderbook",
+        )
+        self._market_event_count += 1
+
     def _heartbeat_fields(self) -> dict[str, Any]:
         """CLOB-specific heartbeat fields."""
-        return {"update_count": self._update_count}
+        return {
+            "update_count": self._update_count,
+            "market_event_count": self._market_event_count,
+        }
 
     async def run(self) -> None:
         """Run the CLOB orderbook ingestor with auto-reconnect."""
@@ -128,13 +161,7 @@ class CLOBOrderbookIngestor(BaseIngestor):
                     log.info("clob_orderbook.connected")
 
                     # Subscribe to all markets
-                    subscribe = json.dumps(
-                        {
-                            "type": "market",
-                            "markets": [],
-                            "assets_ids": [],
-                        }
-                    )
+                    subscribe = json.dumps(self._subscription_payload())
                     await ws.send(subscribe)
 
                     heartbeat_task = asyncio.create_task(self._heartbeat_loop())
