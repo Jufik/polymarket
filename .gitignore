@@ -6,6 +6,7 @@ __pycache__/
 
 # Data
 order_filled/
+models/*.joblib
 order_filled_compact/
 docker-drives
 data/
