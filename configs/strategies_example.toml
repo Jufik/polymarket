@@ -13,7 +13,7 @@ capital_usd = 1000
 max_position_usd = 100
 max_open_positions = 10
 cooldown_s = 0
-features = ["crypto_markets"]
+features = ["crypto_markets", "market_size"]
 
 [strategy.crypto_otm_no.params]
 yes_price_min = 0.05
@@ -33,7 +33,7 @@ capital_usd = 300
 max_position_usd = 50
 max_open_positions = 6
 cooldown_s = 0
-features = ["will_markets"]
+features = ["will_markets", "market_size"]
 
 [strategy.will_no.params]
 yes_price_min = 0.15
@@ -80,6 +80,13 @@ refresh_interval_s = 900
 
 [provider.will_markets.params]
 question_pattern = "^Will\\b"
+
+[provider.market_size]
+enabled = true
+refresh_interval_s = 1800
+
+[provider.market_size.params]
+model_path = "models/market_size_xgb.joblib"
 
 [provider.pool_traders]
 enabled = true

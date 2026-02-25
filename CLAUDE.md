@@ -56,6 +56,8 @@ uv run pm-load                    # Load compact parquet into ClickHouse
 uv run pm-build                   # Data build pipeline
 uv run pm-migrate                 # ClickHouse schema migrations
 uv run pm-api                     # Start FastAPI REST API
+uv run pm-strategy run --config configs/strategies_example.toml  # Run strategies against live Kafka
+uv run pm-strategy run --config configs/strategies_example.toml --only consensus_copy  # Single strategy
 
 # Data build pipeline (CLOB + Gamma metadata, compact trades, Polars derived tables)
 uv run python scripts/build_data.py                        # all steps
@@ -64,6 +66,10 @@ uv run python scripts/build_data.py --step compact         # recompress raw parq
 uv run python scripts/build_data.py --step derived         # Polars PnL + MVF
 uv run python scripts/build_data.py --step prices          # market price timeseries
 uv run python scripts/build_data.py --force-metadata       # re-fetch even if fresh
+
+# Market size classifier training (requires ClickHouse)
+uv run python scripts/train_market_size_classifier.py [--window 6] [--tune --n-trials 50]
+uv run python scripts/validate_market_size_classifier.py [--model models/market_size_xgb.joblib]
 
 # Backtester sweep (archived to research/)
 uv run python -m research.strategies.consistency_copy.backtester
@@ -156,26 +162,27 @@ src/polymarket_pipeline/
 │   ├── load.py          # pm-load: Load compact parquet into ClickHouse
 │   ├── build.py         # pm-build: Data build pipeline
 │   ├── migrate.py       # pm-migrate: ClickHouse schema migrations
-│   ├── strategy.py      # pm-strategy (planned)
+│   ├── strategy.py      # pm-strategy: Run strategies against live Kafka
 │   └── bridge.py        # CLI bridge utilities
 ├── execution/           # Trade execution (CLOB API)
-│   ├── clob_client.py   # Polymarket CLOB API client
+│   ├── clob_client.py   # Polymarket CLOB API client (submit, cancel, balances)
 │   ├── panic.py         # Panic close all positions
 │   └── position_tracker.py  # PostgreSQL position tracking
 ├── strategies/          # Strategy framework (protocols + types)
-│   ├── protocol.py      # Strategy, FeatureProvider, Executor protocols
-│   ├── types.py         # TradeIntent, Position, Fill, OrderbookSnapshot
-│   ├── config.py        # StrategyConfig dataclass
+│   ├── protocol.py      # Strategy, FeatureProvider, Executor, FeatureBackend protocols
+│   ├── types.py         # TradeIntent, Position, Fill, OrderbookSnapshot, ExecutionMode
+│   ├── config.py        # StrategyConfig + ProviderConfig (TOML loading)
 │   ├── registry.py      # Strategy discovery/registration
 │   ├── context/         # InMemoryContext for strategy state
-│   ├── execution/       # ExecutionGateway, SimulatedExecutor
-│   ├── features/        # FeatureBackend (Polars, ClickHouse)
-│   └── runners/         # LiveRunner, BacktestRunner + helpers
+│   ├── execution/       # ExecutionGateway (budget, quality gate), PaperExecutor
+│   ├── features/        # FeatureBackend: PolarsBackend (offline), ClickHouseBackend (live)
+│   └── runners/         # LiveRunner (event-driven + refresh loop), BacktestRunner + helpers
 ├── live/                # Live sync pipeline (FastStream + Redpanda)
-│   ├── app.py           # FastStream app + ASGI health endpoints (<150 lines)
+│   ├── app.py           # FastStream app + market events subscriber + ASGI health
 │   ├── orchestrator.py  # Ingestor lifecycle + recovery + quality loops
 │   ├── protection.py    # Auto-protect: close positions on RED state
 │   ├── settings.py      # Pydantic Settings (env-based, PM_ prefix)
+│   ├── schema.py        # ClickHouse DDL: Kafka engine tables + derived MVs
 │   ├── circuit_breaker.py  # Circuit breaker for Redpanda publishes
 │   ├── dedup.py         # TTL-based trade deduplication
 │   ├── ingestors/       # 5 sources + BaseIngestor ABC
@@ -183,18 +190,24 @@ src/polymarket_pipeline/
 │   │   ├── alchemy.py   # Polygon RPC logs (on-chain, ~3.7s latency)
 │   │   ├── rtds.py      # RTDS WS pool with rotation + dedup
 │   │   ├── pending_block.py  # Multi-endpoint pending block poller (~1s early)
-│   │   ├── clob_orderbook.py # CLOB WS orderbook snapshots
+│   │   ├── clob_orderbook.py # CLOB WS orderbook + market event forwarding
 │   │   ├── mempool.py   # Rust PyO3 mempool sidecar wrapper
 │   │   └── subgraph.py  # Goldsky Subgraph gap recovery
 │   ├── quality/         # Re-exports from shared quality/ module
 │   │   ├── state.py     # Re-export shim for backward compat
 │   │   └── checker.py   # QualityChecker: health checks + state machine
-│   ├── consumers/       # Kafka consumers (signal evaluator, derived refresher)
+│   ├── consumers/       # Kafka consumers
+│   │   └── market_events.py  # MarketEventsConsumer: debounced pool refresh on resolution
 │   ├── normalizers/     # PolygonRPCNormalizer, SubgraphNormalizer, PendingBlockNormalizer
 │   └── dashboard.py     # HTML dashboard (async, quality metrics)
 ├── api/                 # FastAPI REST API
 │   └── app.py           # pm-api entry point
 ├── strategies_impl/     # Concrete strategy implementations
+│   ├── consensus_copy/  # S3: Consistency-filtered skilled trader copy
+│   ├── proportional_copy/ # S1: Graded longshot-YES specialist copy
+│   ├── crypto_otm_no/   # S2b: OTM crypto checkpoint NO buyer
+│   ├── will_no/         # S2a: Binary "Will X?" NO buyer
+│   └── market_size/     # XGBoost volume classifier (shared provider)
 └── exploration/         # ML experimentation: tree-based stages, Claude agent, MLflow
 
 research/                # Archived exploration (not production)
@@ -202,6 +215,62 @@ research/                # Archived exploration (not production)
 ├── scripts/             # One-off analysis scripts
 └── strategies/          # Backtester, sweep results, configs
 ```
+
+### Strategy Framework
+
+Four strategies share a common protocol-based framework. Configuration lives in TOML (`configs/strategies_example.toml`).
+
+```
+TOML Config ─────> StrategyConfig + ProviderConfig
+                       │                 │
+                       ▼                 ▼
+                  Strategy impls    FeatureProviders
+                       │                 │
+                       ▼                 ▼
+LiveRunner ─────── on_trade()      compute() / refresh()
+    │                  │                 │
+    ▼                  ▼                 ▼
+ExecutionGateway   TradeIntent      InMemoryContext
+    │                                    │
+    ▼                                    ▼
+PaperExecutor / ClobClient          features dict
+    │
+    ▼
+  Fill
+```
+
+**Strategies (4 active):**
+
+| Name | TOML Key | Direction | Signal Source |
+|------|----------|-----------|---------------|
+| S1 Proportional Copy | `proportional_copy` | Copy pool | GradedPoolProvider (longshot YES filter) |
+| S2a Will NO | `will_no` | BUY NO | WillMarketProvider (regex filter) |
+| S2b Crypto OTM NO | `crypto_otm_no` | BUY NO | CryptoMarketProvider (asset + pattern) |
+| S3 Consensus Copy | `consensus_copy` | Configurable | SkilledTradersProvider (consistency filter) |
+
+**Feature Providers (5):** `pool_traders`, `skilled_traders`, `crypto_markets`, `will_markets`, `market_size`
+
+**Execution Modes:** `vectorized` (backtest), `replay`, `paper_dev`, `paper_prod`, `live`
+
+**Key patterns:**
+- Strategies implement `Strategy` protocol (event-driven) and/or `VectorizedStrategy` (batch)
+- Providers implement `FeatureProvider` protocol: `compute()` at startup, `refresh()` periodically, `on_trade()` per event
+- `FeatureBackend` protocol: `PolarsBackend` for offline, `ClickHouseBackend` for live
+- `ExecutionGateway`: pipeline health check → per-strategy budget gate → executor
+- `LiveRunner._refresh_loop`: timer-based OR event-driven via `request_refresh()` + `asyncio.Event`
+
+**Kafka Topics (strategy-relevant):**
+
+| Topic | Purpose |
+|-------|---------|
+| `trades.raw` | Normalized trades (main feed) |
+| `pending.signal` | Pre-confirmation trades (~1s early) |
+| `orderbooks.raw` | CLOB WS best bid/ask snapshots |
+| `markets.events` | Resolution + new market events (triggers pool refresh) |
+| `pipeline.status` | Heartbeats from ingestors |
+
+**Pool Refresh Automation:**
+CLOB WS `market_resolved` → `markets.events` topic → `MarketEventsConsumer` (5s debounce) → `LiveRunner.request_refresh()` → providers re-query CH → atomic context swap. Hot path never blocked.
 
 ### Conventions
 

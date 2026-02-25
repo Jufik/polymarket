@@ -25,6 +25,9 @@ class CryptoOTMNoConfig:
         Minimum market volume in USD to qualify.
     question_pattern
         Regex pattern to match against market question text.
+    max_bucket
+        Maximum market-size bucket to trade (e.g. ``"med"``). Markets
+        above this bucket are skipped.  ``None`` = no filter.
     """
 
     yes_price_min: float = 0.05
@@ -34,6 +37,7 @@ class CryptoOTMNoConfig:
     fee_pct: float = 0.02
     min_volume_usd: float = 50.0
     question_pattern: str = r"(above|below)"
+    max_bucket: str | None = None
 
     def __init__(
         self,
@@ -44,6 +48,7 @@ class CryptoOTMNoConfig:
         fee_pct: float = 0.02,
         min_volume_usd: float = 50.0,
         question_pattern: str = r"(above|below)",
+        max_bucket: str | None = None,
     ) -> None:
         # frozen=True requires object.__setattr__
         object.__setattr__(self, "yes_price_min", yes_price_min)
@@ -57,3 +62,4 @@ class CryptoOTMNoConfig:
         object.__setattr__(self, "fee_pct", fee_pct)
         object.__setattr__(self, "min_volume_usd", min_volume_usd)
         object.__setattr__(self, "question_pattern", question_pattern)
+        object.__setattr__(self, "max_bucket", max_bucket)

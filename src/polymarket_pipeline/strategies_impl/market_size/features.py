@@ -54,6 +54,8 @@ def compute_features_polars(
         One row per condition_id with feature columns + condition_id.
     """
     window_secs = cfg.feature_window_hours * 3600
+    early_secs = window_secs // 6   # 1h for 6h window
+    mid_secs = window_secs // 2     # 3h for 6h window
 
     # 1. Compute first_ts per market
     first_ts = trades.group_by("condition_id").agg(
@@ -67,13 +69,30 @@ def compute_features_polars(
         (pl.col("price") * pl.col("size")).alias("trade_volume"),
     )
 
-    # 3. Aggregate within feature window
+    # 3. Aggregate within feature window (multi-window: early/mid/full)
     in_window = enriched.filter(pl.col("secs_since_first") <= window_secs)
 
+    early_filter = pl.col("secs_since_first") <= early_secs
+    mid_filter = pl.col("secs_since_first") <= mid_secs
+
     window_agg = in_window.group_by("condition_id").agg(
+        # Full window
         pl.len().alias("trades_window"),
         pl.col("trade_volume").sum().alias("vol_window"),
         pl.col("maker").n_unique().alias("traders_window"),
+        # Early sub-window
+        pl.col("trade_volume").filter(early_filter).count().alias("trades_early"),
+        pl.col("trade_volume").filter(early_filter).sum().alias("vol_early"),
+        pl.col("maker").filter(early_filter).n_unique().alias("traders_early"),
+        # Mid sub-window
+        pl.col("trade_volume").filter(mid_filter).count().alias("trades_mid"),
+        pl.col("trade_volume").filter(mid_filter).sum().alias("vol_mid"),
+        pl.col("maker").filter(mid_filter).n_unique().alias("traders_mid"),
+        # Price microstructure
+        pl.col("price").std().fill_null(0.0).alias("price_std"),
+        (pl.col("price").max() - pl.col("price").min()).fill_null(0.0).alias("price_range"),
+        pl.col("size").mean().fill_null(0.0).alias("avg_trade_size"),
+        pl.col("size").max().fill_null(0.0).alias("max_trade_size"),
     )
 
     # 4. Total stats (for label computation in training)
@@ -110,25 +129,52 @@ def compute_features_polars(
     )
     features = features.join(event_market_count, on="event_id", how="left")
 
-    # 8. Time remaining
+    # 8. Derived ratio features
+    features = features.with_columns(
+        (pl.col("vol_window") / pl.col("trades_window").clip(1)).alias("vol_per_trade"),
+        (pl.col("vol_window") / pl.col("traders_window").clip(1)).alias("vol_per_trader"),
+        # Growth trajectory: how volume ramps from early -> mid -> full
+        (pl.col("vol_mid") / pl.col("vol_early").clip(lower_bound=0.01)).alias(
+            "vol_growth_early_mid"
+        ),
+        (pl.col("vol_window") / pl.col("vol_mid").clip(lower_bound=0.01)).alias(
+            "vol_growth_mid_full"
+        ),
+        # Log-scale volume features (compress range, reduce dominance)
+        (pl.col("vol_window") + 1).log().alias("log_vol_window"),
+        (pl.col("vol_early") + 1).log().alias("log_vol_early"),
+        (pl.col("vol_mid") + 1).log().alias("log_vol_mid"),
+        (pl.col("event_volume").fill_null(0) + 1).log().alias("log_event_volume"),
+        (pl.col("event_liquidity").fill_null(0) + 1).log().alias("log_event_liquidity"),
+        # Velocity & concentration
+        (pl.col("trades_window") / (window_secs / 3600)).alias("trades_per_hour"),
+        (pl.col("traders_window").cast(pl.Float64) / pl.col("trades_window").clip(1)).alias(
+            "trader_concentration"
+        ),
+        (pl.col("vol_window") / pl.col("event_liquidity").fill_null(1).clip(lower_bound=1.0)).alias(
+            "vol_to_liquidity"
+        ),
+    )
+
+    # 9. Time remaining
     features = features.with_columns(
         ((pl.col("event_end_date") - pl.col("first_ts")) / 3600.0).alias(
             "time_remaining_hours"
         ),
     )
 
-    # 9. Temporal features
+    # 10. Temporal features
     features = features.with_columns(
         (pl.col("first_ts") % 86400 / 3600).cast(pl.Int32).alias("hour_of_day"),
         (pl.col("first_ts") / 86400).cast(pl.Int32).mod(7).alias("day_of_week"),
     )
 
-    # 10. neg_risk as int
+    # 11. neg_risk as int
     features = features.with_columns(
         pl.col("neg_risk").cast(pl.Int8).alias("neg_risk"),
     )
 
-    # 11. One-hot encode tags
+    # 12. One-hot encode tags
     for tag_name in cfg.top_tags:
         col_name = f"tag_{tag_name.replace(' ', '_')}"
         matching_events = tags.filter(pl.col("tag") == tag_name)["event_id"].to_list()
@@ -136,12 +182,34 @@ def compute_features_polars(
             pl.col("event_id").is_in(matching_events).cast(pl.Int8).alias(col_name),
         )
 
-    # 12. Select final columns
+    # 13. Select final columns
     feature_cols = [
         "condition_id",
         "trades_window",
         "vol_window",
         "traders_window",
+        "trades_early",
+        "vol_early",
+        "traders_early",
+        "trades_mid",
+        "vol_mid",
+        "traders_mid",
+        "vol_per_trade",
+        "vol_per_trader",
+        "vol_growth_early_mid",
+        "vol_growth_mid_full",
+        "price_std",
+        "price_range",
+        "avg_trade_size",
+        "max_trade_size",
+        "log_vol_window",
+        "log_vol_early",
+        "log_vol_mid",
+        "log_event_volume",
+        "log_event_liquidity",
+        "trades_per_hour",
+        "trader_concentration",
+        "vol_to_liquidity",
         "time_remaining_hours",
         "event_n_markets",
         "event_volume",

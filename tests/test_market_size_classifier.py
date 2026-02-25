@@ -122,6 +122,13 @@ def test_compute_features_polars_basic() -> None:
     assert "neg_risk" in result.columns
     assert "tag_Politics" in result.columns
     assert "tag_Crypto" in result.columns
+    assert "price_std" in result.columns
+    assert "price_range" in result.columns
+    assert "avg_trade_size" in result.columns
+    assert "max_trade_size" in result.columns
+    assert "log_vol_window" in result.columns
+    assert "trades_per_hour" in result.columns
+    assert "trader_concentration" in result.columns
 
     # 0xA should have some trades in first hour
     row_a = result.filter(pl.col("condition_id") == "0xA")
@@ -137,12 +144,44 @@ def test_compute_features_polars_basic() -> None:
 def _make_synthetic_features(cfg: MarketSizeConfig, n: int, seed: int = 42) -> pl.DataFrame:
     """Build a synthetic feature DataFrame for testing."""
     rng = np.random.default_rng(seed)
+    vol_window = rng.exponential(500, n)
+    trades_window = rng.integers(1, 100, n)
+    traders_window = rng.integers(1, 30, n)
+    # Sub-windows: early ≈ 1/6, mid ≈ 1/2 of full window values
+    vol_early = vol_window * rng.uniform(0.05, 0.3, n)
+    vol_mid = vol_window * rng.uniform(0.3, 0.7, n)
+    trades_early = (trades_window * rng.uniform(0.05, 0.3, n)).astype(int).clip(1)
+    trades_mid = (trades_window * rng.uniform(0.3, 0.7, n)).astype(int).clip(1)
+    traders_early = (traders_window * rng.uniform(0.2, 0.5, n)).astype(int).clip(1)
+    traders_mid = (traders_window * rng.uniform(0.5, 0.8, n)).astype(int).clip(1)
     features = pl.DataFrame(
         {
             "condition_id": [f"0x{i:04x}" for i in range(n)],
-            "trades_window": rng.integers(0, 100, n).tolist(),
-            "vol_window": rng.exponential(500, n).tolist(),
-            "traders_window": rng.integers(1, 30, n).tolist(),
+            "trades_window": trades_window.tolist(),
+            "vol_window": vol_window.tolist(),
+            "traders_window": traders_window.tolist(),
+            "trades_early": trades_early.tolist(),
+            "vol_early": vol_early.tolist(),
+            "traders_early": traders_early.tolist(),
+            "trades_mid": trades_mid.tolist(),
+            "vol_mid": vol_mid.tolist(),
+            "traders_mid": traders_mid.tolist(),
+            "vol_per_trade": (vol_window / np.maximum(trades_window, 1)).tolist(),
+            "vol_per_trader": (vol_window / np.maximum(traders_window, 1)).tolist(),
+            "vol_growth_early_mid": (vol_mid / np.maximum(vol_early, 0.01)).tolist(),
+            "vol_growth_mid_full": (vol_window / np.maximum(vol_mid, 0.01)).tolist(),
+            "price_std": rng.uniform(0.01, 0.15, n).tolist(),
+            "price_range": rng.uniform(0.05, 0.5, n).tolist(),
+            "avg_trade_size": rng.exponential(20, n).tolist(),
+            "max_trade_size": rng.exponential(100, n).tolist(),
+            "log_vol_window": np.log1p(vol_window).tolist(),
+            "log_vol_early": np.log1p(vol_early).tolist(),
+            "log_vol_mid": np.log1p(vol_mid).tolist(),
+            "log_event_volume": np.log1p(rng.exponential(50000, n)).tolist(),
+            "log_event_liquidity": np.log1p(rng.exponential(25000, n)).tolist(),
+            "trades_per_hour": (trades_window / 6.0).tolist(),
+            "trader_concentration": (traders_window / np.maximum(trades_window, 1)).tolist(),
+            "vol_to_liquidity": rng.exponential(0.1, n).tolist(),
             "time_remaining_hours": rng.exponential(100, n).tolist(),
             "event_n_markets": rng.integers(1, 20, n).tolist(),
             "event_volume": rng.exponential(50000, n).tolist(),
