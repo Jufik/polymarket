@@ -139,14 +139,29 @@ class MarketSizeProvider:
             self._proba = {}
             return
 
+        # Build question text list matched to feature rows (for TF-IDF)
+        questions: list[str] | None = None
+        if "question" in markets.columns:
+            question_map = dict(
+                zip(
+                    markets["condition_id"].to_list(),
+                    markets["question"].to_list(),
+                    strict=False,
+                )
+            )
+            cids = features["condition_id"].to_list()
+            questions = [question_map.get(cid, "") for cid in cids]
+        else:
+            cids = features["condition_id"].to_list()
+
         # Predict
-        cids = features["condition_id"].to_list()
-        preds = self._classifier.predict(features.drop("total_volume"))
+        feat_cols = features.drop("total_volume")
+        preds = self._classifier.predict(feat_cols, questions=questions)
 
         self._buckets = dict(zip(cids, preds, strict=True))
 
         # Probabilities
-        proba_df = self._classifier.predict_proba(features.drop("total_volume"))
+        proba_df = self._classifier.predict_proba(feat_cols, questions=questions)
         self._proba = {}
         for row in proba_df.iter_rows(named=True):
             cid = row["condition_id"]
