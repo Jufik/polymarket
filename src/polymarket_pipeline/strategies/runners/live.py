@@ -82,6 +82,7 @@ class LiveRunner:
         self._drops_dedup: int = 0
         self._drops_stale: int = 0
         self._last_trade_times: dict[str, float] = {}
+        self._refresh_event = asyncio.Event()
 
     async def initialize(self) -> None:
         """Run provider compute() at startup."""
@@ -187,6 +188,10 @@ class LiveRunner:
         )
         self.ctx.set_orderbook(condition_id, ob)
 
+    def request_refresh(self) -> None:
+        """Signal the refresh loop to run immediately (non-blocking)."""
+        self._refresh_event.set()
+
     async def _timer_loop(self) -> None:
         """Periodic timer callbacks for strategies."""
         while True:
@@ -220,9 +225,16 @@ class LiveRunner:
                         self._last_trade_times[intent.strategy] = fill.filled_at
 
     async def _refresh_loop(self) -> None:
-        """Periodic provider refresh (expensive recomputation)."""
+        """Periodic provider refresh, with support for on-demand triggers."""
         while True:
-            await asyncio.sleep(self.refresh_interval_s)
+            # Wait for either the timer or an explicit refresh request
+            try:
+                async with asyncio.timeout(self.refresh_interval_s):
+                    await self._refresh_event.wait()
+            except TimeoutError:
+                pass  # timer expired — normal periodic refresh
+            self._refresh_event.clear()
+
             for provider in self.providers:
                 logger.info("provider.refresh_start", provider=provider.name)
                 await provider.refresh(self.backend)
