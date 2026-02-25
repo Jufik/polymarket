@@ -140,6 +140,45 @@ class ClickHouseBackend:
             GROUP BY a.trader, a.condition_id
         """
 
+    @staticmethod
+    def consistency_pnl_query(traders: list[str] | None = None) -> str:
+        """Build SQL for trader-market PnL with YES-side breakdown.
+
+        Returns columns compatible with ``filter_consistent_traders()``:
+        trader, condition_id, market_pnl, first_trade, net_yes_tokens,
+        wavg_yes_entry_price.
+        """
+        where = ""
+        if traders:
+            ids = ", ".join(f"'{t}'" for t in traders)
+            where = f"WHERE a.trader IN ({ids})"
+        return f"""
+            SELECT
+                a.trader,
+                a.condition_id,
+                sum(a.net_tokens * if(mr.token_won, 1.0, 0.0)
+                    + a.net_usd - a.total_fees) AS market_pnl,
+                min(a.first_trade) AS first_trade,
+                sum(if(tm.token_index = 0, a.net_tokens, 0)) AS net_yes_tokens,
+                sum(if(tm.token_index = 0, a.price_x_vol, a.volume - a.price_x_vol))
+                    / nullIf(sum(a.volume), 0) AS wavg_yes_entry_price
+            FROM (SELECT * FROM trader_trade_agg FINAL) AS a
+            INNER JOIN markets_resolved AS mr
+                ON a.condition_id = mr.condition_id AND a.asset_id = mr.asset_id
+            INNER JOIN token_market_map AS tm
+                ON a.asset_id = tm.asset_id
+            {where}
+            GROUP BY a.trader, a.condition_id
+        """
+
+    @staticmethod
+    def resolved_markets_query() -> str:
+        """Build SQL for resolved markets (condition_id + resolved_at)."""
+        return """
+            SELECT DISTINCT condition_id, resolved_at
+            FROM markets_resolved
+        """
+
     async def query_mvf(self, traders: list[str] | None = None) -> pl.DataFrame:
         """Query maker volume fractions from derived views."""
         return await self._execute(self.mvf_query(traders=traders))
@@ -153,6 +192,16 @@ class ClickHouseBackend:
         return await self._execute(
             self.trader_pnl_query(traders=traders, condition_ids=condition_ids)
         )
+
+    async def query_consistency_pnl(
+        self, traders: list[str] | None = None
+    ) -> pl.DataFrame:
+        """Query trader-market PnL with YES-side breakdown for consistency filter."""
+        return await self._execute(self.consistency_pnl_query(traders=traders))
+
+    async def query_resolved_markets(self) -> pl.DataFrame:
+        """Query resolved markets (condition_id + resolved_at)."""
+        return await self._execute(self.resolved_markets_query())
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
