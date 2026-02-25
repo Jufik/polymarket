@@ -16,26 +16,35 @@ logger = structlog.get_logger(__name__)
 class GradedPoolProvider:
     """Computes and maintains the graded trader pool for proportional copy.
 
-    A trader qualifies if they have traded in at least ``min_markets``
-    distinct markets. In production, this provider would additionally
-    filter by consistency months, MVF, and longshot_yes_fraction — but
-    those metrics require the derived ``trader_market_pnl`` table.
+    Applies three filters (all optional, backward-compatible):
+    1. min_markets — minimum distinct markets traded
+    2. min_longshot_yes_frac — minimum fraction of YES buys at price < 0.50
+    3. max_no_fraction — maximum fraction of SELL-side (NO) positions
 
-    For the initial implementation, the pool is seeded from the
-    ``pool_traders`` config (pre-computed offline) and this provider
-    validates they remain active. Future versions will compute grades
-    from the ClickHouse backend directly.
+    From insight #14: longshot_yes_fraction > 0.15 is the single strongest
+    predictor of holdout copy profitability (Spearman r=+0.578).
 
     Parameters
     ----------
     min_markets:
         Minimum distinct markets a trader must have traded.
+    min_longshot_yes_frac:
+        Minimum fraction of YES buys at price < 0.50.
+    max_no_fraction:
+        Maximum fraction of SELL-side (NO) positions.
     """
 
     name: str = "pool_traders"
 
-    def __init__(self, min_markets: int = 50) -> None:
+    def __init__(
+        self,
+        min_markets: int = 50,
+        min_longshot_yes_frac: float = 0.0,
+        max_no_fraction: float = 1.0,
+    ) -> None:
         self._min_markets = min_markets
+        self._min_longshot_yes_frac = min_longshot_yes_frac
+        self._max_no_fraction = max_no_fraction
         self._pool: frozenset[str] = frozenset()
 
     async def compute(self, backend: FeatureBackend) -> None:
@@ -48,16 +57,48 @@ class GradedPoolProvider:
 
         import polars as pl
 
-        trader_counts = (
-            trades.lazy()
-            .group_by("maker")
-            .agg(pl.col("condition_id").n_unique().alias("n_markets"))
-            .filter(pl.col("n_markets") >= self._min_markets)
-            .collect()
+        lf = trades.lazy()
+
+        # Per-trader aggregates
+        trader_stats = (
+            lf.group_by("maker")
+            .agg(
+                pl.col("condition_id").n_unique().alias("n_markets"),
+                # Longshot YES: BUY side and price < 0.50
+                (
+                    (pl.col("side") == "BUY") & (pl.col("price").cast(pl.Float64) < 0.50)
+                ).sum().alias("n_longshot_yes"),
+                # NO fraction: SELL side count
+                (pl.col("side") == "SELL").sum().alias("n_no"),
+                pl.len().alias("n_total"),
+            )
+            .with_columns(
+                (pl.col("n_longshot_yes") / pl.col("n_total")).alias("longshot_yes_frac"),
+                (pl.col("n_no") / pl.col("n_total")).alias("no_frac"),
+            )
         )
 
-        self._pool = frozenset(trader_counts["maker"].to_list())
-        logger.info("pool_traders.compute", count=len(self._pool))
+        # Apply filters
+        filtered = trader_stats.filter(pl.col("n_markets") >= self._min_markets)
+
+        if self._min_longshot_yes_frac > 0:
+            filtered = filtered.filter(
+                pl.col("longshot_yes_frac") >= self._min_longshot_yes_frac
+            )
+
+        if self._max_no_fraction < 1.0:
+            filtered = filtered.filter(
+                pl.col("no_frac") <= self._max_no_fraction
+            )
+
+        result = filtered.collect()
+        self._pool = frozenset(result["maker"].to_list())
+        logger.info(
+            "pool_traders.compute",
+            count=len(self._pool),
+            min_longshot_yes_frac=self._min_longshot_yes_frac,
+            max_no_fraction=self._max_no_fraction,
+        )
 
     async def on_trade(self, trade: NormalizedTrade) -> None:
         """No-op — pool is refreshed periodically."""

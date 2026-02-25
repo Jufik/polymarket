@@ -236,6 +236,66 @@ async def test_will_no_fires_once_per_market() -> None:
 
 
 @pytest.mark.asyncio
+async def test_will_no_dual_sided_emits_two_intents() -> None:
+    """With dual_sided=True, should emit both BUY NO and SELL YES."""
+    cfg = WillNoConfig(
+        yes_price_min=0.15,
+        yes_price_max=0.40,
+        dual_sided=True,
+        base_bet_usd=50.0,
+    )
+    strategy = WillNoStrategy(config=cfg)
+
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+
+    assert result is not None
+    assert len(result) == 2
+
+    outcomes = {(r.side, r.outcome) for r in result}
+    assert ("BUY", "NO") in outcomes
+    assert ("SELL", "YES") in outcomes
+
+    # Each side gets half the bet size
+    for intent in result:
+        assert intent.size_usd == 25.0
+
+
+@pytest.mark.asyncio
+async def test_will_no_single_sided_default() -> None:
+    """Default (dual_sided=False) should emit only BUY NO as before."""
+    cfg = WillNoConfig(yes_price_min=0.15, yes_price_max=0.40)
+    strategy = WillNoStrategy(config=cfg)
+
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will Y happen?",
+            active=True,
+            yes_price=0.30,
+            category="Politics",
+        ),
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.30)
+    result = await strategy.on_trade(trade, ctx)
+
+    assert result is not None
+    assert len(result) == 1
+    assert result[0].side == "BUY"
+    assert result[0].outcome == "NO"
+    assert result[0].size_usd == 50.0
+
+
+@pytest.mark.asyncio
 async def test_will_no_on_market_update_returns_none() -> None:
     cfg = WillNoConfig()
     strategy = WillNoStrategy(config=cfg)

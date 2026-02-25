@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -44,11 +45,14 @@ class ExecutionGateway:
         *,
         delay_s: float = 0.0,
         quality_state: ReadinessState | None = None,
+        strategy_budgets: dict[str, float] | None = None,
     ) -> None:
         self.executor = executor
         self.log_path = log_path
         self.delay_s = delay_s
         self._quality_state = quality_state
+        self._strategy_budgets = dict(strategy_budgets) if strategy_budgets else {}
+        self._strategy_spent: dict[str, float] = {}
 
     async def submit(self, intent: TradeIntent) -> Fill:
         """Log *intent* (if configured) and delegate to the executor.
@@ -81,6 +85,33 @@ class ExecutionGateway:
                     error=f"pipeline state: {state}",
                 )
 
+        # Budget gate
+        if self._strategy_budgets:
+            budget = self._strategy_budgets.get(intent.strategy)
+            if budget is not None:
+                spent = self._strategy_spent.get(intent.strategy, 0.0)
+                if spent + intent.size_usd > budget:
+                    logger.warning(
+                        "gateway.budget_exceeded",
+                        strategy=intent.strategy,
+                        spent=spent,
+                        requested=intent.size_usd,
+                        budget=budget,
+                    )
+                    return FillType(
+                        intent_id=f"budget-{intent.strategy}",
+                        strategy=intent.strategy,
+                        condition_id=intent.condition_id,
+                        side=intent.side,
+                        outcome=intent.outcome,
+                        filled_price=0.0,
+                        filled_size_usd=0.0,
+                        fee_usd=0.0,
+                        status=FillStatus.REJECTED,
+                        filled_at=time.time(),
+                        error=f"Budget exhausted: {spent:.2f}/{budget:.2f}",
+                    )
+
         if self.log_path is not None:
             self._log_intent(intent)
 
@@ -88,6 +119,12 @@ class ExecutionGateway:
             await asyncio.sleep(self.delay_s)
 
         fill: Fill = await self.executor.execute(intent)
+
+        # Track spending on successful fills
+        if fill.status == FillStatus.FILLED:
+            self._strategy_spent[intent.strategy] = (
+                self._strategy_spent.get(intent.strategy, 0.0) + fill.filled_size_usd
+            )
 
         logger.info(
             "gateway_submit",

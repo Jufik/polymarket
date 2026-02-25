@@ -76,6 +76,33 @@ class WillNoStrategy:
 
         self._signaled.add(cid)
 
+        if self._cfg.dual_sided:
+            half = self._cfg.base_bet_usd / 2
+            return [
+                TradeIntent(
+                    strategy=self.name,
+                    condition_id=cid,
+                    side="BUY",
+                    outcome="NO",
+                    size_usd=half,
+                    urgency="patient",
+                    max_price=None,
+                    reason=f"will_no: {market.question}",
+                    signal_time=trade.published_at,
+                ),
+                TradeIntent(
+                    strategy=self.name,
+                    condition_id=cid,
+                    side="SELL",
+                    outcome="YES",
+                    size_usd=half,
+                    urgency="patient",
+                    max_price=None,
+                    reason=f"will_no: {market.question}",
+                    signal_time=trade.published_at,
+                ),
+            ]
+
         intent = TradeIntent(
             strategy=self.name,
             condition_id=cid,
