@@ -11,6 +11,7 @@ import structlog
 from faststream import ContextRepo, FastStream
 from faststream.kafka import KafkaBroker
 
+from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.orchestrator import (
     check_and_recover,
@@ -25,6 +26,14 @@ from polymarket_pipeline.live.quality.state import PipelineState
 from polymarket_pipeline.live.settings import Settings
 
 log = structlog.get_logger()
+
+
+class _NullRunner:
+    """Stub runner for when no strategy runner is attached."""
+
+    def request_refresh(self) -> None:
+        log.debug("market_events.no_runner_attached")
+
 
 # Settings loaded at import time — overridable via PM_ env vars
 settings = Settings()
@@ -69,6 +78,7 @@ asgi_app = app.as_asgi(
 # Shared state
 _quality_checker: QualityChecker | None = None
 _ingestor_tasks: list[asyncio.Task[Any]] = []
+_market_events_consumer: MarketEventsConsumer | None = None
 
 
 @app.on_startup
@@ -99,6 +109,13 @@ async def on_startup(context: ContextRepo) -> None:
 
     _quality_checker = QualityChecker(settings=settings, clickhouse=ch, pg_pool=pg_pool)
     context.set_global("quality_checker", _quality_checker)
+
+    global _market_events_consumer
+    _market_events_consumer = MarketEventsConsumer(
+        pg_pool=pg_pool,
+        runner=_NullRunner(),
+        debounce_s=5.0,
+    )
 
     # Periodic quality check (detects silent ingestor failures)
     async def _protect() -> None:
@@ -188,3 +205,10 @@ async def handle_status(msg: str) -> None:
             key=b"quality",
             source="quality_gate",
         )
+
+
+@broker.subscriber(settings.clob_markets_events_topic, group_id="market-events")
+async def handle_market_event(msg: str) -> None:
+    """Process market resolution and new market events."""
+    if _market_events_consumer is not None:
+        await _market_events_consumer.handle(msg)
