@@ -161,6 +161,7 @@ class ProportionalCopyStrategy:
             .otherwise(pl.lit("NO"))
             .alias("outcome"),
             pl.lit(self._cfg.capital_per_trader_usd).alias("size_usd"),
+            pl.col("price").alias("entry_price"),
         )
 
         return result.collect()

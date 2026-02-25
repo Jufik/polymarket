@@ -299,6 +299,7 @@ class TestProportionalCopyVectorized:
                 "maker": ["0xA", "0xB", "0xC"],
                 "condition_id": ["0xm1", "0xm1", "0xm2"],
                 "side": ["BUY", "BUY", "BUY"],
+                "price": [0.25, 0.30, 0.20],
                 "published_at": [1.0, 2.0, 3.0],
             }
         )
@@ -324,6 +325,7 @@ class TestProportionalCopyVectorized:
                 "maker": ["0xA", "0xB", "0xA"],
                 "condition_id": ["0xm1", "0xm1", "0xm2"],
                 "side": ["BUY", "SELL", "BUY"],  # m1 is conflicted
+                "price": [0.25, 0.75, 0.20],
                 "published_at": [1.0, 2.0, 3.0],
             }
         )
