@@ -54,6 +54,26 @@ class WillNoStrategy:
         if not self._is_eligible(market, trade):
             return None
 
+        # Market size filter — skip markets above max_bucket
+        if self._cfg.max_bucket is not None:
+            buckets = await ctx.get_features("market_size_bucket")
+            if buckets is not None:
+                bucket = buckets.get(cid)
+                if bucket is not None:
+                    allowed = ("thin", "med", "thick", "heavy")
+                    max_idx = (
+                        allowed.index(self._cfg.max_bucket)
+                        if self._cfg.max_bucket in allowed
+                        else len(allowed) - 1
+                    )
+                    cur_idx = (
+                        allowed.index(bucket)
+                        if bucket in allowed
+                        else len(allowed) - 1
+                    )
+                    if cur_idx > max_idx:
+                        return None
+
         self._signaled.add(cid)
 
         intent = TradeIntent(
@@ -118,6 +138,7 @@ class WillNoStrategy:
             pl.lit("BUY").alias("side"),
             pl.lit("NO").alias("outcome"),
             pl.lit(self._cfg.base_bet_usd).alias("size_usd"),
+            pl.col("price").alias("entry_price"),
         )
 
         return result.collect()

@@ -401,3 +401,62 @@ async def test_will_market_provider_on_trade_is_noop() -> None:
     provider = WillMarketProvider()
     trade = _make_trade()
     await provider.on_trade(trade)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# Market size bucket filter tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_will_no_filters_by_market_size_bucket() -> None:
+    """WillNo should skip markets classified as 'heavy' when max_bucket is set."""
+    cfg = WillNoConfig(
+        yes_price_min=0.15,
+        yes_price_max=0.40,
+        max_bucket="med",  # only trade thin and med
+    )
+    strategy = WillNoStrategy(config=cfg)
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xmkt1",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+        features={
+            "market_size_bucket": {"0xmkt1": "heavy"},
+        },
+    )
+
+    trade = _make_trade(condition_id="0xmkt1", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is None  # heavy market, should be skipped
+
+
+@pytest.mark.asyncio
+async def test_will_no_allows_market_within_bucket() -> None:
+    """WillNo should allow markets at or below max_bucket."""
+    cfg = WillNoConfig(
+        yes_price_min=0.15,
+        yes_price_max=0.40,
+        max_bucket="thick",
+    )
+    strategy = WillNoStrategy(config=cfg)
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xmkt2",
+            question="Will Y happen?",
+            active=True,
+            yes_price=0.30,
+            category="Politics",
+        ),
+        features={
+            "market_size_bucket": {"0xmkt2": "med"},
+        },
+    )
+
+    trade = _make_trade(condition_id="0xmkt2", price=0.30)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is not None  # med <= thick, should fire
