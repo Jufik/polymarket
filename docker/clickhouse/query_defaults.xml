@@ -21,6 +21,9 @@
 
             <!-- Prefer PREWHERE for WHERE pushdown into storage layer -->
             <optimize_move_to_prewhere>1</optimize_move_to_prewhere>
+
+            <!-- Enable MaterializedPostgreSQL CDC replication -->
+            <allow_experimental_database_materialized_postgresql>1</allow_experimental_database_materialized_postgresql>
         </default>
     </profiles>
 </clickhouse>
