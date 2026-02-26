@@ -251,6 +251,28 @@ class LiveRunner:
         while True:
             await asyncio.sleep(self.timer_interval_s)
             now = time.time()
+
+            # Periodic stats
+            positions = self.ctx.get_all_positions()
+            open_positions = {
+                cid: p
+                for cid, p in positions.items()
+                if p.qty_yes > 0 or p.qty_no > 0
+            }
+            total_cost = sum(p.cost_basis for p in open_positions.values())
+            total_realized = sum(p.realized_pnl for p in positions.values())
+            budget_spent = dict(self.gateway._strategy_spent)
+            logger.warning(
+                "paper_stats",
+                trades_processed=self._trades_processed,
+                intents_submitted=self._intents_submitted,
+                open_positions=len(open_positions),
+                total_cost_basis=round(total_cost, 2),
+                total_realized_pnl=round(total_realized, 2),
+                budget_spent={k: round(v, 2) for k, v in budget_spent.items()},
+                drops_dedup=self._drops_dedup,
+                drops_stale=self._drops_stale,
+            )
             for strategy, config in self.strategies:
                 intents = await strategy.on_timer(now, self.ctx)
                 if intents:

@@ -4,6 +4,9 @@ __pycache__/
 *.pyo
 .venv/
 
+# Logs
+logs/
+
 # Data
 order_filled/
 models/*.joblib

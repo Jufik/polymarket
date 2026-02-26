@@ -1,0 +1,28 @@
+# S1: Proportional Copy — Copy graded longshot-YES specialists
+
+[strategy.proportional_copy]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["pool_traders"]
+
+[strategy.proportional_copy.params]
+capital_per_trader_usd = 50
+max_position_pct = 0.05
+contradiction_filter = true
+sizing = "proportional"
+max_sizing_mult = 3.0
+max_entry_price = 0.50
+price_slippage = 0.05
+
+[provider.pool_traders]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.pool_traders.params]
+min_longshot_yes_frac = 0.15
+max_no_fraction = 0.60
+min_markets = 50
