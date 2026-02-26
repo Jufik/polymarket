@@ -21,6 +21,8 @@ class PolarsBackend:
         DataFrame of market metadata.
     """
 
+    supports_sql: bool = False
+
     __slots__ = ("_markets", "_trades")
 
     def __init__(self, trades: pl.DataFrame, markets: pl.DataFrame) -> None:
