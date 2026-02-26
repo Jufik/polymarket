@@ -195,6 +195,12 @@ def _build_runner(
                 )
 
                 provider = load_graded_pool_provider(**params)
+            elif pname == "market_size":
+                from polymarket_pipeline.strategies_impl.market_size.config import (
+                    MarketSizeConfig,
+                )
+
+                provider = _PROVIDER_REGISTRY[pname](config=MarketSizeConfig(**params))
             else:
                 provider = _PROVIDER_REGISTRY[pname](**params)
 
