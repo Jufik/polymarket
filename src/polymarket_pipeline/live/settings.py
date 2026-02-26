@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     # Redpanda
     redpanda_url: str = "localhost:19092"
 
-    # Alchemy (required, no default — contains API key)
-    alchemy_ws_url: str
+    # Polygon RPC WebSocket (eth_subscribe logs for OrderFilled events)
+    # Free public endpoints — override via PM_ALCHEMY_WS_URL if you have a paid one
+    alchemy_ws_url: str = "wss://polygon-bor-rpc.publicnode.com"
 
     # Goldsky Subgraph (recovery)
     subgraph_url: str = (
