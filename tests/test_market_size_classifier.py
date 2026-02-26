@@ -256,19 +256,9 @@ async def test_provider_computes_buckets() -> None:
         provider_cfg = MarketSizeConfig(model_path=model_path)
         provider = MarketSizeProvider(config=provider_cfg)
 
-        # Mock backend that returns our feature data
+        # Mock backend using ClickHouse path
         backend = AsyncMock()
-        backend.query_trades = AsyncMock(
-            return_value=pl.DataFrame(
-                {
-                    "condition_id": ["0xA"] * 10,
-                    "maker": [f"0xm{i}" for i in range(10)],
-                    "price": [0.3] * 10,
-                    "size": [10.0] * 10,
-                    "timestamp": [1700000000 + i * 100 for i in range(10)],
-                }
-            )
-        )
+        backend.supports_sql = True
         backend.query_markets = AsyncMock(
             return_value=pl.DataFrame(
                 {
@@ -280,16 +270,37 @@ async def test_provider_computes_buckets() -> None:
         )
         backend.query_custom = AsyncMock(
             side_effect=[
-                # events query
+                # 1. Trade aggregation query
                 pl.DataFrame(
                     {
-                        "id": ["evt1"],
+                        "condition_id": ["0xA"],
+                        "trades_window": [10],
+                        "vol_window": [30.0],
+                        "traders_window": [5],
+                        "trades_early": [3],
+                        "vol_early": [9.0],
+                        "traders_early": [2],
+                        "trades_mid": [6],
+                        "vol_mid": [18.0],
+                        "traders_mid": [3],
+                        "price_std": [0.05],
+                        "price_range": [0.2],
+                        "avg_trade_size": [10.0],
+                        "max_trade_size": [20.0],
+                        "total_volume": [30.0],
+                        "first_ts": [1700000000],
+                    }
+                ),
+                # 2. Events query
+                pl.DataFrame(
+                    {
+                        "event_id": ["evt1"],
                         "end_date": [1700200000.0],
                         "volume": [50000.0],
                         "liquidity": [25000.0],
                     }
                 ),
-                # tags query
+                # 3. Tags query
                 pl.DataFrame(
                     {
                         "event_id": ["evt1"],

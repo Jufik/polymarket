@@ -229,7 +229,40 @@ class GradedPoolProvider:
         )
 
     async def _compute_legacy(self, backend: FeatureBackend) -> None:
-        """Simple market-count + optional grading from trade stats."""
+        """Simple market-count + optional grading from trade stats.
+
+        When a ClickHouse backend is detected (``query_custom`` method),
+        the aggregation is pushed to the server to avoid loading 438M+
+        raw rows into Python memory.
+        """
+        if getattr(backend, "supports_sql", False) is True:
+            await self._compute_legacy_ch(backend)
+        else:
+            await self._compute_legacy_polars(backend)
+
+    async def _compute_legacy_ch(self, backend: Any) -> None:
+        """Push legacy pool aggregation to ClickHouse."""
+        result = await backend.query_custom("""
+            SELECT
+                maker,
+                uniq(condition_id) AS n_markets,
+                countIf(side = 'BUY' AND toFloat64(price) < 0.50) AS n_longshot_yes,
+                countIf(side = 'SELL') AS n_no,
+                count() AS n_total
+            FROM trades_raw FINAL
+            WHERE maker IS NOT NULL AND maker != ''
+            GROUP BY maker
+        """)
+
+        if result.is_empty():
+            self._pool = frozenset()
+            logger.info("pool_traders.compute", count=0)
+            return
+
+        self._apply_legacy_filters(result)
+
+    async def _compute_legacy_polars(self, backend: FeatureBackend) -> None:
+        """Fallback: aggregate in Polars (offline/backtest only)."""
         trades = await backend.query_trades()
 
         if trades.is_empty():
@@ -239,7 +272,7 @@ class GradedPoolProvider:
 
         lf = trades.lazy()
 
-        trader_stats = (
+        result = (
             lf.group_by("maker")
             .agg(
                 pl.col("condition_id").n_unique().alias("n_markets"),
@@ -252,13 +285,25 @@ class GradedPoolProvider:
                 (pl.col("side") == "SELL").sum().alias("n_no"),
                 pl.len().alias("n_total"),
             )
-            .with_columns(
-                (pl.col("n_longshot_yes") / pl.col("n_total")).alias("longshot_yes_frac"),
-                (pl.col("n_no") / pl.col("n_total")).alias("no_frac"),
-            )
+            .collect()
         )
 
-        filtered = trader_stats.filter(pl.col("n_markets") >= self._min_markets)
+        self._apply_legacy_filters(result)
+
+    def _apply_legacy_filters(self, stats: pl.DataFrame) -> None:
+        """Apply min_markets, longshot_yes_frac, and no_frac filters."""
+        for col in ("n_markets", "n_longshot_yes", "n_no", "n_total"):
+            if col in stats.columns:
+                stats = stats.with_columns(pl.col(col).cast(pl.Float64))
+
+        stats = stats.with_columns(
+            (pl.col("n_longshot_yes") / pl.col("n_total").clip(lower_bound=1)).alias(
+                "longshot_yes_frac"
+            ),
+            (pl.col("n_no") / pl.col("n_total").clip(lower_bound=1)).alias("no_frac"),
+        )
+
+        filtered = stats.filter(pl.col("n_markets") >= self._min_markets)
 
         if self._min_longshot_yes_frac > 0:
             filtered = filtered.filter(
@@ -268,8 +313,7 @@ class GradedPoolProvider:
         if self._max_no_fraction < 1.0:
             filtered = filtered.filter(pl.col("no_frac") <= self._max_no_fraction)
 
-        result = filtered.collect()
-        self._pool = frozenset(result["maker"].to_list())
+        self._pool = frozenset(filtered["maker"].to_list())
         logger.info(
             "pool_traders.legacy_mode",
             count=len(self._pool),

@@ -27,6 +27,8 @@ class ClickHouseBackend:
         ClickHouse database name.
     """
 
+    supports_sql: bool = True
+
     def __init__(self, host: str, port: int, database: str) -> None:
         self._host = host
         self._port = port
