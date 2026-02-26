@@ -14,7 +14,7 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
       CLICKHOUSE_PASSWORD: ""
-    mem_limit: 24g
+    mem_limit: 96g
     ulimits:
       nofile:
         soft: 262144
@@ -156,6 +156,19 @@ services:
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3030:3000"
+    volumes:
+      - ./docker-drives/metabase:/metabase-data
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+      MB_JETTY_PORT: 3000
+    depends_on:
+      clickhouse:
+        condition: service_healthy
 
   polymarket-ui:
     build: ./ui
