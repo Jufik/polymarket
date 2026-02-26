@@ -1,577 +1,529 @@
 import marimo
 
 __generated_with = "0.20.2"
-app = marimo.App(width="full", app_title="S1 Pool Explorer — E2E from Raw Trades")
+app = marimo.App(
+    width="full",
+    app_title="S1 Pool Explorer",
+)
 
 
-# ── Imports ──────────────────────────────────────────────────────────
 @app.cell
 def imports():
     import marimo as mo
     import polars as pl
     import plotly.express as px
     import plotly.graph_objects as go
+    import numpy as np
     import clickhouse_connect
     import time as time_mod
-    from datetime import datetime
+    from datetime import datetime, date
 
-    return clickhouse_connect, datetime, go, mo, pl, px, time_mod
+    return clickhouse_connect, date, datetime, go, mo, np, pl, px, time_mod
 
 
-# ── CH Connection ────────────────────────────────────────────────────
 @app.cell
-def connect(clickhouse_connect, mo):
+def connect(clickhouse_connect, mo, time_mod):
     CH_HOST = "192.168.0.148"
     ch = clickhouse_connect.get_client(
         host=CH_HOST, port=18123, database="polymarket"
     )
-    ver = ch.query("SELECT version()").first_row[0]
-    mo.md(f"Connected to ClickHouse **{ver}** at `{CH_HOST}`")
-    return (ch,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  STEP 0 — Source data overview
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def step0_raw(ch, mo):
-    _r = ch.query("""
-        SELECT
-            count()                AS trades,
-            uniq(condition_id)     AS markets,
-            uniq(maker)            AS makers,
-            min(timestamp)         AS t_min,
-            max(timestamp)         AS t_max
-        FROM trades_raw
-    """).first_row
-    mo.md(f"""
-## Step 0 — Raw Trade Data
-
-| | |
-|---|---|
-| **Trades** | {_r[0]:,} |
-| **Markets** | {_r[1]:,} |
-| **Makers** | {_r[2]:,} |
-| **Period** | `{_r[3]}` → `{_r[4]}` |
-""")
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  STEP 1 — Resolution ground truth (pure SQL from PG via CH engine)
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def step1_resolution(ch, mo):
-    """
-    Resolution = which outcome won.
-
-    - markets table  → resolution_value = 1  (resolved only)
-    - token_market_map → outcome='YES' AND winner=true  ⟹  YES won
-    - LEFT JOIN gives yes_won per condition_id
-
-    Both tables are PostgreSQL engine tables reading live from PG.
-    """
-
-    RESOLUTION_SQL = """
-    SELECT
-        m.condition_id,
-        m.resolved_at,
-        m.winner_outcome,
-        -- YES won if the YES-side token is the winner
-        coalesce(t.yes_won, false)  AS yes_won
-    FROM markets m
-    LEFT JOIN (
-        SELECT condition_id, true AS yes_won
-        FROM token_market_map
-        WHERE outcome = 'YES' AND winner = true
-    ) t ON m.condition_id = t.condition_id
-    WHERE m.resolution_value = 1
-    """
-
-    _stats = ch.query(f"""
-        SELECT
-            count()            AS resolved,
-            countIf(yes_won)   AS n_yes,
-            count() - countIf(yes_won) AS n_no
-        FROM ({RESOLUTION_SQL})
-    """).first_row
-
-    mo.md(f"""
-## Step 1 — Resolution Ground Truth
-
-```sql
-{RESOLUTION_SQL.strip()}
-```
-
-| | |
-|---|---|
-| Resolved markets | **{_stats[0]:,}** |
-| YES won | {_stats[1]:,} ({_stats[1]/_stats[0]:.1%}) |
-| NO won | {_stats[2]:,} ({_stats[2]/_stats[0]:.1%}) |
-""")
-    return (RESOLUTION_SQL,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  STEP 2 — Aggregate 385M trades → trader × market positions
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def step2_agg_sql(mo):
-    """
-    The core aggregation logic.
-
-    For each trade:
-      - YES-side price = price if YES token, 1-price if NO token
-      - Maker BUY  → +yes_tokens;  Maker SELL → -yes_tokens  (if YES token)
-      - Taker is opposite side of maker
-      - Volume-weighted entry = Σ(yes_price × amount) / Σ(amount)
-
-    We UNION maker + taker rows, then GROUP BY (trader, condition_id).
-    """
-
-    AGG_SQL = """
-CREATE TABLE IF NOT EXISTS _tmp_s1_positions
-ENGINE = MergeTree()
-ORDER BY (trader, condition_id)
-AS
-WITH
--- ① Map each asset to its market + YES/NO side
-token_info AS (
-    SELECT asset_id, condition_id,
-           outcome = 'YES' AS is_yes
-    FROM token_market_map
-),
-
--- ② Only resolved markets
-resolved_cids AS (
-    SELECT condition_id
-    FROM markets
-    WHERE resolution_value = 1
-),
-
--- ③ Enrich every trade with YES-side price
-enriched AS (
-    SELECT
-        t.condition_id, t.side, t.price, t.size,
-        t.amount_usd, t.fee_usd,
-        t.maker, t.taker, t.timestamp,
-        ti.is_yes,
-        if(ti.is_yes, t.price, 1.0 - t.price)  AS yes_price
-    FROM trades_raw t
-    JOIN token_info ti ON t.asset_id = ti.asset_id
-    WHERE t.condition_id IN (SELECT condition_id FROM resolved_cids)
-),
-
--- ④ Maker positions
-maker AS (
-    SELECT
-        assumeNotNull(maker)               AS trader,
-        condition_id, timestamp, amount_usd, fee_usd,
-        yes_price * amount_usd             AS yes_px_vol,
-        -- YES tokens gained by maker
-        if(is_yes,
-           if(side = 'BUY', size, -size),
-           0)                              AS yes_tok
-    FROM enriched
-    WHERE maker IS NOT NULL AND maker != ''
-),
-
--- ⑤ Taker positions (opposite side)
-taker AS (
-    SELECT
-        assumeNotNull(taker)               AS trader,
-        condition_id, timestamp, amount_usd, fee_usd,
-        yes_price * amount_usd             AS yes_px_vol,
-        if(is_yes,
-           if(side = 'BUY', -size, size),
-           0)                              AS yes_tok
-    FROM enriched
-    WHERE taker IS NOT NULL AND taker != ''
-),
-
-all_pos AS (
-    SELECT * FROM maker
-    UNION ALL
-    SELECT * FROM taker
-)
-
--- ⑥ Aggregate to one row per (trader, market)
-SELECT
-    trader,
-    condition_id,
-    sum(yes_tok)                                      AS net_yes_tokens,
-    sum(yes_px_vol) / nullIf(sum(amount_usd), 0)     AS wavg_yes_entry_price,
-    sum(amount_usd)                                   AS market_volume,
-    toUInt32(count())                                 AS trade_count,
-    min(timestamp)                                    AS first_trade,
-    max(timestamp)                                    AS last_trade
-FROM all_pos
-GROUP BY trader, condition_id
-"""
-
-    mo.md(f"""
-## Step 2 — Aggregate Trades → Positions
-
-```sql
-{AGG_SQL.strip()}
-```
-""")
-    return (AGG_SQL,)
-
-
-@app.cell
-def step2_run(AGG_SQL, ch, mo, time_mod):
-    """Execute the aggregation (skips if table already populated)."""
-    _exists = False
-    _n = 0
+    # Check for pre-materialized enriched table (fast path)
+    use_enriched = False
     try:
-        _n = ch.query("SELECT count() FROM _tmp_s1_positions").first_row[0]
-        _exists = _n > 0
+        _n = ch.query("SELECT count() FROM _tmp_s1_enriched").first_row[0]
+        if _n > 0:
+            use_enriched = True
     except Exception:
-        pass
+        _n = 0
 
-    if _exists:
-        _stats = ch.query("""
-            SELECT count(), uniq(trader), uniq(condition_id)
-            FROM _tmp_s1_positions
-        """).first_row
-        mo.md(
-            f"**Step 2** — `_tmp_s1_positions` cached: **{_stats[0]:,}** positions "
-            f"({_stats[1]:,} traders, {_stats[2]:,} markets). "
-            f"`DROP TABLE _tmp_s1_positions` to rebuild."
-        )
-    else:
-        _t0 = time_mod.time()
-        ch.command(AGG_SQL)
-        _elapsed = time_mod.time() - _t0
-        _stats = ch.query("""
-            SELECT count(), uniq(trader), uniq(condition_id)
-            FROM _tmp_s1_positions
-        """).first_row
-        mo.md(
-            f"**Step 2** — Built `_tmp_s1_positions`: **{_stats[0]:,}** positions "
-            f"({_stats[1]:,} traders, {_stats[2]:,} markets) in **{_elapsed:.0f}s**"
-        )
+    if not use_enriched:
+        # Fallback: check raw positions table
+        try:
+            _n = ch.query("SELECT count() FROM _tmp_s1_positions").first_row[0]
+            assert _n > 0
+        except Exception:
+            mo.md("**No data tables found.** Run `s1_build.py` first.")
+            mo.stop(True)
+
+    _src = "_tmp_s1_enriched" if use_enriched else "_tmp_s1_positions (JOIN)"
+    mo.md(f"**ClickHouse** connected — reading from `{_src}` ({_n:,} rows)")
+    return use_enriched, ch
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  STEP 3 — Pull enriched positions into Polars
+#  LOAD — Pull enriched positions into Polars (~10s, once)
 # ═══════════════════════════════════════════════════════════════════════
 @app.cell
-def step3_pull_sql(RESOLUTION_SQL, mo):
-    """
-    Join positions with resolution, compute:
-      - bet_yes:  net_yes_tokens > 0
-      - dir_entry: directional entry price (from maker's perspective)
-      - correct:  bet direction matched resolution outcome
-      - month:    YYYY-MM for time-series analysis
-
-    Only positions HELD at resolution (net_yes_tokens ≠ 0).
-    """
-
-    PULL_SQL = f"""
-    SELECT
-        p.trader,
-        p.condition_id,
-        CAST(p.net_yes_tokens > 0 AS Bool)            AS bet_yes,
-
-        if(p.net_yes_tokens > 0,
-           p.wavg_yes_entry_price,
-           1.0 - p.wavg_yes_entry_price)              AS dir_entry,
-
-        CAST(
-            (p.net_yes_tokens > 0 AND r.yes_won)
-            OR (p.net_yes_tokens <= 0 AND NOT r.yes_won)
-        AS Bool)                                       AS correct,
-
-        p.trade_count,
-        p.market_volume,
-        toDateTime64(r.resolved_at, 3, 'UTC')          AS resolved_at,
-        formatDateTime(r.resolved_at, '%Y-%m')          AS month
-
-    FROM _tmp_s1_positions p
-    JOIN (
-        {RESOLUTION_SQL}
-    ) r ON p.condition_id = r.condition_id
-    WHERE p.net_yes_tokens != 0
-    """
-
-    mo.md(f"""
-## Step 3 — Pull Enriched Positions
-
-```sql
-{PULL_SQL.strip()}
-```
-""")
-    return (PULL_SQL,)
-
-
-@app.cell
-def step3_pull(PULL_SQL, ch, mo, pl, time_mod):
-    """Pull all held-at-resolution positions into Polars."""
+def load_data(use_enriched, ch, mo, pl, time_mod):
     _t0 = time_mod.time()
-    _arrow = ch.query_arrow(PULL_SQL)
+
+    if use_enriched:
+        # Fast path: read pre-materialized table (no JOIN, only needed columns)
+        _arrow = ch.query_arrow("""
+        SELECT trader, position, dir_entry, correct,
+               market_volume, trade_count, resolved_at, month
+        FROM _tmp_s1_enriched
+        """)
+    else:
+        # Fallback: runtime JOIN (slow, ~10s+)
+        _arrow = ch.query_arrow("""
+        SELECT
+            p.trader,
+            CASE
+                WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN 'YES'
+                WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 'NO'
+                WHEN p.net_yes > 0.01 AND p.net_no > 0.01  THEN 'HEDGED'
+                ELSE 'CLOSED'
+            END AS position,
+            CASE
+                WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN p.wavg_yes_price
+                WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 1.0 - p.wavg_yes_price
+                WHEN p.net_yes >= p.net_no                  THEN p.wavg_yes_price
+                ELSE 1.0 - p.wavg_yes_price
+            END AS dir_entry,
+            CASE
+                WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN r.yes_won
+                WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN NOT r.yes_won
+                WHEN p.net_yes >= p.net_no                  THEN r.yes_won
+                ELSE NOT r.yes_won
+            END AS correct,
+            p.volume AS market_volume,
+            toUInt32(p.n_trades) AS trade_count,
+            r.resolved_at,
+            formatDateTime(r.resolved_at, '%Y-%m') AS month
+        FROM _tmp_s1_positions p
+        JOIN (
+            SELECT m.condition_id, m.resolved_at,
+                   coalesce(t.yes_won, false) AS yes_won
+            FROM markets m
+            LEFT JOIN (
+                SELECT condition_id, true AS yes_won
+                FROM token_market_map WHERE outcome = 'YES' AND winner = true
+            ) t ON m.condition_id = t.condition_id
+            WHERE m.resolution_value = 1
+        ) r ON p.condition_id = r.condition_id
+        WHERE NOT (p.net_yes <= 0.01 AND p.net_no <= 0.01)
+        """)
+
     df = pl.from_arrow(_arrow)
 
-    # Ensure resolved_at is a proper timezone-naive datetime
     if "resolved_at" in df.columns:
         _dtype = df.schema["resolved_at"]
         if isinstance(_dtype, pl.Datetime) and _dtype.time_zone:
-            df = df.with_columns(
-                pl.col("resolved_at").dt.replace_time_zone(None)
-            )
+            df = df.with_columns(pl.col("resolved_at").dt.replace_time_zone(None))
         elif _dtype in (pl.UInt32, pl.Int64, pl.UInt64):
-            # Arrow sometimes returns DateTime as epoch seconds
             df = df.with_columns(
-                pl.from_epoch(pl.col("resolved_at"), time_unit="s")
-                .alias("resolved_at")
+                pl.from_epoch(pl.col("resolved_at"), time_unit="s").alias("resolved_at")
             )
+    if df.schema.get("correct") not in (pl.Boolean,):
+        df = df.with_columns(pl.col("correct").cast(pl.Boolean))
 
     _elapsed = time_mod.time() - _t0
-    _n_traders = df["trader"].n_unique()
-    _n_markets = df["condition_id"].n_unique()
-    _hr = float(df["correct"].mean())
+    _pos = df["position"].value_counts().sort("position")
+    _min_d = df["resolved_at"].min()
+    _max_d = df["resolved_at"].max()
 
+    _src = "enriched" if use_enriched else "positions+JOIN"
     mo.md(f"""
-**Step 3** — Pulled **{df.height:,}** positions
-({_n_traders:,} traders, {_n_markets:,} markets) in **{_elapsed:.1f}s**
+    ## Data: {df.height:,} positions in {_elapsed:.1f}s ({_src})
+    {df['trader'].n_unique():,} traders
+    — resolved **{_min_d:%Y-%m-%d}** to **{_max_d:%Y-%m-%d}**
 
-Overall HR: **{_hr:.1%}**
-""")
+    | Position | Count | % | HR |
+    |---|---|---|---|
+    """ + "\n".join(
+        f"| {r['position']} | {r['count']:,} | "
+        f"{r['count']/df.height:.1%} | "
+        f"{float(df.filter(pl.col('position') == r['position'])['correct'].mean()):.1%} |"
+        for r in _pos.iter_rows(named=True)
+    ))
     return (df,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  INTERACTIVE CONTROLS
+#  CLASSIFICATION — Annotated charts with threshold cut lines
 # ═══════════════════════════════════════════════════════════════════════
 @app.cell
-def section_controls(mo):
-    mo.md("---\n## Pool Selection Controls")
+def classification_header(mo):
+    mo.md("""
+    ## Trader Classification
+    Drag sliders — cut lines on charts update live.
+    """)
+    return
 
 
 @app.cell
-def time_control(mo):
-    time_window = mo.ui.dropdown(
-        options={
-            "3 months (Oct–Dec 2025)": "3m",
-            "6 months (Jul–Dec 2025)": "6m",
-            "9 months (Apr–Dec 2025)": "9m",
-            "12 months (Jan–Dec 2025)": "12m",
-            "Full history": "all",
-        },
-        value="6 months (Jul–Dec 2025)",
-        label="Training window",
+def classification_controls(mo):
+    max_entry = mo.ui.slider(
+        start=0.70, stop=1.0, step=0.01, value=0.90,
+        label="Max entry price (safe-bet cutoff)",
     )
-    return (time_window,)
+    max_positions = mo.ui.slider(
+        start=100, stop=10000, step=100, value=5000,
+        label="Max positions (BOT cutoff)",
+    )
+    min_positions = mo.ui.slider(
+        start=1, stop=50, step=1, value=3,
+        label="Min positions (ONE_OFF cutoff)",
+    )
+    min_trades_per_pos = mo.ui.slider(
+        start=1, stop=20, step=1, value=1,
+        label="Min trades per position (noise filter)",
+    )
+    min_market_volume = mo.ui.slider(
+        start=0, stop=10000, step=100, value=0,
+        label="Min market volume USD (thin market cutoff)",
+    )
+    mo.vstack([max_entry, max_positions, min_positions, min_trades_per_pos, min_market_volume])
+    return max_entry, max_positions, min_market_volume, min_positions, min_trades_per_pos
 
 
 @app.cell
-def pool_controls(mo):
-    min_hr = mo.ui.slider(
-        start=0.40, stop=0.85, step=0.05, value=0.55,
-        label="Min hit rate",
+def classification_charts(df, go, max_entry, max_positions, min_positions, mo, np, pl):
+    """Annotated distribution charts with threshold cut lines."""
+    _directional = df.filter(pl.col("position").is_in(["YES", "NO"]))
+
+    _profiles = (
+        _directional.group_by("trader").agg(
+            pl.len().alias("total_positions"),
+        )
     )
-    min_markets = mo.ui.slider(
-        start=5, stop=100, step=5, value=30,
-        label="Min markets traded",
+
+    # ---- Chart 1: Positions per trader (log) with BOT + ONE_OFF lines ----
+    _tp = _profiles["total_positions"].to_numpy()
+    _bins = np.logspace(0, np.log10(max(_tp.max(), 1)), 80)
+    _c, _e = np.histogram(_tp, bins=_bins)
+    _mids = [(_e[i] + _e[i+1]) / 2 for i in range(len(_c))]
+
+    _n_bots = int((_tp > max_positions.value).sum())
+    _n_oneoff = int((_tp < min_positions.value).sum())
+
+    fig_trades = go.Figure()
+    fig_trades.add_trace(go.Bar(
+        x=_mids, y=_c.tolist(), marker_color="steelblue",
+        width=[_e[i+1] - _e[i] for i in range(len(_c))],
+        name="Traders",
+    ))
+    # BOT cutoff line
+    fig_trades.add_vline(
+        x=max_positions.value, line_dash="dash", line_color="red", line_width=2,
+        annotation_text=f"BOT > {max_positions.value:,} ({_n_bots:,})",
+        annotation_position="top right",
+        annotation_font_color="red",
     )
-    min_months = mo.ui.slider(
-        start=1, stop=12, step=1, value=6,
-        label="Min good months",
+    # ONE_OFF cutoff line
+    fig_trades.add_vline(
+        x=min_positions.value, line_dash="dash", line_color="orange", line_width=2,
+        annotation_text=f"ONE_OFF < {min_positions.value} ({_n_oneoff:,})",
+        annotation_position="top left",
+        annotation_font_color="orange",
     )
-    monthly_hr = mo.ui.slider(
-        start=0.40, stop=0.70, step=0.05, value=0.50,
-        label="Monthly min HR",
+    fig_trades.update_layout(
+        title="Positions per Trader",
+        xaxis_title="Positions", yaxis_title="Traders",
+        xaxis_type="log", height=350, template="plotly_white",
+        showlegend=False,
     )
-    return min_hr, min_markets, min_months, monthly_hr
+
+    # ---- Chart 2: Entry price distribution with SAFE-BET line ----
+    _ep = _directional["dir_entry"].to_numpy()
+    _c2, _e2 = np.histogram(_ep, bins=100, range=(0, 1))
+    _mids2 = [(_e2[i] + _e2[i+1]) / 2 for i in range(len(_c2))]
+
+    _n_safe = int((_ep > max_entry.value).sum())
+    _pct_safe = _n_safe / len(_ep)
+
+    fig_entry = go.Figure()
+    fig_entry.add_trace(go.Bar(x=_mids2, y=_c2.tolist(), marker_color="coral", name="Positions"))
+    # SAFE-BET cutoff line
+    fig_entry.add_vline(
+        x=max_entry.value, line_dash="dash", line_color="red", line_width=2,
+        annotation_text=f"SAFE-BET > {max_entry.value:.2f} ({_n_safe:,} = {_pct_safe:.1%})",
+        annotation_position="top left",
+        annotation_font_color="red",
+    )
+    fig_entry.update_layout(
+        title="Entry Price Distribution",
+        xaxis_title="dir_entry", yaxis_title="Positions",
+        height=350, template="plotly_white",
+        showlegend=False,
+    )
+
+    mo.hstack([fig_trades, fig_entry])
+    return
 
 
 @app.cell
-def signal_section(mo):
-    mo.md("### Signal Filters (holdout)")
+def classify(df, max_entry, max_positions, min_market_volume, min_positions, min_trades_per_pos, mo, pl):
+    _s0 = df.filter(pl.col("position").is_in(["YES", "NO"]))
+    _n0 = _s0.height
+
+    # Stage 1: entry price filter
+    _s1 = _s0.filter(pl.col("dir_entry") <= max_entry.value)
+    _rm_safe = _n0 - _s1.height
+
+    # Stage 1b: thin market filter
+    _s1b = _s1.filter(pl.col("market_volume") >= min_market_volume.value)
+    _rm_vol = _s1.height - _s1b.height
+
+    # Stage 1c: min trades per position
+    _s1c = _s1b.filter(pl.col("trade_count") >= min_trades_per_pos.value)
+    _rm_trades = _s1b.height - _s1c.height
+
+    # Stage 2: trader-level filters
+    _counts = _s1c.group_by("trader").agg(pl.len().alias("n"))
+    _bots = set(_counts.filter(pl.col("n") > max_positions.value)["trader"].to_list())
+    _oneoffs = set(_counts.filter(pl.col("n") < min_positions.value)["trader"].to_list())
+
+    _s2 = _s1c.filter(~pl.col("trader").is_in(list(_bots)))
+    _rm_bot = _s1c.height - _s2.height
+    clean_df = _s2.filter(~pl.col("trader").is_in(list(_oneoffs)))
+    _rm_oneoff = _s2.height - clean_df.height
+
+    mo.md(f"""
+    | Step | Positions | Removed |
+    |------|-----------|---------|
+    | Directional | {_n0:,} | — |
+    | Entry <= {max_entry.value:.2f} | {_s1.height:,} | -{_rm_safe:,} safe-bets |
+    | Volume >= ${min_market_volume.value:,} | {_s1b.height:,} | -{_rm_vol:,} thin markets |
+    | Trades >= {min_trades_per_pos.value} | {_s1c.height:,} | -{_rm_trades:,} low-trade |
+    | <= {max_positions.value:,} pos | {_s2.height:,} | -{_rm_bot:,} bot ({len(_bots):,} traders) |
+    | >= {min_positions.value} pos | {clean_df.height:,} | -{_rm_oneoff:,} one-off ({len(_oneoffs):,} traders) |
+
+    **{clean_df.height:,}** positions from **{clean_df['trader'].n_unique():,}** qualified traders
+    """)
+    return (clean_df,)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  POOL SELECTION — Every parameter exposed
+# ═══════════════════════════════════════════════════════════════════════
+@app.cell
+def pool_header(mo):
+    mo.md("---\n## Pool Selection\nAll controls update simulation instantly.")
+    return
+
+
+@app.cell
+def pool_controls(date, mo):
+    train_start_ui = mo.ui.date(value=date(2024, 1, 1), label="Lookback FROM")
+    train_end_ui = mo.ui.date(value=date(2025, 11, 1), label="Lookback TO (= simulation start)")
+    holdout_end_ui = mo.ui.date(value=date(2026, 3, 1), label="Simulation end")
+    min_hr = mo.ui.slider(start=0.40, stop=0.85, step=0.01, value=0.55, label="Min hit rate (pool gate)")
+    min_markets = mo.ui.slider(start=5, stop=200, step=5, value=30, label="Min markets traded")
+    min_months = mo.ui.slider(start=1, stop=18, step=1, value=3, label="Min good months")
+    monthly_hr = mo.ui.slider(start=0.40, stop=0.70, step=0.05, value=0.50, label="Monthly min HR")
+    monthly_min_bets = mo.ui.slider(start=1, stop=20, step=1, value=3, label="Min bets per month (for good month)")
+    max_yes_frac = mo.ui.slider(start=0.0, stop=1.0, step=0.05, value=1.0, label="Max YES fraction (1.0 = no filter)")
+    min_median_entry = mo.ui.slider(start=0.0, stop=0.80, step=0.05, value=0.0, label="Min median entry")
+    max_median_entry = mo.ui.slider(start=0.20, stop=1.0, step=0.05, value=1.0, label="Max median entry")
+    mo.vstack([
+        mo.hstack([train_start_ui, train_end_ui, holdout_end_ui]),
+        mo.hstack([min_hr, min_markets, min_months]),
+        mo.hstack([monthly_hr, monthly_min_bets]),
+        mo.hstack([max_yes_frac, min_median_entry, max_median_entry]),
+    ])
+    return (
+        holdout_end_ui, max_median_entry, max_yes_frac, min_hr, min_markets,
+        min_median_entry, min_months, monthly_hr, monthly_min_bets,
+        train_end_ui, train_start_ui,
+    )
 
 
 @app.cell
 def signal_controls(mo):
-    entry_lo = mo.ui.slider(
-        start=0.0, stop=0.90, step=0.05, value=0.0,
-        label="Min dir entry",
-    )
-    entry_hi = mo.ui.slider(
-        start=0.10, stop=1.0, step=0.05, value=1.0,
-        label="Max dir entry",
-    )
+    mo.md("### Signal Filters (applied to holdout)")
+    entry_lo = mo.ui.slider(start=0.0, stop=0.90, step=0.05, value=0.0, label="Min entry")
+    entry_hi = mo.ui.slider(start=0.10, stop=1.0, step=0.05, value=1.0, label="Max entry")
     direction = mo.ui.dropdown(
         options={"ALL": "ALL", "NO only": "NO", "YES only": "YES"},
-        value="ALL",
-        label="Direction",
+        value="ALL", label="Direction",
     )
-    return direction, entry_hi, entry_lo
+    fee_rate = mo.ui.slider(start=0.0, stop=0.05, step=0.005, value=0.02, label="Fee rate")
+    bet_size = mo.ui.slider(start=10, stop=500, step=10, value=100, label="Bet size ($)")
+    mo.vstack([
+        mo.hstack([entry_lo, entry_hi, direction]),
+        mo.hstack([fee_rate, bet_size]),
+    ])
+    return bet_size, direction, entry_hi, entry_lo, fee_rate
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  STEP 4 — Pool building (Polars, interactive)
-# ═══════════════════════════════════════════════════════════════════════
 @app.cell
-def compute_bounds(datetime, time_window):
-    tw = time_window.value
-    bounds = {
-        "3m":  (datetime(2023, 1, 1), datetime(2025, 10, 1),
-                datetime(2025, 10, 1), datetime(2026, 1, 1)),
-        "6m":  (datetime(2023, 1, 1), datetime(2025, 7, 1),
-                datetime(2025, 7, 1), datetime(2026, 1, 1)),
-        "9m":  (datetime(2023, 1, 1), datetime(2025, 4, 1),
-                datetime(2025, 4, 1), datetime(2026, 1, 1)),
-        "12m": (datetime(2023, 1, 1), datetime(2025, 1, 1),
-                datetime(2025, 1, 1), datetime(2026, 1, 1)),
-        "all": (datetime(2023, 1, 1), datetime(2025, 7, 1),
-                datetime(2025, 7, 1), datetime(2026, 1, 1)),
-    }
-    train_start, train_end, holdout_start, holdout_end = bounds[tw]
+def compute_bounds(datetime, holdout_end_ui, train_end_ui, train_start_ui):
+    train_start = datetime.combine(train_start_ui.value, datetime.min.time())
+    train_end = datetime.combine(train_end_ui.value, datetime.min.time())
+    holdout_start = train_end
+    holdout_end = datetime.combine(holdout_end_ui.value, datetime.min.time())
     return holdout_end, holdout_start, train_end, train_start
 
 
 @app.cell
 def build_pool(
-    df, min_hr, min_markets, min_months, monthly_hr,
+    clean_df, max_median_entry, max_yes_frac, min_hr, min_markets,
+    min_median_entry, min_months, mo, monthly_hr, monthly_min_bets,
     pl, train_end, train_start,
 ):
-    """
-    Pool selection on RESOLUTION HIT RATE:
-      1. Filter training window
-      2. Per-trader stats: HR, n_markets, yes_frac, median entry, etc.
-      3. Monthly consistency: count months with HR >= threshold (min 3 bets)
-      4. Apply min_hr, min_markets, min_months filters
-    """
-    train = df.filter(
-        (pl.col("resolved_at") >= train_start)
-        & (pl.col("resolved_at") < train_end)
+    _train = clean_df.filter(
+        (pl.col("resolved_at") >= train_start) & (pl.col("resolved_at") < train_end)
     )
 
-    # Per-trader stats
-    trader_stats = train.group_by("trader").agg(
+    _stats = _train.group_by("trader").agg(
         pl.col("correct").mean().alias("hr"),
         pl.len().alias("n_markets"),
-        pl.col("bet_yes").mean().alias("yes_frac"),
+        (pl.col("position") == "YES").mean().alias("yes_frac"),
         pl.col("dir_entry").median().alias("median_entry"),
         pl.col("dir_entry").mean().alias("mean_entry"),
         pl.col("month").n_unique().alias("active_months"),
         pl.col("trade_count").mean().alias("avg_trades"),
-        # Direction-specific HR
-        pl.col("correct").filter(pl.col("bet_yes")).mean().alias("yes_hr"),
-        pl.col("correct").filter(~pl.col("bet_yes")).mean().alias("no_hr"),
-        pl.col("bet_yes").sum().alias("n_yes"),
-        (~pl.col("bet_yes")).cast(pl.Int64).sum().alias("n_no"),
+        pl.col("market_volume").median().alias("med_volume"),
+        pl.col("correct").filter(pl.col("position") == "YES").mean().alias("yes_hr"),
+        pl.col("correct").filter(pl.col("position") == "NO").mean().alias("no_hr"),
+        (pl.col("position") == "YES").sum().alias("n_yes"),
+        (pl.col("position") == "NO").sum().alias("n_no"),
     )
 
-    # Monthly consistency
-    monthly = (
-        train.group_by(["trader", "month"])
-        .agg(
-            pl.col("correct").mean().alias("m_hr"),
-            pl.len().alias("m_n"),
-        )
-        .filter(pl.col("m_n") >= 3)
+    _monthly = (
+        _train.group_by(["trader", "month"]).agg(
+            pl.col("correct").mean().alias("m_hr"), pl.len().alias("m_n"),
+        ).filter(pl.col("m_n") >= monthly_min_bets.value)
     )
-    good = (
-        monthly.filter(pl.col("m_hr") >= monthly_hr.value)
-        .group_by("trader")
-        .agg(pl.len().alias("good_months"))
+    _good = (
+        _monthly.filter(pl.col("m_hr") >= monthly_hr.value)
+        .group_by("trader").agg(pl.len().alias("good_months"))
+    )
+    _stats = _stats.join(_good, on="trader", how="left").with_columns(
+        pl.col("good_months").fill_null(0)
     )
 
-    trader_stats = trader_stats.join(
-        good, on="trader", how="left"
-    ).with_columns(pl.col("good_months").fill_null(0))
-
-    # Apply filters
-    pool_df = trader_stats.filter(
-        (pl.col("n_markets") >= min_markets.value)
-        & (pl.col("hr") >= min_hr.value)
+    pool_df = _stats.filter(
+        (pl.col("hr") >= min_hr.value)
+        & (pl.col("n_markets") >= min_markets.value)
         & (pl.col("good_months") >= min_months.value)
+        & (pl.col("yes_frac") <= max_yes_frac.value)
+        & (pl.col("median_entry") >= min_median_entry.value)
+        & (pl.col("median_entry") <= max_median_entry.value)
     )
     pool_set = frozenset(pool_df["trader"].to_list())
 
+    # Compute lookback window duration
+    _days = (train_end - train_start).days
+    _months_approx = _days / 30.44
+
+    mo.md(f"""
+    **Lookback window:** {train_start:%Y-%m-%d} → {train_end:%Y-%m-%d}
+    ({_months_approx:.0f} months, {_days:,} days)
+    — {_train.height:,} positions from {_train['trader'].n_unique():,} traders
+
+    **Pool:** {pool_df.height:,} traders passing all gates:
+    HR >= {min_hr.value:.0%} |
+    >= {min_markets.value} mkts |
+    >= {min_months.value} good months ({monthly_min_bets.value}+ bets, HR >= {monthly_hr.value:.0%}) |
+    YES% <= {max_yes_frac.value:.0%} |
+    entry [{min_median_entry.value:.2f}, {max_median_entry.value:.2f}]
+    """)
     return pool_df, pool_set
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  STEP 5 — Holdout + Baseline
+#  POOL DISTRIBUTION — Annotated with thresholds
 # ═══════════════════════════════════════════════════════════════════════
 @app.cell
-def compute_holdout(
-    df, direction, entry_hi, entry_lo,
-    holdout_end, holdout_start, pl, pool_set,
-):
-    _FEE = 0.02
-    _BET = 100.0
+def pool_hr_chart(go, min_hr, mo, np, pool_df):
+    mo.stop(pool_df.height == 0)
+    _hr = pool_df["hr"].to_numpy()
+    _c, _e = np.histogram(_hr, bins=40, range=(0.4, 1.0))
+    _mids = [(_e[i] + _e[i+1]) / 2 for i in range(len(_c))]
 
-    holdout = df.filter(
+    _fig = go.Figure()
+    _fig.add_trace(go.Bar(x=_mids, y=_c.tolist(), marker_color="seagreen"))
+    _fig.add_vline(
+        x=min_hr.value, line_dash="dash", line_color="red", line_width=2,
+        annotation_text=f"Pool gate: HR >= {min_hr.value:.0%}",
+        annotation_position="top right", annotation_font_color="red",
+    )
+    _fig.update_layout(
+        title=f"Pool HR Distribution (n={pool_df.height:,})",
+        xaxis_title="HR", yaxis_title="Traders",
+        height=300, template="plotly_white",
+    )
+    return
+
+
+@app.cell
+def pool_scatter(go, max_yes_frac, min_hr, mo, pool_df, px):
+    mo.stop(pool_df.height == 0)
+    _fig = px.scatter(
+        pool_df.to_pandas(),
+        x="yes_frac", y="hr", size="n_markets", color="median_entry",
+        title="YES% vs HR (size=markets, color=entry)",
+        color_continuous_scale="RdYlGn",
+    )
+    # HR threshold line
+    _fig.add_hline(
+        y=min_hr.value, line_dash="dash", line_color="red", line_width=1,
+        annotation_text=f"HR = {min_hr.value:.0%}",
+        annotation_position="bottom right", annotation_font_color="red",
+    )
+    # YES frac threshold line
+    if max_yes_frac.value < 1.0:
+        _fig.add_vline(
+            x=max_yes_frac.value, line_dash="dash", line_color="blue", line_width=1,
+            annotation_text=f"YES% = {max_yes_frac.value:.0%}",
+            annotation_position="top left", annotation_font_color="blue",
+        )
+    _fig.update_layout(height=450)
+    return
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  HOLDOUT SIMULATION
+# ═══════════════════════════════════════════════════════════════════════
+@app.cell
+def compute_holdout(bet_size, clean_df, direction, entry_hi, entry_lo, fee_rate, holdout_end, holdout_start, pl, pool_set):
+    _fee = fee_rate.value
+    _bet = bet_size.value
+    holdout = clean_df.filter(
         (pl.col("resolved_at") >= holdout_start)
         & (pl.col("resolved_at") < holdout_end)
         & pl.col("trader").is_in(list(pool_set))
     )
-
-    if direction.value == "YES":
-        holdout = holdout.filter(pl.col("bet_yes"))
-    elif direction.value == "NO":
-        holdout = holdout.filter(~pl.col("bet_yes"))
-
+    if direction.value != "ALL":
+        holdout = holdout.filter(pl.col("position") == direction.value)
     holdout = holdout.filter(
-        (pl.col("dir_entry") >= entry_lo.value)
-        & (pl.col("dir_entry") <= entry_hi.value)
+        (pl.col("dir_entry") >= entry_lo.value) & (pl.col("dir_entry") <= entry_hi.value)
     )
-
     holdout = holdout.with_columns(
         pl.when(pl.col("correct"))
-        .then(
-            pl.lit(_BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
-            - pl.lit(_BET) * _FEE
-        )
-        .otherwise(-pl.lit(_BET) - pl.lit(_BET) * _FEE)
+        .then(pl.lit(_bet) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry") - pl.lit(_bet) * _fee)
+        .otherwise(-pl.lit(_bet) - pl.lit(_bet) * _fee)
         .alias("pnl")
     )
     return (holdout,)
 
 
 @app.cell
-def compute_baseline(
-    df, direction, entry_hi, entry_lo,
-    holdout_end, holdout_start, pl,
-):
-    _FEE = 0.02
-    _BET = 100.0
-
-    baseline = df.filter(
-        (pl.col("resolved_at") >= holdout_start)
-        & (pl.col("resolved_at") < holdout_end)
+def compute_baseline(bet_size, clean_df, direction, entry_hi, entry_lo, fee_rate, holdout_end, holdout_start, pl):
+    _fee = fee_rate.value
+    _bet = bet_size.value
+    baseline = clean_df.filter(
+        (pl.col("resolved_at") >= holdout_start) & (pl.col("resolved_at") < holdout_end)
     )
-
-    if direction.value == "YES":
-        baseline = baseline.filter(pl.col("bet_yes"))
-    elif direction.value == "NO":
-        baseline = baseline.filter(~pl.col("bet_yes"))
-
+    if direction.value != "ALL":
+        baseline = baseline.filter(pl.col("position") == direction.value)
     baseline = baseline.filter(
-        (pl.col("dir_entry") >= entry_lo.value)
-        & (pl.col("dir_entry") <= entry_hi.value)
+        (pl.col("dir_entry") >= entry_lo.value) & (pl.col("dir_entry") <= entry_hi.value)
     )
-
     baseline = baseline.with_columns(
         pl.when(pl.col("correct"))
-        .then(
-            pl.lit(_BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
-            - pl.lit(_BET) * _FEE
-        )
-        .otherwise(-pl.lit(_BET) - pl.lit(_BET) * _FEE)
+        .then(pl.lit(_bet) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry") - pl.lit(_bet) * _fee)
+        .otherwise(-pl.lit(_bet) - pl.lit(_bet) * _fee)
         .alias("pnl")
     )
     return (baseline,)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  RESULTS — KPIs
-# ═══════════════════════════════════════════════════════════════════════
 @app.cell
-def show_kpis(baseline, holdout, mo, pool_set):
+def show_kpis(baseline, bet_size, fee_rate, holdout, holdout_end, holdout_start, mo, pool_set):
     mo.stop(holdout.height == 0, mo.md("**No signals match current filters.**"))
 
     _p_hr = float(holdout["correct"].mean())
@@ -580,423 +532,254 @@ def show_kpis(baseline, holdout, mo, pool_set):
     _p_entry = float(holdout["dir_entry"].mean())
 
     _b_hr = float(baseline["correct"].mean()) if baseline.height > 0 else 0
-    _b_per = (
-        float(baseline["pnl"].sum()) / baseline.height
-        if baseline.height > 0
-        else 0
-    )
+    _b_per = float(baseline["pnl"].sum()) / baseline.height if baseline.height > 0 else 0
 
     mo.md(f"""
----
-## Results
+    ---
+    ## Simulation: {holdout_start:%Y-%m-%d} → {holdout_end:%Y-%m-%d}
+    Fee: {fee_rate.value:.1%} | Bet: ${bet_size.value}
 
-| Metric | Pool | All Traders | Market Implied |
-|--------|------|-------------|----------------|
-| **Hit Rate** | **{_p_hr:.1%}** | {_b_hr:.1%} | {_p_entry:.1%} |
-| **$/signal** | **${_p_per:+.1f}** | ${_b_per:+.1f} | — |
-| **Edge vs All** | **{_p_hr - _b_hr:+.1%}** | — | — |
-| **Edge vs Market** | **{_p_hr - _p_entry:+.1%}** | — | — |
+    | Metric | Pool | All Traders | Market Implied |
+    |--------|------|-------------|----------------|
+    | **Hit Rate** | **{_p_hr:.1%}** | {_b_hr:.1%} | {_p_entry:.1%} |
+    | **$/signal** | **${_p_per:+.1f}** | ${_b_per:+.1f} | — |
+    | **Edge vs All** | **{_p_hr - _b_hr:+.1%}** | — | — |
+    | **Edge vs Market** | **{_p_hr - _p_entry:+.1%}** | — | — |
 
-| | |
-|---|---|
-| **Pool size** | {len(pool_set):,} traders |
-| **Holdout signals** | {holdout.height:,} |
-| **Total PnL** | ${_p_pnl:+,.0f} |
-| **Avg dir entry** | {_p_entry:.3f} |
-| **Baseline signals** | {baseline.height:,} |
-""")
+    | | |
+    |---|---|
+    | Pool size | {len(pool_set):,} traders |
+    | Signals | {holdout.height:,} |
+    | Total PnL | ${_p_pnl:+,.0f} |
+    | Avg entry | {_p_entry:.3f} |
+    """)
+    return
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Entry Price Bands
+#  CHARTS
 # ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def entry_band_header(mo):
-    mo.md("---\n## Entry Price Bands")
-
-
 @app.cell
 def entry_band_table(baseline, holdout, mo, pl):
     mo.stop(holdout.height == 0)
-
     _bands = [
         (0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5),
         (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0),
     ]
-
     _rows = []
     for _lo, _hi in _bands:
-        _pb = holdout.filter(
-            (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
-        )
-        _bb = baseline.filter(
-            (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
-        )
+        _pb = holdout.filter((pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi))
+        _bb = baseline.filter((pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi))
         if _pb.height < 5:
             continue
         _p_hr = float(_pb["correct"].mean())
-        _p_per = float(_pb["pnl"].sum()) / _pb.height
         _b_hr = float(_bb["correct"].mean()) if _bb.height > 0 else 0
-        _b_per = (
-            float(_bb["pnl"].sum()) / _bb.height if _bb.height > 0 else 0
-        )
         _rows.append({
             "Band": f"{_lo:.0%}-{_hi:.0%}",
             "Pool N": _pb.height,
             "Pool HR": f"{_p_hr:.1%}",
-            "Pool $/sig": f"${_p_per:+.1f}",
-            "All N": _bb.height,
+            "Pool $/sig": f"${float(_pb['pnl'].sum()) / _pb.height:+.1f}",
             "All HR": f"{_b_hr:.1%}",
-            "All $/sig": f"${_b_per:+.1f}",
             "Edge": f"{_p_hr - _b_hr:+.1%}",
         })
-
     if _rows:
         mo.ui.table(pl.DataFrame(_rows).to_pandas(), label="Entry bands")
+    return
 
 
 @app.cell
-def entry_band_chart(baseline, go, holdout, mo, pl, px):
+def entry_band_chart(baseline, entry_hi, entry_lo, go, holdout, mo, pl, px):
     mo.stop(holdout.height < 10)
-
     _bands = [(0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
     _data = []
     for _lo, _hi in _bands:
         _label = f"{_lo:.0%}-{_hi:.0%}"
-        _mid = (_lo + _hi) / 2
         for _src, _sdf in [("Pool", holdout), ("All", baseline)]:
-            _b = _sdf.filter(
-                (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
-            )
+            _b = _sdf.filter((pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi))
             if _b.height >= 10:
-                _data.append({
-                    "Band": _label,
-                    "Source": _src,
-                    "HR": float(_b["correct"].mean()),
-                    "N": _b.height,
-                })
-        _data.append({
-            "Band": _label, "Source": "Market", "HR": _mid, "N": 0,
-        })
-
-    entry_band_fig = None
+                _data.append({"Band": _label, "Source": _src, "HR": float(_b["correct"].mean())})
+        _data.append({"Band": _label, "Source": "Market", "HR": (_lo + _hi) / 2})
     if _data:
-        entry_band_fig = px.bar(
-            pl.DataFrame(_data).to_pandas(),
-            x="Band", y="HR", color="Source",
-            barmode="group",
-            title="HR by Entry Band: Pool vs All vs Market",
-            text_auto=".1%",
+        _fig = px.bar(
+            pl.DataFrame(_data).to_pandas(), x="Band", y="HR", color="Source",
+            barmode="group", title="HR by Entry Band", text_auto=".1%",
         )
-        entry_band_fig.update_layout(yaxis_tickformat=".0%", height=400)
-    return (entry_band_fig,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Monthly
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def monthly_header(mo):
-    mo.md("---\n## Monthly Breakdown")
+        _fig.update_layout(yaxis_tickformat=".0%", height=400)
+    return
 
 
 @app.cell
-def monthly_table(holdout, mo, pl):
+def weekly_table(bet_size, holdout, mo, pl):
     mo.stop(holdout.height == 0)
-
-    _m = (
-        holdout.group_by("month")
-        .agg(
-            pl.len().alias("N"),
+    _bet = bet_size.value
+    _w = (
+        holdout
+        .with_columns(
+            pl.col("resolved_at").dt.truncate("1w").alias("week"),
+        )
+        .group_by("week").agg(
+            pl.len().alias("Trades"),
             pl.col("correct").mean().alias("HR"),
             pl.col("pnl").sum().alias("PnL"),
             pl.col("dir_entry").mean().alias("Avg Entry"),
-            pl.col("bet_yes").mean().alias("YES%"),
+            (pl.col("position") == "YES").mean().alias("YES%"),
+        ).sort("week")
+        .with_columns(
+            pl.col("week").dt.strftime("%Y-%m-%d").alias("Week"),
+            (pl.col("PnL") / (pl.col("Trades") * pl.lit(_bet)) * 100).alias("ROI%"),
         )
-        .sort("month")
-        .with_columns((pl.col("PnL") / pl.col("N")).alias("$/sig"))
+        .select("Week", "Trades", "HR", "ROI%", "PnL", "Avg Entry", "YES%")
+        .with_columns(
+            pl.col("HR").round(3),
+            pl.col("ROI%").round(1),
+            pl.col("PnL").round(1),
+            pl.col("Avg Entry").round(3),
+            pl.col("YES%").round(3),
+        )
     )
-    mo.ui.table(_m.to_pandas(), label="Monthly performance")
+    mo.ui.table(_w.to_pandas(), label="Weekly performance", page_size=20)
+    return
 
 
 @app.cell
-def monthly_chart(holdout, mo, pl, px):
+def weekly_chart(bet_size, go, holdout, mo, pl, px):
     mo.stop(holdout.height == 0)
-
-    _m = (
-        holdout.group_by("month")
-        .agg(pl.col("pnl").sum().alias("PnL"))
-        .sort("month")
+    _bet = bet_size.value
+    _w = (
+        holdout
+        .with_columns(pl.col("resolved_at").dt.truncate("1w").alias("week"))
+        .group_by("week").agg(
+            pl.len().alias("Trades"),
+            pl.col("correct").mean().alias("HR"),
+            pl.col("pnl").sum().alias("PnL"),
+        ).sort("week")
+        .with_columns(
+            (pl.col("PnL") / (pl.col("Trades") * pl.lit(_bet)) * 100).alias("ROI%"),
+        )
         .to_pandas()
     )
-    monthly_pnl_fig = px.bar(
-        _m, x="month", y="PnL",
-        title="Monthly PnL ($100/signal)",
-        color="PnL",
-        color_continuous_scale=["red", "gray", "green"],
-        color_continuous_midpoint=0,
+
+    fig = go.Figure()
+    # ROI% bars
+    fig.add_trace(go.Bar(
+        x=_w["week"], y=_w["ROI%"], name="ROI%",
+        marker_color=[
+            "rgb(34,139,34)" if v >= 0 else "rgb(220,50,50)" for v in _w["ROI%"]
+        ],
+        yaxis="y",
+    ))
+    # HR line
+    fig.add_trace(go.Scatter(
+        x=_w["week"], y=_w["HR"] * 100, name="HR%",
+        mode="lines+markers", line=dict(color="steelblue", width=2),
+        yaxis="y2",
+    ))
+    # Trades scatter (size)
+    _max_t = _w["Trades"].max() or 1
+    fig.add_trace(go.Scatter(
+        x=_w["week"], y=_w["ROI%"], name="Trades",
+        mode="markers",
+        marker=dict(
+            size=(_w["Trades"] / _max_t * 20 + 4).tolist(),
+            color="rgba(100,100,100,0.3)", line=dict(width=1, color="gray"),
+        ),
+        yaxis="y",
+        hovertemplate="Week: %{x}<br>Trades: %{text}<extra></extra>",
+        text=_w["Trades"].tolist(),
+    ))
+    fig.update_layout(
+        title="Weekly: ROI% (bars) + HR% (line) + Trades (bubble size)",
+        yaxis=dict(title="ROI%", zeroline=True, zerolinecolor="gray"),
+        yaxis2=dict(title="HR%", overlaying="y", side="right", range=[0, 100]),
+        height=400, template="plotly_white",
+        legend=dict(orientation="h", y=1.12),
     )
-    monthly_pnl_fig.update_layout(height=350)
-    return (monthly_pnl_fig,)
+    return
 
 
 @app.cell
-def equity_curve(holdout, mo, pl, px):
+def equity_curve(bet_size, holdout, mo, pl, px):
     mo.stop(holdout.height == 0)
-
-    _m = (
-        holdout.group_by("month")
-        .agg(pl.col("pnl").sum().alias("PnL"))
-        .sort("month")
+    _bet = bet_size.value
+    _w = (
+        holdout
+        .with_columns(pl.col("resolved_at").dt.truncate("1w").alias("week"))
+        .group_by("week").agg(
+            pl.col("pnl").sum().alias("PnL"),
+            pl.len().alias("Trades"),
+        ).sort("week")
+        .with_columns(
+            pl.col("PnL").cum_sum().alias("Cumulative"),
+            (pl.col("PnL") / (pl.col("Trades") * pl.lit(_bet)) * 100).alias("ROI%"),
+        )
         .to_pandas()
     )
-    _m["Cumulative"] = _m["PnL"].cumsum()
-    equity_fig = px.line(
-        _m, x="month", y="Cumulative",
-        title="Cumulative PnL", markers=True,
+    _fig = px.line(
+        _w, x="week", y="Cumulative", title="Cumulative PnL (weekly)",
+        markers=True, hover_data=["Trades", "ROI%"],
     )
-    equity_fig.update_layout(height=350)
-    return (equity_fig,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Trade Activity
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def trades_header(mo):
-    mo.md("---\n## By Trade Activity")
+    _fig.update_layout(height=350)
+    return
 
 
 @app.cell
-def trades_breakdown(holdout, mo, pl, px):
-    mo.stop(holdout.height == 0)
-
-    _buckets = [
-        (1, 2, "1 trade"),
-        (2, 5, "2-4"),
-        (5, 15, "5-14"),
-        (15, 50, "15-49"),
-        (50, 1_000_000, "50+"),
-    ]
-    _data = []
-    for _lo, _hi, _label in _buckets:
-        _b = holdout.filter(
-            (pl.col("trade_count") >= _lo) & (pl.col("trade_count") < _hi)
-        )
-        if _b.height >= 10:
-            _data.append({
-                "Trades": _label,
-                "N": _b.height,
-                "HR": float(_b["correct"].mean()),
-                "$/sig": float(_b["pnl"].sum()) / _b.height,
-            })
-
-    trades_fig = None
-    if _data:
-        _tdf = pl.DataFrame(_data)
-        mo.ui.table(_tdf.to_pandas(), label="By trade count")
-        trades_fig = px.bar(
-            _tdf.to_pandas(), x="Trades", y="$/sig",
-            title="$/sig by Trade Count",
-            color="$/sig",
-            color_continuous_scale=["red", "gray", "green"],
-            color_continuous_midpoint=0,
-        )
-        trades_fig.update_layout(height=350)
-    return (trades_fig,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Direction Preference
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def direction_header(mo):
-    mo.md("---\n## By Trader Direction Preference")
-
-
-@app.cell
-def direction_breakdown(holdout, mo, pl, pool_df, px):
+def direction_breakdown(holdout, mo, pl, pool_df):
     mo.stop(holdout.height == 0 or pool_df.height == 0)
-
     _buckets = [
-        (0.00, 0.10, "Heavy NO (0-10%)"),
-        (0.10, 0.30, "NO-leaning"),
-        (0.30, 0.50, "Slight NO"),
-        (0.50, 0.70, "Slight YES"),
-        (0.70, 0.90, "YES-leaning"),
-        (0.90, 1.01, "Heavy YES (90%+)"),
+        (0.00, 0.10, "Heavy NO"), (0.10, 0.30, "NO-lean"),
+        (0.30, 0.50, "Slight NO"), (0.50, 0.70, "Slight YES"),
+        (0.70, 0.90, "YES-lean"), (0.90, 1.01, "Heavy YES"),
     ]
-
-    _hw = holdout.join(
-        pool_df.select("trader", "yes_frac"),
-        on="trader", how="left", suffix="_p",
-    )
-
+    _hw = holdout.join(pool_df.select("trader", "yes_frac"), on="trader", how="left", suffix="_p")
     _data = []
     for _lo, _hi, _label in _buckets:
-        _b = _hw.filter(
-            (pl.col("yes_frac") >= _lo) & (pl.col("yes_frac") < _hi)
-        )
+        _b = _hw.filter((pl.col("yes_frac") >= _lo) & (pl.col("yes_frac") < _hi))
         if _b.height >= 10:
             _data.append({
-                "Bucket": _label,
-                "N": _b.height,
+                "Bucket": _label, "N": _b.height,
                 "Traders": _b["trader"].n_unique(),
                 "HR": float(_b["correct"].mean()),
                 "$/sig": float(_b["pnl"].sum()) / _b.height,
             })
-
-    direction_fig = None
     if _data:
-        _tdf = pl.DataFrame(_data)
-        mo.ui.table(_tdf.to_pandas(), label="By direction preference")
-        direction_fig = px.bar(
-            _tdf.to_pandas(), x="Bucket", y="HR",
-            title="HR by Direction Preference",
-            text_auto=".1%",
-        )
-        direction_fig.update_layout(yaxis_tickformat=".0%", height=350)
-    return (direction_fig,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Pool Distributions
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def pool_dist_header(mo):
-    mo.md("---\n## Pool Distributions")
-
-
-@app.cell
-def pool_hr_dist(mo, pool_df, px):
-    mo.stop(pool_df.height == 0)
-    hr_dist_fig = px.histogram(
-        pool_df.to_pandas(), x="hr", nbins=40,
-        title=f"Pool HR Distribution (n={pool_df.height:,})",
-    )
-    hr_dist_fig.update_layout(height=350)
-    return (hr_dist_fig,)
-
-
-@app.cell
-def pool_entry_dist(mo, pool_df, px):
-    mo.stop(pool_df.height == 0)
-    entry_dist_fig = px.histogram(
-        pool_df.to_pandas(), x="median_entry", nbins=40,
-        title="Pool Median Entry Distribution",
-    )
-    entry_dist_fig.update_layout(height=350)
-    return (entry_dist_fig,)
-
-
-@app.cell
-def pool_scatter(mo, pool_df, px):
-    mo.stop(pool_df.height == 0)
-    scatter_fig = px.scatter(
-        pool_df.to_pandas(),
-        x="yes_frac", y="hr",
-        size="n_markets", color="median_entry",
-        title="YES% vs HR (size=markets, color=entry)",
-        color_continuous_scale="RdYlGn",
-    )
-    scatter_fig.update_layout(height=450)
-    return (scatter_fig,)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  CALIBRATION — Market Efficiency
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def calibration_header(mo):
-    mo.md("---\n## Market Calibration (Implied vs Actual)")
+        mo.ui.table(pl.DataFrame(_data).to_pandas(), label="By direction preference")
+    return
 
 
 @app.cell
 def calibration_chart(baseline, go, holdout, mo, pl, px):
     mo.stop(holdout.height < 100)
-
     _data = []
     for _i in range(20):
         _lo, _hi = _i / 20, (_i + 1) / 20
         for _label, _src in [("Pool", holdout), ("All", baseline)]:
-            _b = _src.filter(
-                (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
-            )
+            _b = _src.filter((pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi))
             if _b.height >= 20:
                 _data.append({
                     "Implied": (_lo + _hi) / 2,
                     "Actual": float(_b["correct"].mean()),
-                    "Source": _label,
-                    "N": _b.height,
+                    "Source": _label, "N": _b.height,
                 })
-
-    calibration_fig = None
     if _data:
-        calibration_fig = px.scatter(
+        _fig = px.scatter(
             pl.DataFrame(_data).to_pandas(),
-            x="Implied", y="Actual",
-            color="Source", size="N",
-            title="Implied Prob vs Actual Resolution HR",
+            x="Implied", y="Actual", color="Source", size="N",
+            title="Calibration: Implied vs Actual HR",
         )
-        calibration_fig.add_trace(go.Scatter(
+        _fig.add_trace(go.Scatter(
             x=[0, 1], y=[0, 1], mode="lines",
-            line=dict(dash="dash", color="gray"),
-            name="Perfect",
+            line=dict(dash="dash", color="gray"), name="Perfect",
         ))
-        calibration_fig.update_layout(height=500)
-    return (calibration_fig,)
+        _fig.update_layout(height=450)
+    return
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  BREAKDOWNS — Market Volume
+#  POOL TABLE — All traders, paginated
 # ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def volume_header(mo):
-    mo.md("---\n## By Market Volume")
-
-
-@app.cell
-def volume_breakdown(holdout, mo, pl):
-    mo.stop(holdout.height == 0)
-
-    _qs = [float(holdout["market_volume"].quantile(q)) for q in [0.25, 0.5, 0.75]]
-    _buckets = [
-        (0, _qs[0], f"Q1 (0-{_qs[0]:.0f})"),
-        (_qs[0], _qs[1], f"Q2 ({_qs[0]:.0f}-{_qs[1]:.0f})"),
-        (_qs[1], _qs[2], f"Q3 ({_qs[1]:.0f}-{_qs[2]:.0f})"),
-        (_qs[2], 1e15, f"Q4 ({_qs[2]:.0f}+)"),
-    ]
-
-    _data = []
-    for _lo, _hi, _label in _buckets:
-        _b = holdout.filter(
-            (pl.col("market_volume") >= _lo)
-            & (pl.col("market_volume") < _hi)
-        )
-        if _b.height >= 10:
-            _data.append({
-                "Bucket": _label,
-                "N": _b.height,
-                "HR": float(_b["correct"].mean()),
-                "$/sig": float(_b["pnl"].sum()) / _b.height,
-            })
-
-    if _data:
-        mo.ui.table(pl.DataFrame(_data).to_pandas(), label="By volume")
-
-
-# ═══════════════════════════════════════════════════════════════════════
-#  RAW POOL TABLE
-# ═══════════════════════════════════════════════════════════════════════
-@app.cell
-def pool_table_header(mo, pool_df):
-    mo.md(f"---\n## Pool Table ({pool_df.height:,} traders)")
-
-
 @app.cell
 def pool_table(mo, pl, pool_df):
     mo.stop(pool_df.height == 0)
-
     _display = (
         pool_df.select(
             "trader",
@@ -1004,17 +787,86 @@ def pool_table(mo, pl, pool_df):
             "n_markets",
             pl.col("yes_frac").round(3).alias("YES%"),
             pl.col("median_entry").round(3).alias("Med Entry"),
-            "active_months",
-            pl.col("avg_trades").round(1).alias("Avg Trades"),
+            pl.col("med_volume").round(0).alias("Med Vol"),
+            "good_months",
             pl.col("yes_hr").round(3).alias("YES HR"),
             pl.col("no_hr").round(3).alias("NO HR"),
-            "n_yes",
-            "n_no",
-        )
-        .sort("HR", descending=True)
-        .head(50)
+            "n_yes", "n_no",
+        ).sort("HR", descending=True)
     )
-    mo.ui.table(_display.to_pandas(), label="Top 50 by HR")
+    mo.vstack([
+        mo.md(f"---\n## Pool Table — all {pool_df.height:,} traders"),
+        mo.ui.table(
+            _display.to_pandas(),
+            label=f"Pool ({pool_df.height:,})",
+            page_size=25,
+            selection=None,
+        ),
+    ])
+    return
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  EXPORT CONFIG — Copy-paste to share or reload
+# ═══════════════════════════════════════════════════════════════════════
+@app.cell
+def export_config(
+    baseline, bet_size, direction, entry_hi, entry_lo, fee_rate,
+    holdout, holdout_end, holdout_start, max_entry, max_median_entry,
+    max_positions, max_yes_frac, min_hr, min_market_volume,
+    min_markets, min_median_entry, min_months, min_positions,
+    min_trades_per_pos, mo, monthly_hr, monthly_min_bets,
+    pool_df, pool_set, train_end, train_start,
+):
+    import json as _json
+
+    _config = {
+        "classification": {
+            "max_entry": max_entry.value,
+            "max_positions": max_positions.value,
+            "min_positions": min_positions.value,
+            "min_trades_per_pos": min_trades_per_pos.value,
+            "min_market_volume": min_market_volume.value,
+        },
+        "pool": {
+            "train_start": train_start.strftime("%Y-%m-%d"),
+            "train_end": train_end.strftime("%Y-%m-%d"),
+            "holdout_end": holdout_end.strftime("%Y-%m-%d"),
+            "min_hr": min_hr.value,
+            "min_markets": min_markets.value,
+            "min_months": min_months.value,
+            "monthly_hr": monthly_hr.value,
+            "monthly_min_bets": monthly_min_bets.value,
+            "max_yes_frac": max_yes_frac.value,
+            "min_median_entry": min_median_entry.value,
+            "max_median_entry": max_median_entry.value,
+        },
+        "signal": {
+            "entry_lo": entry_lo.value,
+            "entry_hi": entry_hi.value,
+            "direction": direction.value,
+            "fee_rate": fee_rate.value,
+            "bet_size": bet_size.value,
+        },
+        "results": {
+            "pool_size": pool_df.height,
+            "holdout_signals": holdout.height,
+            "holdout_hr": round(float(holdout["correct"].mean()), 4) if holdout.height > 0 else None,
+            "holdout_roi_pct": round(
+                float(holdout["pnl"].sum()) / (holdout.height * bet_size.value) * 100, 2
+            ) if holdout.height > 0 else None,
+            "holdout_pnl": round(float(holdout["pnl"].sum()), 1) if holdout.height > 0 else None,
+            "baseline_hr": round(float(baseline["correct"].mean()), 4) if baseline.height > 0 else None,
+            "baseline_signals": baseline.height,
+        },
+    }
+
+    _json_str = _json.dumps(_config, indent=2)
+    mo.vstack([
+        mo.md("---\n## Export Config\nCopy the JSON below to share or reload later."),
+        mo.ui.code_editor(value=_json_str, language="json"),
+    ])
+    return
 
 
 if __name__ == "__main__":
