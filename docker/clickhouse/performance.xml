@@ -1,0 +1,16 @@
+<clickhouse>
+    <!-- ── MergeTree engine global settings ── -->
+    <merge_tree>
+        <number_of_free_entries_in_pool_to_execute_mutation>0</number_of_free_entries_in_pool_to_execute_mutation>
+        <max_bytes_to_merge_at_max_space_in_pool>10737418240</max_bytes_to_merge_at_max_space_in_pool> <!-- 10 GB -->
+        <merge_max_block_size>16384</merge_max_block_size>
+        <parts_to_throw_insert>600</parts_to_throw_insert>
+        <parts_to_delay_insert>400</parts_to_delay_insert>
+    </merge_tree>
+
+    <!-- ── Background pools: use the cores ── -->
+    <background_pool_size>16</background_pool_size>
+    <background_move_pool_size>8</background_move_pool_size>
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+    <background_merges_mutations_concurrency_ratio>4</background_merges_mutations_concurrency_ratio>
+</clickhouse>
