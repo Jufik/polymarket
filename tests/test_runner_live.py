@@ -17,7 +17,7 @@ from polymarket_pipeline.strategies.execution.gateway import ExecutionGateway
 from polymarket_pipeline.strategies.execution.simulated import SimulatedExecutor
 from polymarket_pipeline.strategies.features.backend_polars import PolarsBackend
 from polymarket_pipeline.strategies.runners.live import LiveRunner
-from polymarket_pipeline.strategies.types import ExecutionMode, TradeIntent
+from polymarket_pipeline.strategies.types import ExecutionMode, MarketInfo, TradeIntent
 
 
 def _now() -> int:
@@ -483,3 +483,114 @@ async def test_timer_risk_gate_rejects_over_capital(ctx: InMemoryContext) -> Non
 
     # Only the first intent should have been submitted; subsequent blocked
     assert runner._intents_submitted == 1
+
+
+# ---------------------------------------------------------------------------
+# Market sync, price update, volume accumulator
+# ---------------------------------------------------------------------------
+
+
+class MarketProvider:
+    """Provider that exposes MarketInfo objects via get_features."""
+
+    name = "market_provider"
+
+    def __init__(self, markets: dict[str, MarketInfo]) -> None:
+        self._markets = markets
+
+    async def compute(self, backend: Any) -> None:
+        pass
+
+    async def on_trade(self, trade: NormalizedTrade) -> None:
+        pass
+
+    async def refresh(self, backend: Any) -> None:
+        pass
+
+    def get_features(self) -> dict[str, Any]:
+        return {"will_markets": self._markets}
+
+
+async def test_sync_markets_from_features(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """Initialize should bridge MarketInfo from provider features to ctx.get_market()."""
+    market = MarketInfo(
+        condition_id="0xcond",
+        question="Will X happen?",
+        active=True,
+        yes_price=0.25,
+    )
+    provider = MarketProvider({"0xcond": market})
+
+    runner = LiveRunner(
+        strategies=[],
+        providers=[provider],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+    await runner.initialize()
+
+    result = await ctx.get_market("0xcond")
+    assert result is not None
+    assert result.question == "Will X happen?"
+    assert result.yes_price == 0.25
+
+
+async def test_update_market_price_on_trade(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """_handle_trade should update the market's yes_price from the trade."""
+    market = MarketInfo(
+        condition_id="0xcond",
+        question="Will X happen?",
+        active=True,
+        yes_price=0.25,
+    )
+    provider = MarketProvider({"0xcond": market})
+    strategy = RecordingStrategy()
+
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[provider],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+    await runner.initialize()
+
+    # Trade has price=0.60 (from _trade helper)
+    await runner._handle_trade(_trade())
+
+    result = await ctx.get_market("0xcond")
+    assert result is not None
+    assert result.yes_price == 0.60  # updated from trade price
+
+
+async def test_volume_accumulator(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """_handle_trade should accumulate market_volume in features."""
+    strategy = RecordingStrategy()
+
+    runner = LiveRunner(
+        strategies=[(strategy, _CFG)],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+    await runner.initialize()
+
+    # Trade: price=0.60, size=100 → volume=60
+    now = _now()
+    await runner._handle_trade(_trade(ts=now))
+
+    vol = await ctx.get_features("market_volume")
+    assert vol is not None
+    assert vol["0xcond"] == pytest.approx(60.0)
+
+    # Second trade accumulates
+    await runner._handle_trade(_trade(maker="0xbob", ts=now + 1))
+    assert vol["0xcond"] == pytest.approx(120.0)

@@ -5,6 +5,8 @@ description = "Polymarket unified trade data pipeline"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.13.3",
+    "marimo>=0.20.2",
+    "plotly>=6.5.2",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "structlog>=24.0",

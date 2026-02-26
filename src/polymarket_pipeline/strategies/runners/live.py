@@ -14,6 +14,7 @@ import structlog
 
 from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.strategies.runners.helpers import apply_fill_to_position, check_risk_gate
+from polymarket_pipeline.strategies.types import MarketInfo
 
 if TYPE_CHECKING:
     from polymarket_pipeline.models import NormalizedTrade
@@ -83,6 +84,52 @@ class LiveRunner:
         self._drops_stale: int = 0
         self._last_trade_times: dict[str, float] = {}
         self._refresh_event = asyncio.Event()
+        self._market_volumes: dict[str, float] = {}
+
+    def _sync_markets_from_features(self) -> None:
+        """Bridge MarketInfo from provider features into ctx markets store.
+
+        Providers like WillMarketProvider expose ``dict[str, MarketInfo]``
+        via ``get_features()``.  The strategy's ``on_trade`` reads from
+        ``ctx.get_market(cid)`` which is a *separate* dict.  This method
+        copies MarketInfo objects across so both stores stay in sync.
+        """
+        count = 0
+        for provider in self.providers:
+            for value in provider.get_features().values():
+                if isinstance(value, dict):
+                    for cid, info in value.items():
+                        if isinstance(info, MarketInfo):
+                            self.ctx.set_market(cid, info)
+                            count += 1
+        if count:
+            logger.info("live_runner.markets_synced", count=count)
+
+    def _update_market_price(self, trade: NormalizedTrade) -> None:
+        """Update a market's yes_price from the latest trade + accumulate volume.
+
+        Lightweight per-trade call — one dict lookup + optional set_market.
+        """
+        cid = trade.condition_id
+
+        # Update yes_price in context (strategy reads this for max_price)
+        market = self.ctx._markets.get(cid)
+        if market is not None:
+            self.ctx.set_market(
+                cid,
+                MarketInfo(
+                    condition_id=market.condition_id,
+                    question=market.question,
+                    active=market.active,
+                    yes_price=float(trade.price),
+                    event_id=market.event_id,
+                    category=market.category,
+                ),
+            )
+
+        # Running volume accumulator (sum of price * size per market)
+        vol = float(trade.price) * float(trade.size)
+        self._market_volumes[cid] = self._market_volumes.get(cid, 0.0) + vol
 
     async def initialize(self) -> None:
         """Run provider compute() at startup."""
@@ -90,6 +137,12 @@ class LiveRunner:
             await provider.compute(self.backend)
             self.ctx.update_features(provider.get_features())
             logger.info("provider.initialized", provider=provider.name)
+
+        # Bridge provider market metadata into ctx.get_market() store
+        self._sync_markets_from_features()
+
+        # Establish running volume dict reference in features
+        self.ctx.update_features({"market_volume": self._market_volumes})
 
     async def _handle_trade(self, trade: NormalizedTrade) -> None:
         """Hot path: dispatch trade to providers then strategies."""
@@ -120,8 +173,9 @@ class LiveRunner:
         for provider in self.providers:
             self.ctx.update_features(provider.get_features())
 
-        # 3. Update context time
+        # 3. Update context time + market price + volume
         self.ctx.set_time(trade.published_at)
+        self._update_market_price(trade)
 
         # 4. Strategies — read updated context
         for strategy, config in self.strategies:
@@ -240,6 +294,8 @@ class LiveRunner:
                 await provider.refresh(self.backend)
                 self.ctx.update_features(provider.get_features())
                 logger.info("provider.refresh_done", provider=provider.name)
+            # Re-sync market metadata after refresh (new markets may have appeared)
+            self._sync_markets_from_features()
 
     async def start_background_loops(self) -> None:
         """Start timer and refresh loops as background tasks."""
