@@ -1,0 +1,28 @@
+# S2a: Will NO — Buy NO on binary "Will X happen?" questions
+# Validated: +46.6% ROI, 82.3% HR, ~223 sigs/month
+
+[strategy.will_no]
+enabled = true
+mode = "paper_dev"
+capital_usd = 5000
+max_position_usd = 150
+max_open_positions = 100
+cooldown_s = 0
+features = ["will_markets", "market_size"]
+
+[strategy.will_no.params]
+base_bet_usd = 50
+
+[provider.will_markets]
+enabled = true
+refresh_interval_s = 900
+
+[provider.will_markets.params]
+question_pattern = "^Will\\b"
+
+[provider.market_size]
+enabled = true
+refresh_interval_s = 1800
+
+[provider.market_size.params]
+model_path = "models/market_size_xgb.joblib"

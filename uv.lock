@@ -3017,6 +3017,9 @@ live = [
 mempool = [
     { name = "polymarket-mempool" },
 ]
+ops = [
+    { name = "supervisor" },
+]
 postgres = [
     { name = "alembic" },
     { name = "asyncpg" },
@@ -3080,6 +3083,7 @@ requires-dist = [
     { name = "scikit-learn", marker = "extra == 'strategy'", specifier = ">=1.4" },
     { name = "structlog", specifier = ">=24.0" },
     { name = "structlog", marker = "extra == 'strategy'", specifier = ">=24.0" },
+    { name = "supervisor", marker = "extra == 'ops'", specifier = ">=4.3.0" },
     { name = "typer", marker = "extra == 'exploration'", specifier = ">=0.14.0" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'live'", specifier = ">=0.30" },
@@ -3087,7 +3091,7 @@ requires-dist = [
     { name = "websockets", marker = "extra == 'websocket'", specifier = ">=13.0" },
     { name = "xgboost", marker = "extra == 'strategy'", specifier = ">=2.0" },
 ]
-provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "api", "live", "mempool", "strategy", "dev", "all"]
+provides-extras = ["sink", "clickhouse", "postgres", "websocket", "http", "compact", "exploration", "api", "live", "mempool", "strategy", "dev", "all", "ops"]
 
 [[package]]
 name = "prettytable"
@@ -4191,6 +4195,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ef/52/9ba0f43b686e7f3ddfeaa78ac3af750292662284b3661e91ad5494f21dbc/structlog-25.5.0.tar.gz", hash = "sha256:098522a3bebed9153d4570c6d0288abf80a031dfdb2048d59a49e9dc2190fc98", size = 1460830, upload-time = "2025-10-27T08:28:23.028Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/45/a132b9074aa18e799b891b91ad72133c98d8042c70f6240e4c5f9dabee2f/structlog-25.5.0-py3-none-any.whl", hash = "sha256:a8453e9b9e636ec59bd9e79bbd4a72f025981b3ba0f5837aebf48f02f37a7f9f", size = 72510, upload-time = "2025-10-27T08:28:21.535Z" },
+]
+
+[[package]]
+name = "supervisor"
+version = "4.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/b5/37e7a3706de436a8a2d75334711dad1afb4ddffab09f25e31d89e467542f/supervisor-4.3.0.tar.gz", hash = "sha256:4a2bf149adf42997e1bb44b70c43b613275ec9852c3edacca86a9166b27e945e", size = 468912, upload-time = "2025-08-23T18:25:02.418Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/65/5e726c372da8a5e35022a94388b12252710aad0c2351699c3d76ae8dba78/supervisor-4.3.0-py2.py3-none-any.whl", hash = "sha256:0bcb763fddafba410f35cbde226aa7f8514b9fb82eb05a0c85f6588d1c13f8db", size = 320736, upload-time = "2025-08-23T18:25:00.767Z" },
 ]
 
 [[package]]

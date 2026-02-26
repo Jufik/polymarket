@@ -58,6 +58,9 @@ dev = [
 all = [
     "polymarket-pipeline[sink,clickhouse,postgres,websocket,http,compact,exploration,api,live,mempool,strategy,dev]",
 ]
+ops = [
+    "supervisor>=4.3.0",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -86,6 +89,7 @@ pm-compact = "polymarket_pipeline.cli.compact:main"
 pm-load = "polymarket_pipeline.cli.load:main"
 pm-build = "polymarket_pipeline.cli.build:main"
 pm-migrate = "polymarket_pipeline.cli.migrate:main"
+pm-strategy = "polymarket_pipeline.cli.strategy:app"
 
 [tool.uv.sources]
 polymarket-mempool = { path = "crates/polymarket-mempool", editable = true }

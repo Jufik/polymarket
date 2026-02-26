@@ -219,7 +219,15 @@ def _build_runner(
     if strategies:
         first_params = strategies[0][1].params
         delay_s = float(first_params.get("delay_s", 0.0))
-    gateway = ExecutionGateway(executor=executor, log_path=log_path, delay_s=delay_s)
+
+    # Wire per-strategy budget caps from capital_usd
+    strategy_budgets = {name: cfg.capital_usd for name, cfg in strategy_configs.items()}
+    gateway = ExecutionGateway(
+        executor=executor,
+        log_path=log_path,
+        delay_s=delay_s,
+        strategy_budgets=strategy_budgets,
+    )
 
     # Use ClickHouse backend so providers get real market data at startup
     from polymarket_pipeline.live.settings import Settings
@@ -249,10 +257,31 @@ def _build_runner(
 def run(
     config: Path = typer.Option(..., "--config", "-c", help="Path to strategies TOML"),
     only: str | None = typer.Option(None, "--only", help="Run only this strategy"),
-    log_dir: Path | None = typer.Option(None, "--log-dir", help="Intent log directory"),
+    log_dir: Path | None = typer.Option(
+        "logs/paper", "--log-dir", help="Intent/fill log directory"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all logs on console"),
 ) -> None:
     """Start strategies in paper-dev mode against live Kafka."""
-    logger.info("strategy_cli.starting", config=str(config), only=only)
+    if log_dir is not None:
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Configure logging: quiet console (WARN+) + full JSON file
+    from polymarket_pipeline.logging_config import configure_paper_logging
+
+    if log_dir is not None:
+        configure_paper_logging(log_dir)
+        if verbose:
+            # Override console handler to INFO
+            import logging
+
+            for h in logging.getLogger().handlers:
+                if isinstance(h, logging.StreamHandler) and not isinstance(
+                    h, logging.handlers.RotatingFileHandler
+                ):
+                    h.setLevel(logging.INFO)
+
+    logger.warning("strategy_cli.starting", config=str(config), only=only, log_dir=str(log_dir))
 
     runner = _build_runner(config, only=only, log_dir=log_dir)
 
@@ -266,6 +295,20 @@ def run(
 
         await runner.initialize()
         await runner.start_background_loops()
+
+        # Startup summary
+        for strategy, cfg in runner.strategies:
+            budget = runner.gateway._strategy_budgets.get(strategy.name, float("inf"))
+            logger.warning(
+                "strategy.ready",
+                name=strategy.name,
+                mode=cfg.mode,
+                capital_usd=cfg.capital_usd,
+                budget_cap=budget,
+                max_position_usd=cfg.max_position_usd,
+                max_open=cfg.max_open_positions,
+                features=cfg.features,
+            )
 
         # Subscribe to market events for pool refresh
         from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer
@@ -319,7 +362,7 @@ def run(
                             await runner.gateway.submit(intent)
 
         await broker.start()
-        logger.info(
+        logger.warning(
             "strategy_cli.running",
             strategies=len(runner.strategies),
             providers=len(runner.providers),

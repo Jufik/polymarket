@@ -1,0 +1,108 @@
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Strategy structured logs (JSON lines) — all strategies via glob
+  - job_name: paper_strategy
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: paper
+          __path__: /logs/*/strategy.log
+    pipeline_stages:
+      - match:
+          selector: '{job="paper"}'
+          stages:
+            # Extract strategy name from path: /logs/<strategy>/strategy.log
+            - regex:
+                source: filename
+                expression: "/logs/(?P<strategy_name>[^/]+)/strategy\\.log"
+            - labels:
+                strategy_name:
+            - json:
+                expressions:
+                  level: log_level
+                  event: event
+                  strategy: strategy
+                  intent_strategy: intent_strategy
+                  condition_id: condition_id
+                  timestamp: timestamp
+            - labels:
+                level:
+                event:
+                strategy:
+                intent_strategy:
+            - timestamp:
+                source: timestamp
+                format: "2006-01-02T15:04:05.999999Z07:00"
+                fallback_formats:
+                  - "2006-01-02T15:04:05Z"
+
+  # Error logs — all strategies
+  - job_name: paper_errors
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: paper_errors
+          __path__: /logs/*/errors.log
+    pipeline_stages:
+      - match:
+          selector: '{job="paper_errors"}'
+          stages:
+            - regex:
+                source: filename
+                expression: "/logs/(?P<strategy_name>[^/]+)/errors\\.log"
+            - labels:
+                strategy_name:
+            - json:
+                expressions:
+                  level: log_level
+                  event: event
+                  strategy: strategy
+                  error: error
+                  timestamp: timestamp
+            - labels:
+                level:
+                event:
+                strategy:
+                error:
+            - timestamp:
+                source: timestamp
+                format: "2006-01-02T15:04:05.999999Z07:00"
+                fallback_formats:
+                  - "2006-01-02T15:04:05Z"
+
+  # Fill logs — all strategies
+  - job_name: paper_fills
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: paper_fills
+          __path__: /logs/*/fills.jsonl
+    pipeline_stages:
+      - match:
+          selector: '{job="paper_fills"}'
+          stages:
+            - regex:
+                source: filename
+                expression: "/logs/(?P<strategy_name>[^/]+)/fills\\.jsonl"
+            - labels:
+                strategy_name:
+            - json:
+                expressions:
+                  strategy: strategy
+                  status: status
+                  side: side
+                  outcome: outcome
+                  condition_id: condition_id
+            - labels:
+                strategy:
+                status:
+                side:
+                outcome:
