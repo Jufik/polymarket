@@ -35,7 +35,7 @@ def _(clickhouse_connect, mo):
 def _(ch, mo):
     _df = mo.sql(
         f"""
-        SELECT * FROM 
+        SELECT * FROM
         """,
         engine=ch
     )

@@ -61,6 +61,10 @@ def _register_providers() -> None:
     _PROVIDER_REGISTRY["pool_traders"] = GradedPoolProvider
     _PROVIDER_REGISTRY["market_size"] = MarketSizeProvider
 
+    from polymarket_pipeline.strategies_impl.hr_pool.providers import HRPoolProvider
+
+    _PROVIDER_REGISTRY["hr_pool"] = HRPoolProvider
+
 
 # ---------------------------------------------------------------------------
 # Strategy factory registry
@@ -106,12 +110,20 @@ def _make_proportional_copy(config: StrategyConfig) -> Any:
     return ProportionalCopyStrategy(config=ProportionalCopyConfig(**config.params))
 
 
+def _make_hr_pool(config: StrategyConfig) -> Any:
+    from polymarket_pipeline.strategies_impl.hr_pool.config import HRPoolConfig
+    from polymarket_pipeline.strategies_impl.hr_pool.strategy import HRPoolStrategy
+
+    return HRPoolStrategy(config=HRPoolConfig(**config.params))
+
+
 def _register_strategies() -> None:
     """Register known strategy factories."""
     _STRATEGY_FACTORIES["consensus_copy"] = _make_consensus_copy
     _STRATEGY_FACTORIES["crypto_otm_no"] = _make_crypto_otm_no
     _STRATEGY_FACTORIES["will_no"] = _make_will_no
     _STRATEGY_FACTORIES["proportional_copy"] = _make_proportional_copy
+    _STRATEGY_FACTORIES["hr_pool"] = _make_hr_pool
 
 
 # ---------------------------------------------------------------------------

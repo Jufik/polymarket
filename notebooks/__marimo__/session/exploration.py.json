@@ -7,32 +7,18 @@
     {
       "id": "Hbol",
       "code_hash": "e42ea6a6c4fa1f20588f353c5706df55",
-      "outputs": [
-        {
-          "type": "data",
-          "data": {
-            "text/plain": ""
-          }
-        }
-      ],
+      "outputs": [],
       "console": []
     },
     {
       "id": "MJUe",
       "code_hash": "ea57a4417db2f7f2360543eb2ace0e74",
-      "outputs": [
-        {
-          "type": "data",
-          "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Connected to ClickHouse <strong>24.8.14.39</strong> at <code>192.168.0.148</code></span></span>"
-          }
-        }
-      ],
+      "outputs": [],
       "console": []
     },
     {
-      "id": "Mfwo",
-      "code_hash": null,
+      "id": "vblA",
+      "code_hash": "a550b585878bb0e161487631d732720b",
       "outputs": [],
       "console": []
     }
