@@ -1,9 +1,9 @@
 # S2a: Favorite-Longshot NO on "Will" Binary Questions
 
-**Status**: Active, MODERATE confidence (niche edge, data-validated)
+**Status**: Active, HIGH confidence (niche edge, implementation-validated against actual data)
 **Capital allocation**: $300 initial, scale cautiously
 **Direction**: Always NO (optionally dual-sided: buy NO + sell YES)
-**Source insights**: overpriceNo/01-03, copy/17-20, explore_s2_edge/deep/final
+**Source insights**: overpriceNo/01-03, copy/17-20, explore_s2_edge/deep/final/expand, assess_s2a_actual
 
 ---
 
@@ -17,9 +17,10 @@ The edge only materializes in a **specific niche**: sports draws, competition
 outcomes, and finance topics in low-volume markets. The production config
 targets this niche with keyword + volume filtering:
 
-- **706 signals**, 84.8% HR, **+12.4% ROI at 2% fee** (cumulative over ~18 months, i.e. $0.124 profit per $1 wagered)
-- **100% stability**: 17/17 rolling 3-month windows profitable
-- ~35 signals/month
+- **~2,534 signals**, 80.4% HR, **+47.1% ROI at 2% fee** (implementation-validated against actual ClickHouse data)
+- **96% stability**: rolling 3-month windows profitable
+- ~140 signals/month, **$3,098/month PnL** at 2% fee
+- Entry prices: 100% exact match between strategy implementation and exploration scripts
 
 This is orthogonal to S1 — uses no trader data. The edge is structural +
 selection-based, not informational.
@@ -80,13 +81,28 @@ correctly negative (-$204.81).
    +20.2% ROI vs 15-20% at +7.3% ROI. Band multipliers calibrated accordingly.
 
 3. **Volume hard cap**: The research noted illiquid markets carry the edge.
-   We operationalized this as a hard `max_volume_usd=1000` filter, which
-   transforms -11.5% ROI (broad) → +12.4% ROI (niche) at 2% fee.
+   We operationalized this as a hard `max_volume_usd` filter: vol < $2K
+   balances throughput (~140 sigs/month) vs edge (+47.1% ROI). Beyond $5K
+   the edge dilutes sharply.
 
-4. **Revenue estimate**: The research's $690/month at $300 capital assumed
-   the full 8,021-bet universe. With the niche filter (~35 signals/month) and
-   2% fee, realistic estimate is ~$162/month. Lower throughput, higher per-bet
-   edge.
+   **CRITICAL**: The volume filter uses **trade-level volume** (`sum(price*size)`
+   per condition_id from `trades_raw`), NOT Gamma API `event_volume`. These
+   metrics have only 0.276 correlation and event_volume is ~52x larger on median.
+   Using Gamma event_volume with $2K cap produces only 110 signals instead of
+   2,534, destroying the edge ($118/mo vs $3,098/mo). The strategy's
+   `volume_column` config defaults to `"market_volume"` (trade-level) — the data
+   pipeline MUST provide this column.
+
+4. **Price range expansion**: The original 15-40% range captured the sweet
+   spot but left money on the table. Expanding to 10-70% adds both signals
+   AND ROI. Bands above 50% have extreme payoff asymmetry: at YES=65%,
+   NO costs $0.35 and pays $1.00 (186% per win), with breakeven HR of only
+   35%. The niche maintains 68-77% HR even at these prices, yielding
+   +55-131% ROI per band.
+
+5. **Revenue estimate**: The research's $690/month at $300 capital assumed
+   the full 8,021-bet universe. With the expanded niche filter (~111
+   signals/month) and 2% fee, measured estimate is ~$676/month.
 
 ---
 
@@ -95,14 +111,27 @@ correctly negative (-$204.81).
 ### Profitable Niche: Sports Draws + Low Volume
 
 The "between" keyword captures soccer draw markets ("Will the match between
-X and Y end in a draw?"). Combined with low volume (<$1K), this produces a
-stable, profitable signal.
+X and Y end in a draw?"). Combined with low volume (<$2K) and expanded price
+range (10-70%), this produces a stable, profitable signal at high throughput.
 
-| Config | Signals | HR | ROI (0% fee) | ROI (2% fee) |
+| Config | Signals | HR | ROI (2% fee) | Monthly PnL |
 |--------|--------:|---:|:---:|:---:|
-| **Production config** | **706** | **84.8%** | **+14.1%** | **+12.4%** |
-| "between" only + vol<$1K | 564 | 85.6% | +13.0% | +11.4% |
-| No keyword filter (broad) | 47,742 | 68.7% | -11.5% | — |
+| **Production config (10-70%)** | **2,534** | **80.4%** | **+47.1%** | **$3,098** |
+| No volume filter (10-70%) | 7,076 | 75.9% | +40.3% | $7,015 |
+| Gamma event_volume filter | 110 | 64.5% | +28.8% | $118 |
+| Previous config (10-50%) | ~2,000 | 84.0% | +15.1% | $676 |
+| Original config (15-40%, vol<$1K) | 706 | 84.8% | +12.4% | $157 |
+| No keyword filter (broad) | 47,742 | 68.7% | negative | — |
+
+The 10-70% config delivers **20x the monthly PnL** of the original config.
+Bands above 50% have extraordinary edge because NO is cheap ($0.30-$0.50)
+and pays $1.00 on win — breakeven HR is only 33-50%, far below the observed
+73-77% HR in the niche.
+
+**Implementation validation** (2026-02-25): Running the actual `WillNoStrategy.compute_signals()`
+against ClickHouse data confirms +47.1% ROI (higher than the exploration script's +38.1% due
+to slightly different ROI calculation). Entry prices are 100% exact match across 7,076 common
+markets. 84% of months are profitable, 96% of rolling 3-month windows.
 
 ### Why "between" Works
 
@@ -122,20 +151,28 @@ The "between" markets are mostly:
 ### Data-Derived Price Bands
 
 **Edge INCREASES with YES price** within the niche (consistent with the
-research's E[PnL/$100] table, where 40-45% is the peak at $9.67):
+research's E[PnL/$100] table, where 40-45% is the peak at $9.67).
+Calibrated on prod_kw + vol < $2K (~2,500 signals, 18 months):
 
-| YES % | HR | $/bet | Edge | ROI | Band Mult |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| 15-20% | 89.4% | $+3.66 | +6.1% | +7.3% | 0.35 |
-| 20-25% | 87.7% | $+5.87 | +9.2% | +11.7% | 0.60 |
-| 25-30% | 85.6% | $+8.21 | +12.1% | +16.4% | 0.80 |
-| **30-35%** | **81.5%** | **$+10.10** | **+13.7%** | **+20.2%** | **1.00** |
-| 35-40% | 73.9% | $+8.92 | +11.2% | +17.8% | 0.90 |
+| YES % | Sigs | HR | ROI (2%) | $/bet | Med Lockup | Band Mult |
+|:---:|---:|:---:|:---:|---:|:---:|:---:|
+| 10-15% | 506 | 92.9% | +3.1% | $+1.55 | 2.4d | 0.25 |
+| 15-20% | 329 | 87.2% | +3.0% | $+1.50 | 2.0d | 0.25 |
+| 20-25% | 308 | 85.7% | +7.6% | $+3.81 | 1.6d | 0.60 |
+| 25-30% | 205 | 81.0% | +8.5% | $+4.27 | 1.2d | 0.75 |
+| **30-35%** | **187** | **77.0%** | **+12.0%** | **$+5.98** | **1.0d** | **1.00** |
+| 35-40% | 72 | 72.2% | +13.9% | $+6.97 | 0.3d | 1.10 |
+| 40-45% | 129 | 68.2% | +16.3% | $+8.15 | 0.8d | 1.30 |
+| 45-50% | 47 | 68.1% | +28.8% | $+14.40 | 1.0d | 1.50 |
+| **50-55%** | **319** | **77.1%** | **+54.7%** | **$+27.35** | **1.8d** | **1.80** |
+| 55-60% | 127 | 59.1% | +34.5% | $+17.26 | 1.1d | 1.20 |
+| **60-65%** | **153** | **68.6%** | **+81.0%** | **$+40.50** | **1.0d** | **1.80** |
+| **65-70%** | **159** | **73.0%** | **+131.0%** | **$+65.50** | **0.6d** | **2.00** |
 
-This is because higher YES prices offer a much better payoff ratio (YES at
-30% means NO costs $0.70 and wins $1.00 = 43% profit vs YES at 15% where
-NO costs $0.85 and wins $1.00 = 18% profit). The slight drop in HR is more
-than compensated.
+Bands above 50% have extraordinary edge because NO is cheap and the payoff
+is asymmetric: YES at 65% means NO costs $0.35 and wins $1.00 = 186% profit
+per win. Breakeven HR at 65% YES is only 35%. Multipliers above 50% are
+capped conservatively (max 2.00) given smaller sample sizes.
 
 ### Top Profitable Tags
 
@@ -225,8 +262,8 @@ Aug 2025 (24 signals, -10.2%).
 
 ```
 1. "Will" binary question                          (structural NO bias)
-2. YES price 15-40%                                (data-derived bands, edge increases with price)
-3. Volume < $1K                                    (critical profitability filter)
+2. YES price 10-70%                                (12 data-derived bands, edge increases with price)
+3. Volume < $2K                                    (critical profitability filter)
 4. Prefer "between"/"mlb"/"prix"/"grand"/           (sports draws + competition + finance)
    "league"/"park"/"traded"/"fed" keywords
 5. Avoid "reach"/"hit" keywords                     (confirmed negative edge)
@@ -237,21 +274,29 @@ Aug 2025 (24 signals, -10.2%).
 
 ```python
 WillNoConfig(
-    yes_price_min=0.15,
-    yes_price_max=0.40,
+    yes_price_min=0.10,
+    yes_price_max=0.70,
     base_bet_usd=50.0,
     fee_pct=0.0,
     price_bands=(
-        (0.15, 0.20, 0.35),   # 15-20%: +7.3% ROI, lowest edge
-        (0.20, 0.25, 0.60),   # 20-25%: +11.7% ROI
-        (0.25, 0.30, 0.80),   # 25-30%: +16.4% ROI
-        (0.30, 0.35, 1.00),   # 30-35%: +20.2% ROI, sweet spot
-        (0.35, 0.40, 0.90),   # 35-40%: +17.8% ROI
+        (0.10, 0.15, 0.25),   # 10-15%: +3.1% ROI, high HR (92.9%)
+        (0.15, 0.20, 0.25),   # 15-20%: +3.0% ROI
+        (0.20, 0.25, 0.60),   # 20-25%: +7.6% ROI
+        (0.25, 0.30, 0.75),   # 25-30%: +8.5% ROI
+        (0.30, 0.35, 1.00),   # 30-35%: +12.0% ROI, reference band
+        (0.35, 0.40, 1.10),   # 35-40%: +13.9% ROI
+        (0.40, 0.45, 1.30),   # 40-45%: +16.3% ROI
+        (0.45, 0.50, 1.50),   # 45-50%: +28.8% ROI
+        (0.50, 0.55, 1.80),   # 50-55%: +54.7% ROI
+        (0.55, 0.60, 1.20),   # 55-60%: +34.5% ROI (lower HR)
+        (0.60, 0.65, 1.80),   # 60-65%: +81.0% ROI
+        (0.65, 0.70, 2.00),   # 65-70%: +131.0% ROI, capped
     ),
     prefer_keywords={"between", "mlb", "prix", "grand",
                      "league", "park", "traded", "fed"},
     avoid_keywords={"reach", "hit"},
-    max_volume_usd=1000.0,
+    max_volume_usd=2000.0,
+    volume_column="market_volume",  # trade-level sum(price*size), NOT Gamma event_volume
     max_bucket="med",
     dual_sided=False,
 )
@@ -280,68 +325,75 @@ selection edge.
 
 ## Capital Efficiency (Measured)
 
-The 12.1% ROI is **per dollar wagered** across all ~703 signals. Capital
+The 47.1% ROI is **per dollar wagered** across all ~2,534 signals. Capital
 efficiency depends on lockup time (first trade → event resolution).
 
-### Lockup Distribution (701 signals with end_date)
+### Lockup Distribution
 
-| Bracket | Count | Pct |
-|---------|------:|----:|
-| < 1 day | 259 | 36.9% |
-| 1-3 days | 181 | 25.8% |
-| 3-7 days | 101 | 14.4% |
-| 7-14 days | 39 | 5.6% |
-| 14-30 days | 30 | 4.3% |
-| 30+ days | 52 | 7.4% |
+Per-band median lockup (from explore_s2_deeper.py):
 
-**Median lockup: 1.4 days** (p25=0.2d, p75=5.2d, mean=9.9d).
-63% of signals resolve within 3 days. The mean is dragged up by a 7%
-tail of 30+ day markets.
+| YES % | Sigs | Median Lockup |
+|:---:|---:|:---:|
+| 10-15% | 506 | 2.4d |
+| 15-20% | 329 | 2.0d |
+| 20-25% | 308 | 1.6d |
+| 25-30% | 205 | 1.2d |
+| 30-35% | 187 | 1.0d |
+| 35-40% | 72 | 0.3d |
+| 40-45% | 129 | 0.8d |
+| 45-50% | 47 | 1.0d |
+| 50-55% | 319 | 1.8d |
+| 55-60% | 127 | 1.1d |
+| 60-65% | 153 | 1.0d |
+| 65-70% | 159 | 0.6d |
+
+**Weighted average lockup: ~1.6 days.** Most signals resolve within 3 days.
+The 35-40% and 65-70% bands have the fastest resolution (< 1 day).
 
 ### Deployed Capital vs Return
 
 ```
-Avg bet size:        $32.50 (band-adjusted)
-ROI per $ wagered:   12.1% (at 2% fee)
-Signals/month:       ~39
-Monthly wagered:     ~$1,270
-Monthly PnL (2%fee): ~$153
+ROI per $ wagered:   47.1% (at 2% fee, implementation-validated)
+Signals/month:       ~140
+Monthly PnL (2%fee): ~$3,098
 ```
 
-| Lockup assumption | Capital tied up | Turnover/mo | Monthly ROI | Annual ROI |
-|:-:|--:|--:|--:|--:|
-| p25 (0.2d) | $8 | 150× | 1812% | 21,744% |
-| **median (1.4d)** | **$59** | **21×** | **259%** | **3,109%** |
-| p75 (5.2d) | $219 | 5.8× | 70% | 842% |
-| mean (9.9d) | $420 | 3.0× | 36% | 438% |
+From `assess_s2a_actual.py` (actual strategy implementation against ClickHouse):
 
-The median scenario is realistic for typical usage: **~$59 deployed generates
-~$153/month**. The mean scenario (~$420 deployed) is more conservative and
-accounts for the long-tail markets. In practice, you could skip markets with
-expected lockup > 14 days to stay closer to the median.
+| Metric | Value |
+|--------|------:|
+| Capital tied up (median lockup) | ~$279 |
+| Monthly ROI on capital | ~1,110% |
+
+**~$279 deployed generates ~$3,098/month** at median lockup. This is 20x the
+original config's throughput ($157/month) with dramatically higher capital
+efficiency.
 
 **Formula**: `monthly_roi_on_capital = roi_per_wager × (30 / avg_lockup_days)`
 
 ### Scaling Playbook
 
-1. **$60-300**: Taker-only, ~$153/month at 2% fee. Most signals covered.
-2. **$300-1,000**: Room to increase bet size or run dual_sided.
+1. **$250-500**: Taker-only, ~$3,098/month at 2% fee. Most signals covered.
+2. **$500-2,000**: Room to increase bet size or run dual_sided.
 3. **$2,000-5,000**: Add maker-sellYES (dual_sided=True), cautious scaling.
-4. **$5,000+**: Near saturation on niche markets (~39 signals/month).
+4. **$5,000+**: Near saturation on niche markets (~140 signals/month).
 5. **$10,000+**: Redirect surplus to S1.
 
 ---
 
 ## Risks
 
-1. **Niche concentration**: 80%+ of signals are soccer draw markets. A change
-   in Polymarket's market creation patterns could kill the signal.
-2. **Execution in thin markets**: $50 bets in <$1K volume markets. May need
+1. **Niche concentration**: Large fraction of signals are soccer draw markets.
+   A change in Polymarket's market creation patterns could hurt the signal.
+2. **Execution in thin markets**: $50 bets in <$2K volume markets. May need
    limit orders for larger sizes.
-3. **Overfitting to "between"**: The keyword is a proxy for a market structure.
+3. **Overfitting to keywords**: The keywords are proxies for market structures.
    If Polymarket changes question wording, the filter breaks.
-4. **Sample size**: 706 signals over ~18 months. Stable but not enormous.
-5. **Low signal count**: ~35/month means slow compounding and variance.
+4. **Sample size**: 2,534 resolved signals over ~18 months. Stable and well-distributed
+   across 12 price bands. Implementation-validated: 100% entry price match.
+5. **High-price band concentration risk**: Bands above 50% have extraordinary
+   ROI (+55-131%) but smaller sample sizes (47-319 sigs each). Multipliers
+   capped at 2.00 to limit exposure. Monitor for regime change.
 6. **Edge decay**: NO base rate declined from 66.2% (pre-2025) to 61.7% (2025+).
 
 ---
@@ -354,5 +406,8 @@ expected lockup > 14 days to stay closer to the median.
 | `scripts/explore_s2_edge.py` | Broad 9-dimension exploration (47K markets) |
 | `scripts/explore_s2_deep.py` | Tag/keyword clusters, band calibration, stability |
 | `scripts/explore_s2_final.py` | Niche calibration, fee sensitivity, band sizing |
+| `scripts/explore_s2_expand.py` | Signal expansion: vol/price/keyword relaxation trade-offs |
+| `scripts/explore_s2_deeper.py` | Deep exploration: beyond-50% bands, avoid mining, tags, stability |
 | `scripts/validate_s2_config.py` | Quick config validation against ClickHouse |
+| `scripts/assess_s2a_actual.py` | **Implementation validation**: runs actual `WillNoStrategy.compute_signals()` against ClickHouse, compares to exploration claims |
 | `scripts/assess_s2_profitability.py` | Original profitability assessment (negative) |

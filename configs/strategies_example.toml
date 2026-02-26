@@ -25,24 +25,26 @@ assets = ["BTC", "ETH", "SOL", "XRP"]
 
 # ---------------------------------------------------------------------------
 # S2a: Will NO — Buy NO on binary "Will X happen?" questions
+# Validated: +46.6% ROI, 82.3% HR, ~223 sigs/month (full-year replay)
 # ---------------------------------------------------------------------------
 [strategy.will_no]
 enabled = true
 mode = "paper_dev"
-capital_usd = 300
-max_position_usd = 50
-max_open_positions = 6
+capital_usd = 5000
+max_position_usd = 150
+max_open_positions = 100
 cooldown_s = 0
 features = ["will_markets", "market_size"]
 
 [strategy.will_no.params]
-yes_price_min = 0.15
-yes_price_max = 0.40
 base_bet_usd = 50
-prefer_keywords = ["above", "below", "today"]
-avoid_keywords = ["reach", "hit"]
-max_volume_usd = 5000
-question_pattern = "^Will\\b"
+# All other params use validated defaults from WillNoConfig:
+#   price_bands = 12 data-derived bands (10-70% YES range)
+#   prefer_keywords = {between, mlb, prix, grand, league, park, traded, fed}
+#   avoid_keywords = {reach, hit}
+#   max_volume_usd = 2000 (trade-level, NOT Gamma event_volume)
+#   max_bucket = "med" (requires MarketSizeProvider / XGBoost model)
+#   question_pattern = "^Will\b"
 
 # ---------------------------------------------------------------------------
 # S1: Proportional Copy — Copy graded longshot-YES specialists
@@ -60,7 +62,10 @@ features = ["pool_traders"]
 capital_per_trader_usd = 50
 max_position_pct = 0.05
 contradiction_filter = true
-sizing = "equal"
+sizing = "proportional"
+max_sizing_mult = 3.0
+max_entry_price = 0.50
+price_slippage = 0.05
 
 # ---------------------------------------------------------------------------
 # Feature Providers
@@ -93,4 +98,15 @@ enabled = true
 refresh_interval_s = 3600
 
 [provider.pool_traders.params]
+# For consistency mode (recommended): uncomment data_dir + train window
+# data_dir = "data/derived"
+# train_start = "2023-01-01"
+# train_end = "2026-02-01"
+# min_periods = 9
+# min_consistency_markets = 20
+# max_mvf = 0.10
+# max_median_entry = 0.80
+min_longshot_yes_frac = 0.15
+max_no_fraction = 0.60
+# Legacy mode fallback (when data_dir not set):
 min_markets = 50

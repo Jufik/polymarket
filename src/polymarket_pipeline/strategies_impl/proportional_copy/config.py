@@ -26,7 +26,15 @@ class ProportionalCopyConfig:
     fee_pct
         Expected fee fraction.
     sizing
-        "proportional" = scale bet to trader's ROI; "equal" = fixed per trader.
+        "equal" = fixed per trader; "proportional" = scale by relative trade size.
+    max_sizing_mult
+        Cap on proportional sizing multiplier (prevents outsized bets
+        when a trader makes an unusually large trade).
+    max_entry_price
+        Maximum directional entry price for copy intent. Prevents chasing
+        expensive fills. None = no cap.
+    price_slippage
+        Slippage buffer added to the trigger trade price for max_price.
     """
 
     pool_traders: frozenset[str] = field(default_factory=frozenset)
@@ -36,6 +44,9 @@ class ProportionalCopyConfig:
     contradiction_filter: bool = True
     fee_pct: float = 0.02
     sizing: str = "equal"
+    max_sizing_mult: float = 3.0
+    max_entry_price: float | None = None
+    price_slippage: float = 0.05
 
     def __init__(
         self,
@@ -46,6 +57,9 @@ class ProportionalCopyConfig:
         contradiction_filter: bool = True,
         fee_pct: float = 0.02,
         sizing: str = "equal",
+        max_sizing_mult: float = 3.0,
+        max_entry_price: float | None = None,
+        price_slippage: float = 0.05,
     ) -> None:
         object.__setattr__(
             self,
@@ -58,3 +72,6 @@ class ProportionalCopyConfig:
         object.__setattr__(self, "contradiction_filter", contradiction_filter)
         object.__setattr__(self, "fee_pct", fee_pct)
         object.__setattr__(self, "sizing", sizing)
+        object.__setattr__(self, "max_sizing_mult", max_sizing_mult)
+        object.__setattr__(self, "max_entry_price", max_entry_price)
+        object.__setattr__(self, "price_slippage", price_slippage)

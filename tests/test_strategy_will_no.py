@@ -24,8 +24,8 @@ from polymarket_pipeline.strategies_impl.will_no.strategy import WillNoStrategy
 
 def test_will_no_config_defaults() -> None:
     cfg = WillNoConfig()
-    assert cfg.yes_price_min == 0.15
-    assert cfg.yes_price_max == 0.40
+    assert cfg.yes_price_min == 0.10
+    assert cfg.yes_price_max == 0.70
     assert cfg.base_bet_usd == 50.0
     assert cfg.fee_pct == 0.0
     assert cfg.avoid_keywords == frozenset({"reach", "hit"})
@@ -33,7 +33,8 @@ def test_will_no_config_defaults() -> None:
         "between", "mlb", "prix", "grand",
         "league", "park", "traded", "fed",
     })
-    assert cfg.max_volume_usd == 1000.0
+    assert cfg.max_volume_usd == 2000.0
+    assert cfg.volume_column == "market_volume"
     assert cfg.question_pattern == r"^Will\b"
     assert cfg.price_bands == DEFAULT_PRICE_BANDS
     assert cfg.max_bucket == "med"
@@ -75,36 +76,44 @@ def test_band_multiplier_sweet_spot() -> None:
 
 def test_band_multiplier_lower_bands() -> None:
     cfg = WillNoConfig()
-    assert cfg.band_multiplier(0.17) == 0.35
+    assert cfg.band_multiplier(0.12) == 0.25  # 10-15% band
+    assert cfg.band_multiplier(0.17) == 0.25  # 15-20% band
     assert cfg.band_multiplier(0.22) == 0.60
 
 
 def test_band_multiplier_upper_bands() -> None:
     cfg = WillNoConfig()
-    assert cfg.band_multiplier(0.27) == 0.80
-    assert cfg.band_multiplier(0.37) == 0.90
+    assert cfg.band_multiplier(0.27) == 0.75
+    assert cfg.band_multiplier(0.37) == 1.10
+    assert cfg.band_multiplier(0.42) == 1.30  # 40-45% band
+    assert cfg.band_multiplier(0.47) == 1.50  # 45-50% band
+    assert cfg.band_multiplier(0.52) == 1.80  # 50-55% band
+    assert cfg.band_multiplier(0.57) == 1.20  # 55-60% band
+    assert cfg.band_multiplier(0.62) == 1.80  # 60-65% band
+    assert cfg.band_multiplier(0.67) == 2.00  # 65-70% band
 
 
 def test_band_multiplier_outside_all_bands() -> None:
     """Prices outside all bands should return 0.0."""
     cfg = WillNoConfig()
     assert cfg.band_multiplier(0.05) == 0.0
-    assert cfg.band_multiplier(0.60) == 0.0
-    assert cfg.band_multiplier(0.41) == 0.0
+    assert cfg.band_multiplier(0.75) == 0.0
+    assert cfg.band_multiplier(0.80) == 0.0
 
 
 def test_band_multiplier_boundary_lower() -> None:
     """Lower boundary of a band is inclusive."""
     cfg = WillNoConfig()
-    assert cfg.band_multiplier(0.15) == 0.35
-    assert cfg.band_multiplier(0.20) == 0.60  # goes to next band [0.20, 0.25)
-    assert cfg.band_multiplier(0.25) == 0.80
+    assert cfg.band_multiplier(0.10) == 0.25  # lower bound of first band
+    assert cfg.band_multiplier(0.15) == 0.25  # goes to next band [0.15, 0.20)
+    assert cfg.band_multiplier(0.20) == 0.60
+    assert cfg.band_multiplier(0.25) == 0.75
 
 
 def test_band_multiplier_boundary_upper_last() -> None:
     """Upper boundary of the last band is inclusive."""
     cfg = WillNoConfig()
-    assert cfg.band_multiplier(0.40) == 0.90
+    assert cfg.band_multiplier(0.70) == 2.00
 
 
 def test_band_multiplier_empty_bands() -> None:
@@ -252,17 +261,17 @@ async def test_will_no_skips_yes_price_outside_band() -> None:
     cfg = WillNoConfig(**_BARE_CFG_KWARGS)
     strategy = WillNoStrategy(config=cfg)
 
-    # YES price too high (60%)
+    # YES price too high (80%)
     ctx = _MockCtx(
         market=MarketInfo(
             condition_id="0xabc",
             question="Will inflation drop below 2%?",
             active=True,
-            yes_price=0.60,
+            yes_price=0.80,
             category="Economics",
         ),
     )
-    trade = _make_trade(condition_id="0xabc", price=0.60)
+    trade = _make_trade(condition_id="0xabc", price=0.80)
     result = await strategy.on_trade(trade, ctx)
     assert result is None
 
@@ -364,9 +373,9 @@ async def test_will_no_dual_sided_emits_two_intents() -> None:
     assert ("SELL", "YES") in outcomes
 
     # Each side gets half the band-adjusted bet size
-    # yes_price=0.25 → band [0.25, 0.30) → mult=0.80 → size=40 → half=20
+    # yes_price=0.25 → band [0.25, 0.30) → mult=0.75 → size=37.5 → half=18.75
     for intent in result:
-        assert intent.size_usd == 20.0
+        assert intent.size_usd == pytest.approx(18.75)
 
 
 @pytest.mark.asyncio
@@ -392,6 +401,53 @@ async def test_will_no_single_sided_default() -> None:
     assert result[0].side == "BUY"
     assert result[0].outcome == "NO"
     assert result[0].size_usd == 50.0
+
+
+@pytest.mark.asyncio
+async def test_will_no_intent_max_price_buy_no() -> None:
+    """BUY NO intent should have max_price = 1 - yes_price (the NO cost)."""
+    cfg = WillNoConfig(**_BARE_CFG_KWARGS)
+    strategy = WillNoStrategy(config=cfg)
+
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is not None
+    assert result[0].max_price == pytest.approx(0.75)  # 1.0 - 0.25
+
+
+@pytest.mark.asyncio
+async def test_will_no_intent_max_price_dual_sided() -> None:
+    """Dual-sided intents should have correct max_price for each leg."""
+    cfg = WillNoConfig(dual_sided=True, **_BARE_CFG_KWARGS)
+    strategy = WillNoStrategy(config=cfg)
+
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.30,
+            category="Politics",
+        ),
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.30)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is not None
+    assert len(result) == 2
+
+    buy_no = [r for r in result if r.outcome == "NO"][0]
+    sell_yes = [r for r in result if r.outcome == "YES"][0]
+    assert buy_no.max_price == pytest.approx(0.70)  # 1.0 - 0.30
+    assert sell_yes.max_price == pytest.approx(0.30)
 
 
 @pytest.mark.asyncio
@@ -440,7 +496,7 @@ async def test_band_sizing_sweet_spot() -> None:
 
 @pytest.mark.asyncio
 async def test_band_sizing_edge_band() -> None:
-    """YES=17% falls in 15-20% band → mult=0.35 → reduced size."""
+    """YES=17% falls in 15-20% band → mult=0.25 → reduced size."""
     cfg = WillNoConfig(base_bet_usd=100.0, **_BARE_CFG_KWARGS)
     strategy = WillNoStrategy(config=cfg)
 
@@ -456,12 +512,12 @@ async def test_band_sizing_edge_band() -> None:
     trade = _make_trade(condition_id="0xabc", price=0.17)
     result = await strategy.on_trade(trade, ctx)
     assert result is not None
-    assert result[0].size_usd == pytest.approx(35.0)
+    assert result[0].size_usd == pytest.approx(25.0)
 
 
 @pytest.mark.asyncio
 async def test_band_sizing_negative_edge_excluded() -> None:
-    """YES=42% is outside all bands (negative edge) → no signal."""
+    """YES=75% is outside all bands → no signal."""
     cfg = WillNoConfig(base_bet_usd=100.0, **_BARE_CFG_KWARGS)
     strategy = WillNoStrategy(config=cfg)
 
@@ -470,11 +526,11 @@ async def test_band_sizing_negative_edge_excluded() -> None:
             condition_id="0xabc",
             question="Will X happen?",
             active=True,
-            yes_price=0.42,
+            yes_price=0.75,
             category="Politics",
         ),
     )
-    trade = _make_trade(condition_id="0xabc", price=0.42)
+    trade = _make_trade(condition_id="0xabc", price=0.75)
     result = await strategy.on_trade(trade, ctx)
     assert result is None
 
@@ -731,7 +787,7 @@ class TestWillNoVectorized:
         trades = pl.LazyFrame(
             {
                 "condition_id": ["0x1", "0x2", "0x3"],
-                "price": [0.17, 0.32, 0.37],  # bands: 0.35, 1.00, 0.90
+                "price": [0.17, 0.32, 0.37],  # bands: 0.25, 1.00, 1.10
                 "published_at": [1000.0, 1001.0, 1002.0],
             }
         )
@@ -748,9 +804,9 @@ class TestWillNoVectorized:
 
         result = strategy.compute_signals(trades, markets)
         sizes = dict(zip(result["condition_id"].to_list(), result["size_usd"].to_list()))
-        assert sizes["0x1"] == pytest.approx(35.0)    # 100 * 0.35
+        assert sizes["0x1"] == pytest.approx(25.0)    # 100 * 0.25
         assert sizes["0x2"] == pytest.approx(100.0)   # 100 * 1.00
-        assert sizes["0x3"] == pytest.approx(90.0)    # 100 * 0.90
+        assert sizes["0x3"] == pytest.approx(110.0)   # 100 * 1.10
 
     def test_prefer_keywords_vectorized(self) -> None:
         """Prefer keywords should filter in vectorized path."""
@@ -797,11 +853,44 @@ class TestWillNoVectorized:
                     "Will A happen?",
                     "Will B happen?",
                 ],
-                "event_volume": [3000.0, 50000.0],
+                "market_volume": [3000.0, 50000.0],
             }
         )
 
         result = strategy.compute_signals(trades, markets)
+        assert len(result) == 1
+        assert result["condition_id"][0] == "0x1"
+
+    def test_volume_filter_custom_column(self) -> None:
+        """volume_column config lets the caller choose which column to filter."""
+        cfg = WillNoConfig(
+            max_volume_usd=5000.0,
+            volume_column="event_volume",
+            **_BARE_CFG_KWARGS,
+        )
+        strategy = WillNoStrategy(config=cfg)
+
+        trades = pl.LazyFrame(
+            {
+                "condition_id": ["0x1", "0x2"],
+                "price": [0.25, 0.25],
+                "published_at": [1000.0, 1001.0],
+            }
+        )
+        markets = pl.LazyFrame(
+            {
+                "condition_id": ["0x1", "0x2"],
+                "question": [
+                    "Will A happen?",
+                    "Will B happen?",
+                ],
+                "event_volume": [3000.0, 50000.0],
+                "market_volume": [50000.0, 3000.0],  # opposite order
+            }
+        )
+
+        result = strategy.compute_signals(trades, markets)
+        # Filters on event_volume, not market_volume
         assert len(result) == 1
         assert result["condition_id"][0] == "0x1"
 
@@ -920,6 +1009,66 @@ async def test_will_no_filters_by_market_size_bucket() -> None:
     trade = _make_trade(condition_id="0xmkt1", price=0.25)
     result = await strategy.on_trade(trade, ctx)
     assert result is None  # heavy market, should be skipped
+
+
+@pytest.mark.asyncio
+async def test_will_no_volume_filter_on_trade_skips_high_volume() -> None:
+    """on_trade should skip markets above max_volume_usd when feature present."""
+    cfg = WillNoConfig(max_volume_usd=2000.0, max_bucket=None, **_BARE_CFG_KWARGS)
+    strategy = WillNoStrategy(config=cfg)
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+        features={"market_volume": {"0xabc": 5000.0}},
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is None  # volume 5000 > cap 2000 → skipped
+
+
+@pytest.mark.asyncio
+async def test_will_no_volume_filter_on_trade_allows_low_volume() -> None:
+    """on_trade should allow markets below max_volume_usd."""
+    cfg = WillNoConfig(max_volume_usd=2000.0, max_bucket=None, **_BARE_CFG_KWARGS)
+    strategy = WillNoStrategy(config=cfg)
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+        features={"market_volume": {"0xabc": 800.0}},
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is not None  # volume 800 <= cap 2000 → allowed
+
+
+@pytest.mark.asyncio
+async def test_will_no_volume_filter_on_trade_passthrough_when_no_feature() -> None:
+    """on_trade should pass through when volume feature not loaded."""
+    cfg = WillNoConfig(max_volume_usd=2000.0, max_bucket=None, **_BARE_CFG_KWARGS)
+    strategy = WillNoStrategy(config=cfg)
+    ctx = _MockCtx(
+        market=MarketInfo(
+            condition_id="0xabc",
+            question="Will X happen?",
+            active=True,
+            yes_price=0.25,
+            category="Politics",
+        ),
+        features={},  # no volume feature
+    )
+    trade = _make_trade(condition_id="0xabc", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+    assert result is not None  # no feature → pass through (backward compat)
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,245 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.20.2"
+  },
+  "cells": [
+    {
+      "id": "bkHC",
+      "code_hash": "b0e1dccdb064832ca426cd8a2ff23d84",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><hr />\n<h2 id=\"pool-selection-controls\">Pool Selection Controls</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "1e75ee82b110bdac0e9ae41d9f3a9e0a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"signal-filters-applied-on-holdout-signals\">Signal Filters (applied on holdout signals)</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "AjVT",
+      "code_hash": "3bcb852167dcf4e013c3e206dcf8c3a3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><hr />\n<h2 id=\"market-price-efficiency\">Market Price Efficiency</h2>\n<span class=\"paragraph\">Does the YES price accurately predict resolution? Points above the diagonal = market under-prices NO resolution.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hbol",
+      "code_hash": "f99898110b690b731aec13326cc8df34",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "6f6395b6880817285a119196f2aeb254",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "33f5954865d4b191da18d23a0b029e44",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "2f69e8552c7afcf7a4ceef83f79608b4",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "e719744bd12538ba69a873a5b5a60d32",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "846bb8d4c3888914998c1a390f896137",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "bf7a320311e5c62151ebfc6079b352c1",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "0b7c7e176c96a2e03cc8928cd924606e",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "8603309428e734a5cdcea57fe52d8e32",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "7c68897bf0febe50c81b47b882764c4b",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "1233e5c35be5f883ba7d747f86763a3a",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "971acd45063bf1a59d1d44c480e7e2c0",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "38bf416e9e3a43465304d7e5111d0cd5",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "c5251c9954f33a1f176a205ed26bac32",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "2377de07c13bd7d2cb59e0facd1cf1a1",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "35306c68df87850298816e64e152668f",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "48c728eea203623e1df003643736b23c",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "b6acf0f83ae0f916163a4ea8331b86c3",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "4312570aa4e50281bf399c3b0e9a1262",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "10746aa78fae6dc48e080c941a164fff",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "36067c6de7370652c83b2bc5e9bb3355",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Pvdt",
+      "code_hash": "049454ef6d5cdbba52123a1865928350",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZBYS",
+      "code_hash": "be982ae97a96f6de7d96a895d2fa0d08",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "aLJB",
+      "code_hash": "fd67c39c26759fb0277d4270091c254a",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nHfw",
+      "code_hash": "5af80868086ca8c9fa7d16dc39767f47",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "xXTn",
+      "code_hash": "f3ef20f1e1adbe1a2e47c2163ac61651",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "pHFh",
+      "code_hash": "f5c1507e25f7eba6d50b70edb6c71131",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "NCOB",
+      "code_hash": "e0bd53bd6992d81df2efaeeff39596bb",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "aqbW",
+      "code_hash": "247d886aa9258cdc948dfa0fac9c4abf",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "TRpd",
+      "code_hash": "1027b598628db650f4e592ae31328f82",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "TXez",
+      "code_hash": "934782d48ac9284959c1ef0db437945a",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "dNNg",
+      "code_hash": "bfec5cec7618c3cde5631f0fe85d8fc4",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "yCnT",
+      "code_hash": "5be422824c425e6c3b5993d06390a3dd",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}
