@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,7 @@ class PaperExecutor:
         Strategy context for orderbook lookups.
     fee_pct:
         Fee as fraction of ``min(price, 1-price) * size_usd``.
+        Default 0.0 — most Polymarket markets have zero trading fees.
     default_price:
         Fallback price when neither orderbook nor max_price is available.
     """
@@ -34,7 +36,7 @@ class PaperExecutor:
     def __init__(
         self,
         ctx: StrategyContext,
-        fee_pct: float = 0.02,
+        fee_pct: float = 0.0,
         default_price: float = 0.50,
     ) -> None:
         self._ctx = ctx
@@ -65,14 +67,19 @@ class PaperExecutor:
             filled_size_usd=intent.size_usd,
             fee_usd=fee,
             status=FillStatus.FILLED,
-            filled_at=intent.signal_time,
+            filled_at=time.time(),
         )
 
-        logger.info(
+        logger.warning(
             "paper_fill",
             intent_id=intent_id,
+            strategy=intent.strategy,
             condition_id=intent.condition_id,
-            price=price,
+            side=intent.side,
+            outcome=intent.outcome,
+            price=round(price, 4),
+            size_usd=round(intent.size_usd, 2),
+            fee_usd=round(fee, 4),
             source="orderbook" if ob is not None else "fallback",
         )
 

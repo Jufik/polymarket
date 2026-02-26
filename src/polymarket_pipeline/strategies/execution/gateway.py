@@ -22,7 +22,7 @@ logger = structlog.get_logger(__name__)
 
 
 class ExecutionGateway:
-    """Thin routing layer that logs intents and delegates to an :class:`Executor`.
+    """Thin routing layer that logs intents/fills and delegates to an :class:`Executor`.
 
     Parameters
     ----------
@@ -30,12 +30,15 @@ class ExecutionGateway:
         The underlying executor that converts intents to fills.
     log_path:
         Optional path to a JSONL file where every submitted intent is appended.
-        If ``None``, no logging is performed.
+        If ``None``, no file logging is performed.
     delay_s:
         Optional delay in seconds before executing.
     quality_state:
         Optional pipeline readiness state. When provided, intents are rejected
         if the pipeline is not in CHECKING or READY state.
+    strategy_budgets:
+        Per-strategy cumulative USD spending caps. Strategies without an entry
+        are uncapped.
     """
 
     def __init__(
@@ -53,6 +56,9 @@ class ExecutionGateway:
         self._quality_state = quality_state
         self._strategy_budgets = dict(strategy_budgets) if strategy_budgets else {}
         self._strategy_spent: dict[str, float] = {}
+        self._fill_log_path: Path | None = None
+        if log_path is not None:
+            self._fill_log_path = log_path.parent / "fills.jsonl"
 
     async def submit(self, intent: TradeIntent) -> Fill:
         """Log *intent* (if configured) and delegate to the executor.
@@ -126,11 +132,18 @@ class ExecutionGateway:
                 self._strategy_spent.get(intent.strategy, 0.0) + fill.filled_size_usd
             )
 
+        # Persist fill to JSONL
+        if self._fill_log_path is not None:
+            self._log_fill(fill)
+
         logger.info(
             "gateway_submit",
             intent_strategy=intent.strategy,
             condition_id=intent.condition_id,
             fill_status=fill.status,
+            fill_price=fill.filled_price,
+            fill_size=fill.filled_size_usd,
+            spent=round(self._strategy_spent.get(intent.strategy, 0.0), 2),
         )
 
         return fill
@@ -140,3 +153,9 @@ class ExecutionGateway:
         assert self.log_path is not None  # noqa: S101
         with open(self.log_path, "a") as f:
             f.write(json.dumps(dataclasses.asdict(intent)) + "\n")
+
+    def _log_fill(self, fill: Fill) -> None:
+        """Append *fill* as a JSON line to :attr:`_fill_log_path`."""
+        assert self._fill_log_path is not None  # noqa: S101
+        with open(self._fill_log_path, "a") as f:
+            f.write(json.dumps(dataclasses.asdict(fill)) + "\n")
