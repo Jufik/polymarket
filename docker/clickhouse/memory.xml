@@ -1,32 +1,4 @@
 <clickhouse>
     <max_server_memory_usage>0</max_server_memory_usage>
     <max_server_memory_usage_to_ram_ratio>0.95</max_server_memory_usage_to_ram_ratio>
-
-    <profiles>
-        <default>
-            <!-- Per-query limit: 64 GiB (leaves ~27 GiB for caches/merges/other queries) -->
-            <max_memory_usage>68719476736</max_memory_usage>
-
-            <!-- Spill GROUP BY to disk when hash table exceeds 16 GiB -->
-            <max_bytes_before_external_group_by>17179869184</max_bytes_before_external_group_by>
-
-            <!-- Spill ORDER BY to disk when exceeds 16 GiB -->
-            <max_bytes_before_external_sort>17179869184</max_bytes_before_external_sort>
-
-            <!-- Auto: use hash join for small tables, partial_merge for large ones -->
-            <join_algorithm>auto</join_algorithm>
-
-            <!-- Hash join budget: 16 GiB before switching to partial_merge -->
-            <max_bytes_in_join>17179869184</max_bytes_in_join>
-
-            <!-- Allow grace hash join (spills to disk in buckets) -->
-            <grace_hash_join_initial_buckets>16</grace_hash_join_initial_buckets>
-
-            <!-- Read columns only when needed (huge savings on tx_hash/order_hash) -->
-            <use_query_cache>1</use_query_cache>
-
-            <!-- Prefer PREWHERE for WHERE pushdown into storage layer -->
-            <optimize_move_to_prewhere>1</optimize_move_to_prewhere>
-        </default>
-    </profiles>
 </clickhouse>

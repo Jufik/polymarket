@@ -9,6 +9,7 @@ services:
       - ./docker/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./docker/clickhouse/memory.xml:/etc/clickhouse-server/config.d/memory.xml
       - ./docker/clickhouse/logging.xml:/etc/clickhouse-server/config.d/logging.xml
+      - ./docker/clickhouse/query_defaults.xml:/etc/clickhouse-server/users.d/query_defaults.xml
     environment:
       CLICKHOUSE_DB: polymarket
       CLICKHOUSE_USER: default
