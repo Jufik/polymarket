@@ -44,6 +44,12 @@ ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_taker taker TYPE b
 ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_trade_id trade_id TYPE bloom_filter(0.01) GRANULARITY 1;
 ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_tx_hash tx_hash TYPE bloom_filter(0.01) GRANULARITY 1;
 
+-- asset_id bloom filter for JOIN trades_raw ON asset_id (token_market_map lookups)
+ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_asset_id asset_id TYPE bloom_filter(0.01) GRANULARITY 4;
+
+-- Timestamp minmax for time-range partition pruning
+ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_ts_minmax timestamp TYPE minmax GRANULARITY 8;
+
 -- Convenience view (add FINAL to specific queries when exact dedup is needed)
 -- e.g. SELECT * FROM polymarket.trades FINAL WHERE condition_id = '0x...'
 CREATE VIEW IF NOT EXISTS polymarket.trades AS SELECT * FROM polymarket.trades_raw;
