@@ -12,10 +12,10 @@ def imports():
     import plotly.express as px
     import plotly.graph_objects as go
     import clickhouse_connect
-    import time as _time
+    import time as time_mod
     from datetime import datetime
 
-    return _time, clickhouse_connect, datetime, go, mo, pl, px
+    return clickhouse_connect, datetime, go, mo, pl, px, time_mod
 
 
 # ── CH Connection ────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ def connect(clickhouse_connect, mo):
 # ═══════════════════════════════════════════════════════════════════════
 @app.cell
 def step0_raw(ch, mo):
-    r = ch.query("""
+    _r = ch.query("""
         SELECT
             count()                AS trades,
             uniq(condition_id)     AS markets,
@@ -49,12 +49,11 @@ def step0_raw(ch, mo):
 
 | | |
 |---|---|
-| **Trades** | {r[0]:,} |
-| **Markets** | {r[1]:,} |
-| **Makers** | {r[2]:,} |
-| **Period** | `{r[3]}` → `{r[4]}` |
+| **Trades** | {_r[0]:,} |
+| **Markets** | {_r[1]:,} |
+| **Makers** | {_r[2]:,} |
+| **Period** | `{_r[3]}` → `{_r[4]}` |
 """)
-    return
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -88,7 +87,7 @@ def step1_resolution(ch, mo):
     WHERE m.resolution_value = 1
     """
 
-    stats = ch.query(f"""
+    _stats = ch.query(f"""
         SELECT
             count()            AS resolved,
             countIf(yes_won)   AS n_yes,
@@ -105,9 +104,9 @@ def step1_resolution(ch, mo):
 
 | | |
 |---|---|
-| Resolved markets | **{stats[0]:,}** |
-| YES won | {stats[1]:,} ({stats[1]/stats[0]:.1%}) |
-| NO won | {stats[2]:,} ({stats[2]/stats[0]:.1%}) |
+| Resolved markets | **{_stats[0]:,}** |
+| YES won | {_stats[1]:,} ({_stats[1]/_stats[0]:.1%}) |
+| NO won | {_stats[2]:,} ({_stats[2]/_stats[0]:.1%}) |
 """)
     return (RESOLUTION_SQL,)
 
@@ -165,7 +164,7 @@ enriched AS (
 -- ④ Maker positions
 maker AS (
     SELECT
-        maker                              AS trader,
+        assumeNotNull(maker)               AS trader,
         condition_id, timestamp, amount_usd, fee_usd,
         yes_price * amount_usd             AS yes_px_vol,
         -- YES tokens gained by maker
@@ -179,7 +178,7 @@ maker AS (
 -- ⑤ Taker positions (opposite side)
 taker AS (
     SELECT
-        taker                              AS trader,
+        assumeNotNull(taker)               AS trader,
         condition_id, timestamp, amount_usd, fee_usd,
         yes_price * amount_usd             AS yes_px_vol,
         if(is_yes,
@@ -220,39 +219,38 @@ GROUP BY trader, condition_id
 
 
 @app.cell
-def step2_run(AGG_SQL, _time, ch, mo):
+def step2_run(AGG_SQL, ch, mo, time_mod):
     """Execute the aggregation (skips if table already populated)."""
-    exists = False
-    n = 0
+    _exists = False
+    _n = 0
     try:
-        n = ch.query("SELECT count() FROM _tmp_s1_positions").first_row[0]
-        exists = n > 0
+        _n = ch.query("SELECT count() FROM _tmp_s1_positions").first_row[0]
+        _exists = _n > 0
     except Exception:
         pass
 
-    if exists:
-        stats = ch.query("""
+    if _exists:
+        _stats = ch.query("""
             SELECT count(), uniq(trader), uniq(condition_id)
             FROM _tmp_s1_positions
         """).first_row
         mo.md(
-            f"**Step 2** — `_tmp_s1_positions` cached: **{stats[0]:,}** positions "
-            f"({stats[1]:,} traders, {stats[2]:,} markets). "
+            f"**Step 2** — `_tmp_s1_positions` cached: **{_stats[0]:,}** positions "
+            f"({_stats[1]:,} traders, {_stats[2]:,} markets). "
             f"`DROP TABLE _tmp_s1_positions` to rebuild."
         )
     else:
-        t0 = _time.time()
+        _t0 = time_mod.time()
         ch.command(AGG_SQL)
-        elapsed = _time.time() - t0
-        stats = ch.query("""
+        _elapsed = time_mod.time() - _t0
+        _stats = ch.query("""
             SELECT count(), uniq(trader), uniq(condition_id)
             FROM _tmp_s1_positions
         """).first_row
         mo.md(
-            f"**Step 2** — Built `_tmp_s1_positions`: **{stats[0]:,}** positions "
-            f"({stats[1]:,} traders, {stats[2]:,} markets) in **{elapsed:.0f}s**"
+            f"**Step 2** — Built `_tmp_s1_positions`: **{_stats[0]:,}** positions "
+            f"({_stats[1]:,} traders, {_stats[2]:,} markets) in **{_elapsed:.0f}s**"
         )
-    return
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -287,8 +285,8 @@ def step3_pull_sql(RESOLUTION_SQL, mo):
 
         p.trade_count,
         p.market_volume,
-        r.resolved_at,
-        formatDateTime(r.resolved_at, '%Y-%m')         AS month
+        toDateTime64(r.resolved_at, 3, 'UTC')          AS resolved_at,
+        formatDateTime(r.resolved_at, '%Y-%m')          AS month
 
     FROM _tmp_s1_positions p
     JOIN (
@@ -308,30 +306,36 @@ def step3_pull_sql(RESOLUTION_SQL, mo):
 
 
 @app.cell
-def step3_pull(PULL_SQL, _time, ch, mo, pl):
+def step3_pull(PULL_SQL, ch, mo, pl, time_mod):
     """Pull all held-at-resolution positions into Polars."""
-    t0 = _time.time()
-    arrow = ch.query_arrow(PULL_SQL)
-    df = pl.from_arrow(arrow)
+    _t0 = time_mod.time()
+    _arrow = ch.query_arrow(PULL_SQL)
+    df = pl.from_arrow(_arrow)
 
-    # Strip timezone from resolved_at for clean datetime comparisons
+    # Ensure resolved_at is a proper timezone-naive datetime
     if "resolved_at" in df.columns:
-        dtype = df.schema["resolved_at"]
-        if isinstance(dtype, pl.Datetime) and dtype.time_zone:
+        _dtype = df.schema["resolved_at"]
+        if isinstance(_dtype, pl.Datetime) and _dtype.time_zone:
             df = df.with_columns(
                 pl.col("resolved_at").dt.replace_time_zone(None)
             )
+        elif _dtype in (pl.UInt32, pl.Int64, pl.UInt64):
+            # Arrow sometimes returns DateTime as epoch seconds
+            df = df.with_columns(
+                pl.from_epoch(pl.col("resolved_at"), time_unit="s")
+                .alias("resolved_at")
+            )
 
-    elapsed = _time.time() - t0
-    n_traders = df["trader"].n_unique()
-    n_markets = df["condition_id"].n_unique()
-    hr = float(df["correct"].mean())
+    _elapsed = time_mod.time() - _t0
+    _n_traders = df["trader"].n_unique()
+    _n_markets = df["condition_id"].n_unique()
+    _hr = float(df["correct"].mean())
 
     mo.md(f"""
 **Step 3** — Pulled **{df.height:,}** positions
-({n_traders:,} traders, {n_markets:,} markets) in **{elapsed:.1f}s**
+({_n_traders:,} traders, {_n_markets:,} markets) in **{_elapsed:.1f}s**
 
-Overall HR: **{hr:.1%}**
+Overall HR: **{_hr:.1%}**
 """)
     return (df,)
 
@@ -342,7 +346,6 @@ Overall HR: **{hr:.1%}**
 @app.cell
 def section_controls(mo):
     mo.md("---\n## Pool Selection Controls")
-    return
 
 
 @app.cell
@@ -385,7 +388,6 @@ def pool_controls(mo):
 @app.cell
 def signal_section(mo):
     mo.md("### Signal Filters (holdout)")
-    return
 
 
 @app.cell
@@ -437,7 +439,7 @@ def build_pool(
     Pool selection on RESOLUTION HIT RATE:
       1. Filter training window
       2. Per-trader stats: HR, n_markets, yes_frac, median entry, etc.
-      3. Monthly consistency: count months with HR ≥ threshold (min 3 bets)
+      3. Monthly consistency: count months with HR >= threshold (min 3 bets)
       4. Apply min_hr, min_markets, min_months filters
     """
     train = df.filter(
@@ -499,8 +501,8 @@ def compute_holdout(
     df, direction, entry_hi, entry_lo,
     holdout_end, holdout_start, pl, pool_set,
 ):
-    FEE = 0.02
-    BET = 100.0
+    _FEE = 0.02
+    _BET = 100.0
 
     holdout = df.filter(
         (pl.col("resolved_at") >= holdout_start)
@@ -521,10 +523,10 @@ def compute_holdout(
     holdout = holdout.with_columns(
         pl.when(pl.col("correct"))
         .then(
-            pl.lit(BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
-            - pl.lit(BET) * FEE
+            pl.lit(_BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
+            - pl.lit(_BET) * _FEE
         )
-        .otherwise(-pl.lit(BET) - pl.lit(BET) * FEE)
+        .otherwise(-pl.lit(_BET) - pl.lit(_BET) * _FEE)
         .alias("pnl")
     )
     return (holdout,)
@@ -535,8 +537,8 @@ def compute_baseline(
     df, direction, entry_hi, entry_lo,
     holdout_end, holdout_start, pl,
 ):
-    FEE = 0.02
-    BET = 100.0
+    _FEE = 0.02
+    _BET = 100.0
 
     baseline = df.filter(
         (pl.col("resolved_at") >= holdout_start)
@@ -556,10 +558,10 @@ def compute_baseline(
     baseline = baseline.with_columns(
         pl.when(pl.col("correct"))
         .then(
-            pl.lit(BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
-            - pl.lit(BET) * FEE
+            pl.lit(_BET) * (1.0 - pl.col("dir_entry")) / pl.col("dir_entry")
+            - pl.lit(_BET) * _FEE
         )
-        .otherwise(-pl.lit(BET) - pl.lit(BET) * FEE)
+        .otherwise(-pl.lit(_BET) - pl.lit(_BET) * _FEE)
         .alias("pnl")
     )
     return (baseline,)
@@ -570,17 +572,15 @@ def compute_baseline(
 # ═══════════════════════════════════════════════════════════════════════
 @app.cell
 def show_kpis(baseline, holdout, mo, pool_set):
-    if holdout.height == 0:
-        mo.md("**No signals match current filters.**")
-        return
+    mo.stop(holdout.height == 0, mo.md("**No signals match current filters.**"))
 
-    p_hr = float(holdout["correct"].mean())
-    p_pnl = float(holdout["pnl"].sum())
-    p_per = p_pnl / holdout.height
-    p_entry = float(holdout["dir_entry"].mean())
+    _p_hr = float(holdout["correct"].mean())
+    _p_pnl = float(holdout["pnl"].sum())
+    _p_per = _p_pnl / holdout.height
+    _p_entry = float(holdout["dir_entry"].mean())
 
-    b_hr = float(baseline["correct"].mean()) if baseline.height > 0 else 0
-    b_per = (
+    _b_hr = float(baseline["correct"].mean()) if baseline.height > 0 else 0
+    _b_per = (
         float(baseline["pnl"].sum()) / baseline.height
         if baseline.height > 0
         else 0
@@ -592,20 +592,19 @@ def show_kpis(baseline, holdout, mo, pool_set):
 
 | Metric | Pool | All Traders | Market Implied |
 |--------|------|-------------|----------------|
-| **Hit Rate** | **{p_hr:.1%}** | {b_hr:.1%} | {p_entry:.1%} |
-| **$/signal** | **${p_per:+.1f}** | ${b_per:+.1f} | — |
-| **Edge vs All** | **{p_hr - b_hr:+.1%}** | — | — |
-| **Edge vs Market** | **{p_hr - p_entry:+.1%}** | — | — |
+| **Hit Rate** | **{_p_hr:.1%}** | {_b_hr:.1%} | {_p_entry:.1%} |
+| **$/signal** | **${_p_per:+.1f}** | ${_b_per:+.1f} | — |
+| **Edge vs All** | **{_p_hr - _b_hr:+.1%}** | — | — |
+| **Edge vs Market** | **{_p_hr - _p_entry:+.1%}** | — | — |
 
 | | |
 |---|---|
 | **Pool size** | {len(pool_set):,} traders |
 | **Holdout signals** | {holdout.height:,} |
-| **Total PnL** | ${p_pnl:+,.0f} |
-| **Avg dir entry** | {p_entry:.3f} |
+| **Total PnL** | ${_p_pnl:+,.0f} |
+| **Avg dir entry** | {_p_entry:.3f} |
 | **Baseline signals** | {baseline.height:,} |
 """)
-    return
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -614,86 +613,83 @@ def show_kpis(baseline, holdout, mo, pool_set):
 @app.cell
 def entry_band_header(mo):
     mo.md("---\n## Entry Price Bands")
-    return
 
 
 @app.cell
 def entry_band_table(baseline, holdout, mo, pl):
-    if holdout.height == 0:
-        return
+    mo.stop(holdout.height == 0)
 
-    bands = [
+    _bands = [
         (0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4), (0.4, 0.5),
         (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.0),
     ]
 
-    rows = []
-    for lo, hi in bands:
-        pb = holdout.filter(
-            (pl.col("dir_entry") >= lo) & (pl.col("dir_entry") < hi)
+    _rows = []
+    for _lo, _hi in _bands:
+        _pb = holdout.filter(
+            (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
         )
-        bb = baseline.filter(
-            (pl.col("dir_entry") >= lo) & (pl.col("dir_entry") < hi)
+        _bb = baseline.filter(
+            (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
         )
-        if pb.height < 5:
+        if _pb.height < 5:
             continue
-        p_hr = float(pb["correct"].mean())
-        p_per = float(pb["pnl"].sum()) / pb.height
-        b_hr = float(bb["correct"].mean()) if bb.height > 0 else 0
-        b_per = (
-            float(bb["pnl"].sum()) / bb.height if bb.height > 0 else 0
+        _p_hr = float(_pb["correct"].mean())
+        _p_per = float(_pb["pnl"].sum()) / _pb.height
+        _b_hr = float(_bb["correct"].mean()) if _bb.height > 0 else 0
+        _b_per = (
+            float(_bb["pnl"].sum()) / _bb.height if _bb.height > 0 else 0
         )
-        rows.append({
-            "Band": f"{lo:.0%}-{hi:.0%}",
-            "Pool N": pb.height,
-            "Pool HR": f"{p_hr:.1%}",
-            "Pool $/sig": f"${p_per:+.1f}",
-            "All N": bb.height,
-            "All HR": f"{b_hr:.1%}",
-            "All $/sig": f"${b_per:+.1f}",
-            "Edge": f"{p_hr - b_hr:+.1%}",
+        _rows.append({
+            "Band": f"{_lo:.0%}-{_hi:.0%}",
+            "Pool N": _pb.height,
+            "Pool HR": f"{_p_hr:.1%}",
+            "Pool $/sig": f"${_p_per:+.1f}",
+            "All N": _bb.height,
+            "All HR": f"{_b_hr:.1%}",
+            "All $/sig": f"${_b_per:+.1f}",
+            "Edge": f"{_p_hr - _b_hr:+.1%}",
         })
 
-    if rows:
-        mo.ui.table(pl.DataFrame(rows).to_pandas(), label="Entry bands")
-    return
+    if _rows:
+        mo.ui.table(pl.DataFrame(_rows).to_pandas(), label="Entry bands")
 
 
 @app.cell
-def entry_band_chart(baseline, go, holdout, pl, px):
-    if holdout.height < 10:
-        return
+def entry_band_chart(baseline, go, holdout, mo, pl, px):
+    mo.stop(holdout.height < 10)
 
-    bands = [(0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
-    data = []
-    for lo, hi in bands:
-        label = f"{lo:.0%}-{hi:.0%}"
-        mid = (lo + hi) / 2
-        for src, sdf in [("Pool", holdout), ("All", baseline)]:
-            b = sdf.filter(
-                (pl.col("dir_entry") >= lo) & (pl.col("dir_entry") < hi)
+    _bands = [(0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
+    _data = []
+    for _lo, _hi in _bands:
+        _label = f"{_lo:.0%}-{_hi:.0%}"
+        _mid = (_lo + _hi) / 2
+        for _src, _sdf in [("Pool", holdout), ("All", baseline)]:
+            _b = _sdf.filter(
+                (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
             )
-            if b.height >= 10:
-                data.append({
-                    "Band": label,
-                    "Source": src,
-                    "HR": float(b["correct"].mean()),
-                    "N": b.height,
+            if _b.height >= 10:
+                _data.append({
+                    "Band": _label,
+                    "Source": _src,
+                    "HR": float(_b["correct"].mean()),
+                    "N": _b.height,
                 })
-        data.append({
-            "Band": label, "Source": "Market", "HR": mid, "N": 0,
+        _data.append({
+            "Band": _label, "Source": "Market", "HR": _mid, "N": 0,
         })
 
-    if data:
-        fig = px.bar(
-            pl.DataFrame(data).to_pandas(),
+    entry_band_fig = None
+    if _data:
+        entry_band_fig = px.bar(
+            pl.DataFrame(_data).to_pandas(),
             x="Band", y="HR", color="Source",
             barmode="group",
             title="HR by Entry Band: Pool vs All vs Market",
             text_auto=".1%",
         )
-        fig.update_layout(yaxis_tickformat=".0%", height=400)
-        return fig
+        entry_band_fig.update_layout(yaxis_tickformat=".0%", height=400)
+    return (entry_band_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -702,15 +698,13 @@ def entry_band_chart(baseline, go, holdout, pl, px):
 @app.cell
 def monthly_header(mo):
     mo.md("---\n## Monthly Breakdown")
-    return
 
 
 @app.cell
 def monthly_table(holdout, mo, pl):
-    if holdout.height == 0:
-        return
+    mo.stop(holdout.height == 0)
 
-    m = (
+    _m = (
         holdout.group_by("month")
         .agg(
             pl.len().alias("N"),
@@ -722,50 +716,47 @@ def monthly_table(holdout, mo, pl):
         .sort("month")
         .with_columns((pl.col("PnL") / pl.col("N")).alias("$/sig"))
     )
-    mo.ui.table(m.to_pandas(), label="Monthly performance")
-    return
+    mo.ui.table(_m.to_pandas(), label="Monthly performance")
 
 
 @app.cell
-def monthly_chart(holdout, pl, px):
-    if holdout.height == 0:
-        return
+def monthly_chart(holdout, mo, pl, px):
+    mo.stop(holdout.height == 0)
 
-    m = (
+    _m = (
         holdout.group_by("month")
         .agg(pl.col("pnl").sum().alias("PnL"))
         .sort("month")
         .to_pandas()
     )
-    fig = px.bar(
-        m, x="month", y="PnL",
+    monthly_pnl_fig = px.bar(
+        _m, x="month", y="PnL",
         title="Monthly PnL ($100/signal)",
         color="PnL",
         color_continuous_scale=["red", "gray", "green"],
         color_continuous_midpoint=0,
     )
-    fig.update_layout(height=350)
-    return fig
+    monthly_pnl_fig.update_layout(height=350)
+    return (monthly_pnl_fig,)
 
 
 @app.cell
-def equity_curve(holdout, pl, px):
-    if holdout.height == 0:
-        return
+def equity_curve(holdout, mo, pl, px):
+    mo.stop(holdout.height == 0)
 
-    m = (
+    _m = (
         holdout.group_by("month")
         .agg(pl.col("pnl").sum().alias("PnL"))
         .sort("month")
         .to_pandas()
     )
-    m["Cumulative"] = m["PnL"].cumsum()
-    fig = px.line(
-        m, x="month", y="Cumulative",
+    _m["Cumulative"] = _m["PnL"].cumsum()
+    equity_fig = px.line(
+        _m, x="month", y="Cumulative",
         title="Cumulative PnL", markers=True,
     )
-    fig.update_layout(height=350)
-    return fig
+    equity_fig.update_layout(height=350)
+    return (equity_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -774,46 +765,45 @@ def equity_curve(holdout, pl, px):
 @app.cell
 def trades_header(mo):
     mo.md("---\n## By Trade Activity")
-    return
 
 
 @app.cell
 def trades_breakdown(holdout, mo, pl, px):
-    if holdout.height == 0:
-        return
+    mo.stop(holdout.height == 0)
 
-    buckets = [
+    _buckets = [
         (1, 2, "1 trade"),
         (2, 5, "2-4"),
         (5, 15, "5-14"),
         (15, 50, "15-49"),
         (50, 1_000_000, "50+"),
     ]
-    data = []
-    for lo, hi, label in buckets:
-        b = holdout.filter(
-            (pl.col("trade_count") >= lo) & (pl.col("trade_count") < hi)
+    _data = []
+    for _lo, _hi, _label in _buckets:
+        _b = holdout.filter(
+            (pl.col("trade_count") >= _lo) & (pl.col("trade_count") < _hi)
         )
-        if b.height >= 10:
-            data.append({
-                "Trades": label,
-                "N": b.height,
-                "HR": float(b["correct"].mean()),
-                "$/sig": float(b["pnl"].sum()) / b.height,
+        if _b.height >= 10:
+            _data.append({
+                "Trades": _label,
+                "N": _b.height,
+                "HR": float(_b["correct"].mean()),
+                "$/sig": float(_b["pnl"].sum()) / _b.height,
             })
 
-    if data:
-        tdf = pl.DataFrame(data)
-        mo.ui.table(tdf.to_pandas(), label="By trade count")
-        fig = px.bar(
-            tdf.to_pandas(), x="Trades", y="$/sig",
+    trades_fig = None
+    if _data:
+        _tdf = pl.DataFrame(_data)
+        mo.ui.table(_tdf.to_pandas(), label="By trade count")
+        trades_fig = px.bar(
+            _tdf.to_pandas(), x="Trades", y="$/sig",
             title="$/sig by Trade Count",
             color="$/sig",
             color_continuous_scale=["red", "gray", "green"],
             color_continuous_midpoint=0,
         )
-        fig.update_layout(height=350)
-        return fig
+        trades_fig.update_layout(height=350)
+    return (trades_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -822,15 +812,13 @@ def trades_breakdown(holdout, mo, pl, px):
 @app.cell
 def direction_header(mo):
     mo.md("---\n## By Trader Direction Preference")
-    return
 
 
 @app.cell
 def direction_breakdown(holdout, mo, pl, pool_df, px):
-    if holdout.height == 0 or pool_df.height == 0:
-        return
+    mo.stop(holdout.height == 0 or pool_df.height == 0)
 
-    buckets = [
+    _buckets = [
         (0.00, 0.10, "Heavy NO (0-10%)"),
         (0.10, 0.30, "NO-leaning"),
         (0.30, 0.50, "Slight NO"),
@@ -839,35 +827,36 @@ def direction_breakdown(holdout, mo, pl, pool_df, px):
         (0.90, 1.01, "Heavy YES (90%+)"),
     ]
 
-    hw = holdout.join(
+    _hw = holdout.join(
         pool_df.select("trader", "yes_frac"),
         on="trader", how="left", suffix="_p",
     )
 
-    data = []
-    for lo, hi, label in buckets:
-        b = hw.filter(
-            (pl.col("yes_frac") >= lo) & (pl.col("yes_frac") < hi)
+    _data = []
+    for _lo, _hi, _label in _buckets:
+        _b = _hw.filter(
+            (pl.col("yes_frac") >= _lo) & (pl.col("yes_frac") < _hi)
         )
-        if b.height >= 10:
-            data.append({
-                "Bucket": label,
-                "N": b.height,
-                "Traders": b["trader"].n_unique(),
-                "HR": float(b["correct"].mean()),
-                "$/sig": float(b["pnl"].sum()) / b.height,
+        if _b.height >= 10:
+            _data.append({
+                "Bucket": _label,
+                "N": _b.height,
+                "Traders": _b["trader"].n_unique(),
+                "HR": float(_b["correct"].mean()),
+                "$/sig": float(_b["pnl"].sum()) / _b.height,
             })
 
-    if data:
-        tdf = pl.DataFrame(data)
-        mo.ui.table(tdf.to_pandas(), label="By direction preference")
-        fig = px.bar(
-            tdf.to_pandas(), x="Bucket", y="HR",
+    direction_fig = None
+    if _data:
+        _tdf = pl.DataFrame(_data)
+        mo.ui.table(_tdf.to_pandas(), label="By direction preference")
+        direction_fig = px.bar(
+            _tdf.to_pandas(), x="Bucket", y="HR",
             title="HR by Direction Preference",
             text_auto=".1%",
         )
-        fig.update_layout(yaxis_tickformat=".0%", height=350)
-        return fig
+        direction_fig.update_layout(yaxis_tickformat=".0%", height=350)
+    return (direction_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -876,46 +865,42 @@ def direction_breakdown(holdout, mo, pl, pool_df, px):
 @app.cell
 def pool_dist_header(mo):
     mo.md("---\n## Pool Distributions")
-    return
 
 
 @app.cell
-def pool_hr_dist(pool_df, px):
-    if pool_df.height == 0:
-        return
-    fig = px.histogram(
+def pool_hr_dist(mo, pool_df, px):
+    mo.stop(pool_df.height == 0)
+    hr_dist_fig = px.histogram(
         pool_df.to_pandas(), x="hr", nbins=40,
         title=f"Pool HR Distribution (n={pool_df.height:,})",
     )
-    fig.update_layout(height=350)
-    return fig
+    hr_dist_fig.update_layout(height=350)
+    return (hr_dist_fig,)
 
 
 @app.cell
-def pool_entry_dist(pool_df, px):
-    if pool_df.height == 0:
-        return
-    fig = px.histogram(
+def pool_entry_dist(mo, pool_df, px):
+    mo.stop(pool_df.height == 0)
+    entry_dist_fig = px.histogram(
         pool_df.to_pandas(), x="median_entry", nbins=40,
         title="Pool Median Entry Distribution",
     )
-    fig.update_layout(height=350)
-    return fig
+    entry_dist_fig.update_layout(height=350)
+    return (entry_dist_fig,)
 
 
 @app.cell
-def pool_scatter(pool_df, px):
-    if pool_df.height == 0:
-        return
-    fig = px.scatter(
+def pool_scatter(mo, pool_df, px):
+    mo.stop(pool_df.height == 0)
+    scatter_fig = px.scatter(
         pool_df.to_pandas(),
         x="yes_frac", y="hr",
         size="n_markets", color="median_entry",
         title="YES% vs HR (size=markets, color=entry)",
         color_continuous_scale="RdYlGn",
     )
-    fig.update_layout(height=450)
-    return fig
+    scatter_fig.update_layout(height=450)
+    return (scatter_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -924,43 +909,42 @@ def pool_scatter(pool_df, px):
 @app.cell
 def calibration_header(mo):
     mo.md("---\n## Market Calibration (Implied vs Actual)")
-    return
 
 
 @app.cell
-def calibration_chart(baseline, go, holdout, pl, px):
-    if holdout.height < 100:
-        return
+def calibration_chart(baseline, go, holdout, mo, pl, px):
+    mo.stop(holdout.height < 100)
 
-    data = []
-    for i in range(20):
-        lo, hi = i / 20, (i + 1) / 20
-        for label, src in [("Pool", holdout), ("All", baseline)]:
-            b = src.filter(
-                (pl.col("dir_entry") >= lo) & (pl.col("dir_entry") < hi)
+    _data = []
+    for _i in range(20):
+        _lo, _hi = _i / 20, (_i + 1) / 20
+        for _label, _src in [("Pool", holdout), ("All", baseline)]:
+            _b = _src.filter(
+                (pl.col("dir_entry") >= _lo) & (pl.col("dir_entry") < _hi)
             )
-            if b.height >= 20:
-                data.append({
-                    "Implied": (lo + hi) / 2,
-                    "Actual": float(b["correct"].mean()),
-                    "Source": label,
-                    "N": b.height,
+            if _b.height >= 20:
+                _data.append({
+                    "Implied": (_lo + _hi) / 2,
+                    "Actual": float(_b["correct"].mean()),
+                    "Source": _label,
+                    "N": _b.height,
                 })
 
-    if data:
-        fig = px.scatter(
-            pl.DataFrame(data).to_pandas(),
+    calibration_fig = None
+    if _data:
+        calibration_fig = px.scatter(
+            pl.DataFrame(_data).to_pandas(),
             x="Implied", y="Actual",
             color="Source", size="N",
             title="Implied Prob vs Actual Resolution HR",
         )
-        fig.add_trace(go.Scatter(
+        calibration_fig.add_trace(go.Scatter(
             x=[0, 1], y=[0, 1], mode="lines",
             line=dict(dash="dash", color="gray"),
             name="Perfect",
         ))
-        fig.update_layout(height=500)
-        return fig
+        calibration_fig.update_layout(height=500)
+    return (calibration_fig,)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -969,39 +953,36 @@ def calibration_chart(baseline, go, holdout, pl, px):
 @app.cell
 def volume_header(mo):
     mo.md("---\n## By Market Volume")
-    return
 
 
 @app.cell
 def volume_breakdown(holdout, mo, pl):
-    if holdout.height == 0:
-        return
+    mo.stop(holdout.height == 0)
 
-    qs = [float(holdout["market_volume"].quantile(q)) for q in [0.25, 0.5, 0.75]]
-    buckets = [
-        (0, qs[0], f"Q1 (0-{qs[0]:.0f})"),
-        (qs[0], qs[1], f"Q2 ({qs[0]:.0f}-{qs[1]:.0f})"),
-        (qs[1], qs[2], f"Q3 ({qs[1]:.0f}-{qs[2]:.0f})"),
-        (qs[2], 1e15, f"Q4 ({qs[2]:.0f}+)"),
+    _qs = [float(holdout["market_volume"].quantile(q)) for q in [0.25, 0.5, 0.75]]
+    _buckets = [
+        (0, _qs[0], f"Q1 (0-{_qs[0]:.0f})"),
+        (_qs[0], _qs[1], f"Q2 ({_qs[0]:.0f}-{_qs[1]:.0f})"),
+        (_qs[1], _qs[2], f"Q3 ({_qs[1]:.0f}-{_qs[2]:.0f})"),
+        (_qs[2], 1e15, f"Q4 ({_qs[2]:.0f}+)"),
     ]
 
-    data = []
-    for lo, hi, label in buckets:
-        b = holdout.filter(
-            (pl.col("market_volume") >= lo)
-            & (pl.col("market_volume") < hi)
+    _data = []
+    for _lo, _hi, _label in _buckets:
+        _b = holdout.filter(
+            (pl.col("market_volume") >= _lo)
+            & (pl.col("market_volume") < _hi)
         )
-        if b.height >= 10:
-            data.append({
-                "Bucket": label,
-                "N": b.height,
-                "HR": float(b["correct"].mean()),
-                "$/sig": float(b["pnl"].sum()) / b.height,
+        if _b.height >= 10:
+            _data.append({
+                "Bucket": _label,
+                "N": _b.height,
+                "HR": float(_b["correct"].mean()),
+                "$/sig": float(_b["pnl"].sum()) / _b.height,
             })
 
-    if data:
-        mo.ui.table(pl.DataFrame(data).to_pandas(), label="By volume")
-    return
+    if _data:
+        mo.ui.table(pl.DataFrame(_data).to_pandas(), label="By volume")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1010,15 +991,13 @@ def volume_breakdown(holdout, mo, pl):
 @app.cell
 def pool_table_header(mo, pool_df):
     mo.md(f"---\n## Pool Table ({pool_df.height:,} traders)")
-    return
 
 
 @app.cell
 def pool_table(mo, pl, pool_df):
-    if pool_df.height == 0:
-        return
+    mo.stop(pool_df.height == 0)
 
-    display = (
+    _display = (
         pool_df.select(
             "trader",
             pl.col("hr").round(3).alias("HR"),
@@ -1035,8 +1014,7 @@ def pool_table(mo, pl, pool_df):
         .sort("HR", descending=True)
         .head(50)
     )
-    mo.ui.table(display.to_pandas(), label="Top 50 by HR")
-    return
+    mo.ui.table(_display.to_pandas(), label="Top 50 by HR")
 
 
 if __name__ == "__main__":
