@@ -125,7 +125,38 @@ class SkilledTradersProvider:
         logger.info("skilled_traders.consistency_mode", count=len(self._skilled))
 
     async def _compute_legacy(self, backend: FeatureBackend) -> None:
-        """Simple market-count filter (backward compat)."""
+        """Simple market-count filter (backward compat).
+
+        When a ClickHouse backend is detected, the aggregation is pushed
+        to the server to avoid loading 438M+ raw rows into Python memory.
+        """
+        if getattr(backend, "supports_sql", False) is True:
+            await self._compute_legacy_ch(backend)
+        else:
+            await self._compute_legacy_polars(backend)
+
+    async def _compute_legacy_ch(self, backend: Any) -> None:
+        """Push legacy trader aggregation to ClickHouse."""
+        result = await backend.query_custom(f"""
+            SELECT
+                maker,
+                uniq(condition_id) AS n_markets
+            FROM trades_raw FINAL
+            WHERE maker IS NOT NULL AND maker != ''
+            GROUP BY maker
+            HAVING n_markets >= {self._min_trades}
+        """)
+
+        if result.is_empty():
+            self._skilled = frozenset()
+            logger.info("skilled_traders.compute", count=0)
+            return
+
+        self._skilled = frozenset(result["maker"].to_list())
+        logger.info("skilled_traders.legacy_mode", count=len(self._skilled))
+
+    async def _compute_legacy_polars(self, backend: FeatureBackend) -> None:
+        """Fallback: aggregate in Polars (offline/backtest only)."""
         trades = await backend.query_trades()
 
         if trades.is_empty():

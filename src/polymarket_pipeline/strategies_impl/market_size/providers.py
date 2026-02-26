@@ -55,13 +55,154 @@ class MarketSizeProvider:
             return False
 
     async def compute(self, backend: FeatureBackend) -> None:
-        """Classify all markets using the backend's data."""
-        import polars as pl
+        """Classify all markets using the backend's data.
 
+        For ClickHouse backends, pushes trade aggregation to the server
+        to avoid loading 438M+ raw rows into Python memory.
+        """
         if not self._ensure_model():
             return
 
-        # Fetch data
+        if getattr(backend, "supports_sql", False) is True:
+            await self._compute_from_ch(backend)
+        else:
+            await self._compute_from_polars(backend)
+
+    async def _compute_from_ch(self, backend: FeatureBackend) -> None:
+        """Push aggregation to ClickHouse — returns ~455K rows, not 438M."""
+        import polars as pl
+
+        cfg = self._cfg
+        window_secs = cfg.feature_window_hours * 3600
+        early_secs = window_secs // 6
+        mid_secs = window_secs // 2
+
+        # Pre-aggregate trades per condition_id in ClickHouse
+        trade_agg = await backend.query_custom(f"""
+            SELECT
+                condition_id,
+                count() AS trades_window,
+                sum(toFloat64(price) * toFloat64(size)) AS vol_window,
+                uniq(maker) AS traders_window,
+                countIf(secs <= {early_secs}) AS trades_early,
+                sumIf(toFloat64(price) * toFloat64(size), secs <= {early_secs}) AS vol_early,
+                uniqIf(maker, secs <= {early_secs}) AS traders_early,
+                countIf(secs <= {mid_secs}) AS trades_mid,
+                sumIf(toFloat64(price) * toFloat64(size), secs <= {mid_secs}) AS vol_mid,
+                uniqIf(maker, secs <= {mid_secs}) AS traders_mid,
+                stddevPopStable(toFloat64(price)) AS price_std,
+                max(toFloat64(price)) - min(toFloat64(price)) AS price_range,
+                avg(toFloat64(size)) AS avg_trade_size,
+                max(toFloat64(size)) AS max_trade_size,
+                sum(toFloat64(price) * toFloat64(size)) AS total_volume,
+                min(timestamp) AS first_ts
+            FROM (
+                SELECT *,
+                    timestamp - min(timestamp) OVER (PARTITION BY condition_id) AS secs
+                FROM trades_raw FINAL
+                WHERE timestamp >= now() - INTERVAL 30 DAY
+            )
+            WHERE secs <= {window_secs}
+            GROUP BY condition_id
+            HAVING trades_window >= 2
+        """)
+
+        if trade_agg.is_empty():
+            self._buckets = {}
+            self._proba = {}
+            logger.info("market_size.compute", count=0)
+            return
+
+        # Cast to float
+        for col in trade_agg.columns:
+            if col != "condition_id":
+                trade_agg = trade_agg.with_columns(pl.col(col).cast(pl.Float64))
+
+        # Derived ratio features (in Polars — cheap on ~455K rows)
+        features = trade_agg.with_columns(
+            (pl.col("vol_window") / pl.col("trades_window").clip(1)).alias("vol_per_trade"),
+            (pl.col("vol_window") / pl.col("traders_window").clip(1)).alias("vol_per_trader"),
+            (pl.col("vol_mid") / pl.col("vol_early").clip(lower_bound=0.01)).alias("vol_growth_early_mid"),
+            (pl.col("vol_window") / pl.col("vol_mid").clip(lower_bound=0.01)).alias("vol_growth_mid_full"),
+            (pl.col("vol_window") + 1).log().alias("log_vol_window"),
+            (pl.col("vol_early") + 1).log().alias("log_vol_early"),
+            (pl.col("vol_mid") + 1).log().alias("log_vol_mid"),
+            (pl.col("trades_window") / (window_secs / 3600)).alias("trades_per_hour"),
+            (pl.col("traders_window").cast(pl.Float64) / pl.col("trades_window").clip(1)).alias("trader_concentration"),
+            (pl.col("first_ts") % 86400 / 3600).cast(pl.Int32).alias("hour_of_day"),
+            (pl.col("first_ts") / 86400).cast(pl.Int32).mod(7).alias("day_of_week"),
+        )
+
+        # Markets metadata (small — ~455K rows)
+        markets = await backend.query_markets()
+        if "neg_risk" not in markets.columns:
+            markets = markets.with_columns(pl.lit(False).alias("neg_risk"))
+        if "event_id" not in markets.columns:
+            self._buckets = {}
+            self._proba = {}
+            return
+        markets = markets.with_columns(pl.col("neg_risk").cast(pl.Boolean))
+
+        features = features.join(
+            markets.select("condition_id", "event_id", "neg_risk"),
+            on="condition_id", how="left",
+        )
+        features = features.with_columns(pl.col("neg_risk").cast(pl.Int8))
+
+        # Events
+        try:
+            events = await backend.query_custom(
+                "SELECT id AS event_id, toUnixTimestamp(end_date) AS end_date, "
+                "CAST(volume AS Float64) AS volume, "
+                "CAST(liquidity AS Float64) AS liquidity "
+                "FROM events WHERE end_date IS NOT NULL "
+                "AND end_date != '1970-01-01 00:00:00'"
+            )
+            for col in ["end_date", "volume", "liquidity"]:
+                events = events.with_columns(pl.col(col).cast(pl.Float64))
+        except Exception:
+            events = pl.DataFrame(schema={"event_id": pl.Utf8, "end_date": pl.Float64, "volume": pl.Float64, "liquidity": pl.Float64})
+
+        event_market_count = markets.group_by("event_id").agg(pl.len().alias("event_n_markets"))
+        features = features.join(events, on="event_id", how="left")
+        features = features.join(event_market_count, on="event_id", how="left")
+        features = features.with_columns(
+            ((pl.col("end_date") - pl.col("first_ts")) / 3600.0).alias("time_remaining_hours"),
+            (pl.col("volume").fill_null(0) + 1).log().alias("log_event_volume"),
+            (pl.col("liquidity").fill_null(0) + 1).log().alias("log_event_liquidity"),
+            (pl.col("vol_window") / pl.col("liquidity").fill_null(1).clip(lower_bound=1.0)).alias("vol_to_liquidity"),
+        )
+        features = features.rename({"volume": "event_volume", "liquidity": "event_liquidity"})
+
+        # Tags
+        try:
+            tags = await backend.query_custom(
+                "SELECT et.event_id, t.label AS tag "
+                "FROM event_tags et JOIN tags t ON et.tag_id = t.id"
+            )
+            tags = tags.sort("tag").unique(subset=["event_id"], keep="first")
+        except Exception:
+            tags = pl.DataFrame(schema={"event_id": pl.Utf8, "tag": pl.Utf8})
+
+        for tag_name in cfg.top_tags:
+            col_name = f"tag_{tag_name.replace(' ', '_')}"
+            matching = tags.filter(pl.col("tag") == tag_name)["event_id"].to_list()
+            features = features.with_columns(
+                pl.col("event_id").is_in(matching).cast(pl.Int8).alias(col_name),
+            )
+
+        features = features.drop_nulls(subset=["time_remaining_hours"])
+        if features.is_empty():
+            self._buckets = {}
+            self._proba = {}
+            return
+
+        self._predict_and_store(features, markets)
+
+    async def _compute_from_polars(self, backend: FeatureBackend) -> None:
+        """Fallback for Polars backend (offline/backtest)."""
+        import polars as pl
+
         trades = await backend.query_trades()
         if trades.is_empty():
             self._buckets = {}
@@ -70,43 +211,9 @@ class MarketSizeProvider:
             return
 
         markets = await backend.query_markets()
+        events = pl.DataFrame(schema={"id": pl.Utf8, "end_date": pl.Float64, "volume": pl.Float64, "liquidity": pl.Float64})
+        tags = pl.DataFrame(schema={"event_id": pl.Utf8, "tag": pl.Utf8})
 
-        # Fetch events and tags via query_custom (for CH) or direct (Polars)
-        try:
-            events = await backend.query_custom(
-                "SELECT id, toUnixTimestamp(end_date) AS end_date, "
-                "CAST(volume AS Float64) AS volume, "
-                "CAST(liquidity AS Float64) AS liquidity "
-                "FROM events WHERE end_date IS NOT NULL "
-                "AND end_date != '1970-01-01 00:00:00'"
-            )
-            for col in ["end_date", "volume", "liquidity"]:
-                events = events.with_columns(pl.col(col).cast(pl.Float64))
-        except (NotImplementedError, Exception):
-            # Polars backend or missing table — use empty
-            events = pl.DataFrame(
-                {"id": [], "end_date": [], "volume": [], "liquidity": []},
-                schema={
-                    "id": pl.Utf8,
-                    "end_date": pl.Float64,
-                    "volume": pl.Float64,
-                    "liquidity": pl.Float64,
-                },
-            )
-
-        try:
-            tags = await backend.query_custom(
-                "SELECT et.event_id, t.label AS tag "
-                "FROM event_tags et JOIN tags t ON et.tag_id = t.id"
-            )
-            tags = tags.sort("tag").unique(subset=["event_id"], keep="first")
-        except (NotImplementedError, Exception):
-            tags = pl.DataFrame(
-                {"event_id": [], "tag": []},
-                schema={"event_id": pl.Utf8, "tag": pl.Utf8},
-            )
-
-        # Ensure expected columns exist
         if "neg_risk" not in markets.columns:
             markets = markets.with_columns(pl.lit(False).alias("neg_risk"))
         if "event_id" not in markets.columns:
@@ -114,32 +221,28 @@ class MarketSizeProvider:
             self._proba = {}
             return
 
-        # Ensure numeric types for trades
         if "timestamp" in trades.columns:
             trades = trades.with_columns(pl.col("timestamp").cast(pl.Float64))
         for col in ["price", "size"]:
             if col in trades.columns:
                 trades = trades.with_columns(pl.col(col).cast(pl.Float64))
-
         markets = markets.with_columns(pl.col("neg_risk").cast(pl.Boolean))
 
-        # Compute features
         features = compute_features_polars(trades, markets, events, tags, self._cfg)
-
         if features.is_empty():
             self._buckets = {}
             self._proba = {}
             return
-
-        # Drop rows with null features
         features = features.drop_nulls(subset=["time_remaining_hours"])
-
         if features.is_empty():
             self._buckets = {}
             self._proba = {}
             return
 
-        # Build question text list matched to feature rows (for TF-IDF)
+        self._predict_and_store(features, markets)
+
+    def _predict_and_store(self, features: Any, markets: Any) -> None:
+        """Run XGBoost prediction and store buckets/probabilities."""
         questions: list[str] | None = None
         if "question" in markets.columns:
             question_map = dict(
@@ -154,13 +257,10 @@ class MarketSizeProvider:
         else:
             cids = features["condition_id"].to_list()
 
-        # Predict
         feat_cols = features.drop("total_volume")
         preds = self._classifier.predict(feat_cols, questions=questions)
-
         self._buckets = dict(zip(cids, preds, strict=True))
 
-        # Probabilities
         proba_df = self._classifier.predict_proba(feat_cols, questions=questions)
         self._proba = {}
         for row in proba_df.iter_rows(named=True):
