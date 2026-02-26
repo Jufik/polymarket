@@ -75,6 +75,15 @@ class WillNoStrategy:
                     if cur_idx > max_idx:
                         return None
 
+        # Volume filter — skip markets above max_volume_usd
+        if self._cfg.max_volume_usd > 0:
+            vol_key = self._cfg.volume_column
+            volumes = await ctx.get_features(vol_key)
+            if volumes is not None:
+                vol = volumes.get(cid)
+                if vol is not None and vol > self._cfg.max_volume_usd:
+                    return None
+
         self._signaled.add(cid)
 
         yes_price = market.yes_price if market.yes_price is not None else float(trade.price)
@@ -90,7 +99,7 @@ class WillNoStrategy:
                     outcome="NO",
                     size_usd=half,
                     urgency="patient",
-                    max_price=None,
+                    max_price=1.0 - yes_price,
                     reason=f"will_no: {market.question}",
                     signal_time=trade.published_at,
                 ),
@@ -101,7 +110,7 @@ class WillNoStrategy:
                     outcome="YES",
                     size_usd=half,
                     urgency="patient",
-                    max_price=None,
+                    max_price=yes_price,
                     reason=f"will_no: {market.question}",
                     signal_time=trade.published_at,
                 ),
@@ -114,7 +123,7 @@ class WillNoStrategy:
             outcome="NO",
             size_usd=bet_size,
             urgency="patient",
-            max_price=None,
+            max_price=1.0 - yes_price,
             reason=f"will_no: {market.question}",
             signal_time=trade.published_at,
         )
@@ -182,14 +191,15 @@ class WillNoStrategy:
                 prefer_cond = prefer_cond | q_lower.str.contains(kw.lower())
             df = df.filter(prefer_cond)
 
-        # Volume filter (vectorized path only, requires event_volume column)
+        # Volume filter (vectorized path only, requires volume_column in data)
         if self._cfg.max_volume_usd > 0:
+            vol_col = self._cfg.volume_column
             try:
                 cols = df.collect_schema().names()
             except AttributeError:
                 cols = list(df.schema)
-            if "event_volume" in cols:
-                df = df.filter(pl.col("event_volume") <= self._cfg.max_volume_usd)
+            if vol_col in cols:
+                df = df.filter(pl.col(vol_col) <= self._cfg.max_volume_usd)
 
         # First qualifying trade per condition_id
         df = df.sort(["condition_id", "published_at"])

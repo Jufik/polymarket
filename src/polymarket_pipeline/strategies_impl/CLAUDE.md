@@ -7,13 +7,21 @@ Each subdirectory is a self-contained strategy with `config.py`, `strategy.py`, 
 ### S1: proportional_copy/
 Copy trades from graded longshot-YES specialists.
 
-- **GradedPoolProvider** — 3 filters: `min_markets` (50), `min_longshot_yes_frac` (0.15), `max_no_fraction` (0.60)
-  - Longshot YES = BUY side at price < 0.50
-  - Defaults are backward-compatible (0.0 / 1.0 = off)
+- **GradedPoolProvider** — dual-mode: Polars (offline) or ClickHouse (live)
+  - **Consistency mode** (preferred): `filter_consistent_traders()` (shared with S3) → longshot grading → NO cap
+    - Reuses the 5-filter pipeline from `consensus_copy/consistency.py`
+    - Then applies: `min_longshot_yes_frac` (0.15 in factory/TOML), `max_no_fraction` (0.60)
+    - `_compute_grading_stats()`: per-trader longshot_yes_frac and no_frac from PnL data
+    - `load_graded_pool_provider(data_dir, ...)` convenience for parquet-based init
+  - **Legacy mode**: simple trade-count + grading from `query_trades()` (backward compat)
+  - Constructor defaults are relaxed (0.0 / 1.0 = off); strict values set via factory/TOML
+  - `refresh()` duck-types backend: if CH methods exist → `_refresh_from_ch()`, else → `compute()`
 - **ProportionalCopyStrategy** — event-driven + vectorized paths
   - Tracks first entry per (maker, condition_id)
-  - `contradiction_filter`: skips markets where pool disagrees on direction
-  - `sizing`: "equal" or "proportional"
+  - `contradiction_filter`: skips markets where pool disagrees on direction (+22% PnL)
+  - `sizing`: "equal" (fixed bet) or "proportional" (scale by relative trade size, capped at `max_sizing_mult`)
+  - `max_price` on intents: directional entry + `price_slippage`, capped at `max_entry_price`
+  - `_TraderStats`: running average of per-trader trade sizes for proportional sizing
 
 ### S2a: will_no/
 Buy NO on binary "Will X happen?" questions in profitable niches.
@@ -22,11 +30,14 @@ Buy NO on binary "Will X happen?" questions in profitable niches.
 - **WillNoStrategy** — data-derived band sizing + niche keyword filtering
   - `prefer_keywords`: niche filter (default: sports draws + finance terms)
   - `avoid_keywords`: negative-edge filter (default: "reach", "hit")
-  - `max_volume_usd`: volume cap (default: $1K — critical profitability filter)
-  - `price_bands`: data-derived multipliers (edge increases with YES price)
+  - `max_volume_usd`: volume cap (default: $2K — critical profitability filter)
+  - `volume_column`: which column to filter on (default: `"market_volume"` = trade-level sum(price*size))
+    - **CRITICAL**: Must use trade-level volume, NOT Gamma `event_volume` (corr=0.28, 52x ratio)
+    - Using Gamma event_volume with $2K cap → 110 sigs, $118/mo (destroys edge)
+  - `price_bands`: 12 data-derived multipliers, 10-70% range (edge increases with YES price)
   - `max_bucket`: market size filter (thin/med/thick/heavy, default: "med")
   - `dual_sided`: simultaneous BUY NO + SELL YES (splits 50/50)
-  - Backtested: +11.4% ROI at 2% fee, 85.7% HR, 100% stable (17/17 rolling windows)
+  - Implementation-validated: **+47.1% ROI** at 2% fee, 80.4% HR, ~140 sigs/month, $3,098/mo PnL
 
 ### S2b: crypto_otm_no/
 Buy NO on OTM crypto price checkpoints.

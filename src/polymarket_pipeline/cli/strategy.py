@@ -22,7 +22,7 @@ from polymarket_pipeline.strategies.config import (
 from polymarket_pipeline.strategies.context.memory import InMemoryContext
 from polymarket_pipeline.strategies.execution.gateway import ExecutionGateway
 from polymarket_pipeline.strategies.execution.paper import PaperExecutor
-from polymarket_pipeline.strategies.features.backend_polars import PolarsBackend
+from polymarket_pipeline.strategies.features.backend_clickhouse import ClickHouseBackend
 from polymarket_pipeline.strategies.runners.live import LiveRunner
 
 logger = structlog.get_logger(__name__)
@@ -176,6 +176,13 @@ def _build_runner(
                 )
 
                 provider = load_skilled_provider(**params)
+            # Special case: pool_traders with data_dir uses consistency+grading mode
+            elif pname == "pool_traders" and "data_dir" in params:
+                from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
+                    load_graded_pool_provider,
+                )
+
+                provider = load_graded_pool_provider(**params)
             else:
                 provider = _PROVIDER_REGISTRY[pname](**params)
 
@@ -201,7 +208,16 @@ def _build_runner(
         first_params = strategies[0][1].params
         delay_s = float(first_params.get("delay_s", 0.0))
     gateway = ExecutionGateway(executor=executor, log_path=log_path, delay_s=delay_s)
-    backend = PolarsBackend(trades=pl.DataFrame(), markets=pl.DataFrame())
+
+    # Use ClickHouse backend so providers get real market data at startup
+    from polymarket_pipeline.live.settings import Settings
+
+    settings = Settings()
+    backend = ClickHouseBackend(
+        host=settings.ch_host,
+        port=settings.ch_port,
+        database=settings.ch_database,
+    )
 
     return LiveRunner(
         strategies=strategies,

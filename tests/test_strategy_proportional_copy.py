@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -15,6 +16,7 @@ from polymarket_pipeline.strategies_impl.proportional_copy.config import (
 )
 from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
     GradedPoolProvider,
+    _compute_grading_stats,
 )
 from polymarket_pipeline.strategies_impl.proportional_copy.strategy import (
     ProportionalCopyStrategy,
@@ -32,6 +34,9 @@ def test_proportional_copy_config_defaults() -> None:
     assert cfg.max_position_pct == 0.05
     assert cfg.contradiction_filter is True
     assert cfg.sizing == "equal"
+    assert cfg.max_sizing_mult == 3.0
+    assert cfg.max_entry_price is None
+    assert cfg.price_slippage == 0.05
 
 
 def test_proportional_copy_config_custom() -> None:
@@ -39,10 +44,18 @@ def test_proportional_copy_config_custom() -> None:
         pool_traders={"0xtrader1", "0xtrader2"},
         capital_per_trader_usd=100.0,
         contradiction_filter=False,
+        sizing="proportional",
+        max_sizing_mult=5.0,
+        max_entry_price=0.40,
+        price_slippage=0.03,
     )
     assert len(cfg.pool_traders) == 2
     assert cfg.capital_per_trader_usd == 100.0
     assert cfg.contradiction_filter is False
+    assert cfg.sizing == "proportional"
+    assert cfg.max_sizing_mult == 5.0
+    assert cfg.max_entry_price == 0.40
+    assert cfg.price_slippage == 0.03
 
 
 def test_proportional_copy_config_frozen() -> None:
@@ -250,7 +263,6 @@ async def test_ignores_trade_with_no_maker() -> None:
     strategy = ProportionalCopyStrategy(config=cfg)
     ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
 
-    # Create a trade with maker=None directly
     from datetime import UTC, datetime
     from decimal import Decimal
 
@@ -281,6 +293,136 @@ async def test_ignores_trade_with_no_maker() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Proportional sizing tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_proportional_sizing_scales_by_relative_size() -> None:
+    """Proportional sizing: larger-than-average trades get larger copy bets."""
+    cfg = ProportionalCopyConfig(
+        pool_traders={"0xtrader1"},
+        capital_per_trader_usd=50.0,
+        sizing="proportional",
+        max_sizing_mult=3.0,
+    )
+    strategy = ProportionalCopyStrategy(config=cfg)
+    ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
+
+    # First trade: $100 — no prior avg, uses base bet
+    t1 = _make_trade(
+        maker="0xtrader1", condition_id="0xmkt1", amount_usd=100.0, price=0.25
+    )
+    r1 = await strategy.on_trade(t1, ctx)
+    assert r1 is not None
+    assert r1[0].size_usd == 50.0  # no prior avg → base bet
+
+    # Second trade: $200 — 2x the avg ($100), so 2x sizing
+    t2 = _make_trade(
+        maker="0xtrader1", condition_id="0xmkt2", amount_usd=200.0, price=0.30
+    )
+    r2 = await strategy.on_trade(t2, ctx)
+    assert r2 is not None
+    assert r2[0].size_usd == pytest.approx(100.0, abs=1.0)  # 50 * (200/100)
+
+    # Third trade: $600 — 4x the avg ($150), but capped at 3.0x
+    t3 = _make_trade(
+        maker="0xtrader1", condition_id="0xmkt3", amount_usd=600.0, price=0.20
+    )
+    r3 = await strategy.on_trade(t3, ctx)
+    assert r3 is not None
+    assert r3[0].size_usd == pytest.approx(150.0, abs=1.0)  # 50 * 3.0 (capped)
+
+
+@pytest.mark.asyncio
+async def test_equal_sizing_ignores_trade_amount() -> None:
+    """Equal sizing: always uses capital_per_trader_usd regardless of trade size."""
+    cfg = ProportionalCopyConfig(
+        pool_traders={"0xtrader1"},
+        capital_per_trader_usd=50.0,
+        sizing="equal",
+    )
+    strategy = ProportionalCopyStrategy(config=cfg)
+    ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
+
+    # Seed prior average
+    t1 = _make_trade(
+        maker="0xtrader1", condition_id="0xmkt1", amount_usd=100.0, price=0.25
+    )
+    r1 = await strategy.on_trade(t1, ctx)
+    assert r1 is not None
+    assert r1[0].size_usd == 50.0
+
+    # 10x trade — still base bet in equal mode
+    t2 = _make_trade(
+        maker="0xtrader1", condition_id="0xmkt2", amount_usd=1000.0, price=0.25
+    )
+    r2 = await strategy.on_trade(t2, ctx)
+    assert r2 is not None
+    assert r2[0].size_usd == 50.0
+
+
+# ---------------------------------------------------------------------------
+# Max price tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_max_price_set_on_yes_intent() -> None:
+    """BUY YES intent: max_price = YES entry price + slippage."""
+    cfg = ProportionalCopyConfig(
+        pool_traders={"0xtrader1"},
+        price_slippage=0.05,
+    )
+    strategy = ProportionalCopyStrategy(config=cfg)
+    ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
+
+    trade = _make_trade(maker="0xtrader1", side="BUY", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+
+    assert result is not None
+    assert result[0].max_price == pytest.approx(0.30, abs=0.001)  # 0.25 + 0.05
+
+
+@pytest.mark.asyncio
+async def test_max_price_set_on_no_intent() -> None:
+    """BUY NO intent: max_price = (1 - YES price) + slippage."""
+    cfg = ProportionalCopyConfig(
+        pool_traders={"0xtrader1"},
+        price_slippage=0.05,
+    )
+    strategy = ProportionalCopyStrategy(config=cfg)
+    ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
+
+    # Trader sells YES at 0.80 → NO entry = 0.20
+    trade = _make_trade(maker="0xtrader1", side="SELL", price=0.80)
+    result = await strategy.on_trade(trade, ctx)
+
+    assert result is not None
+    assert result[0].outcome == "NO"
+    assert result[0].max_price == pytest.approx(0.25, abs=0.001)  # 0.20 + 0.05
+
+
+@pytest.mark.asyncio
+async def test_max_entry_price_caps_slippage() -> None:
+    """max_entry_price should cap the slippage-based max_price."""
+    cfg = ProportionalCopyConfig(
+        pool_traders={"0xtrader1"},
+        price_slippage=0.10,
+        max_entry_price=0.30,
+    )
+    strategy = ProportionalCopyStrategy(config=cfg)
+    ctx = _MockCtx(features={"pool_traders": cfg.pool_traders})
+
+    # Trade at 0.25, slippage would give 0.35, but cap at 0.30
+    trade = _make_trade(maker="0xtrader1", side="BUY", price=0.25)
+    result = await strategy.on_trade(trade, ctx)
+
+    assert result is not None
+    assert result[0].max_price == pytest.approx(0.30, abs=0.001)
+
+
+# ---------------------------------------------------------------------------
 # Vectorized tests
 # ---------------------------------------------------------------------------
 
@@ -300,6 +442,7 @@ class TestProportionalCopyVectorized:
                 "condition_id": ["0xm1", "0xm1", "0xm2"],
                 "side": ["BUY", "BUY", "BUY"],
                 "price": [0.25, 0.30, 0.20],
+                "amount_usd": [100.0, 200.0, 300.0],
                 "published_at": [1.0, 2.0, 3.0],
             }
         )
@@ -308,7 +451,9 @@ class TestProportionalCopyVectorized:
         result = strategy.compute_signals(trades, markets)
         assert len(result) == 2
         makers = set(
-            trades.filter(pl.col("maker").is_in(["0xA", "0xB"])).collect()["maker"].to_list()
+            trades.filter(pl.col("maker").is_in(["0xA", "0xB"]))
+            .collect()["maker"]
+            .to_list()
         )
         assert "0xC" not in makers
 
@@ -326,6 +471,7 @@ class TestProportionalCopyVectorized:
                 "condition_id": ["0xm1", "0xm1", "0xm2"],
                 "side": ["BUY", "SELL", "BUY"],  # m1 is conflicted
                 "price": [0.25, 0.75, 0.20],
+                "amount_usd": [100.0, 100.0, 100.0],
                 "published_at": [1.0, 2.0, 3.0],
             }
         )
@@ -336,9 +482,68 @@ class TestProportionalCopyVectorized:
         assert len(result) == 1
         assert result["condition_id"][0] == "0xm2"
 
+    def test_vectorized_has_max_price(self) -> None:
+        """Vectorized signals should include max_price column."""
+        cfg = ProportionalCopyConfig(
+            pool_traders={"0xA"},
+            contradiction_filter=False,
+            price_slippage=0.05,
+        )
+        strategy = ProportionalCopyStrategy(config=cfg)
+
+        trades = pl.LazyFrame(
+            {
+                "maker": ["0xA"],
+                "condition_id": ["0xm1"],
+                "side": ["BUY"],
+                "price": [0.25],
+                "amount_usd": [100.0],
+                "published_at": [1.0],
+            }
+        )
+        markets = pl.LazyFrame({"condition_id": ["0xm1"]})
+
+        result = strategy.compute_signals(trades, markets)
+        assert "max_price" in result.columns
+        assert result["max_price"][0] == pytest.approx(0.30, abs=0.001)
+
+    def test_vectorized_proportional_sizing(self) -> None:
+        """Vectorized proportional sizing scales by trader avg."""
+        cfg = ProportionalCopyConfig(
+            pool_traders={"0xA"},
+            capital_per_trader_usd=50.0,
+            contradiction_filter=False,
+            sizing="proportional",
+            max_sizing_mult=3.0,
+        )
+        strategy = ProportionalCopyStrategy(config=cfg)
+
+        # 3 trades from 0xA: $100, $200, $300. avg=$200.
+        # Unique by (maker, cid) keeps first per market.
+        # mkt1: $100 → mult=100/200=0.5 → $25
+        # mkt2: $200 → mult=200/200=1.0 → $50
+        # mkt3: $300 → mult=300/200=1.5 → $75
+        trades = pl.LazyFrame(
+            {
+                "maker": ["0xA", "0xA", "0xA"],
+                "condition_id": ["0xm1", "0xm2", "0xm3"],
+                "side": ["BUY", "BUY", "BUY"],
+                "price": [0.25, 0.30, 0.20],
+                "amount_usd": [100.0, 200.0, 300.0],
+                "published_at": [1.0, 2.0, 3.0],
+            }
+        )
+        markets = pl.LazyFrame({"condition_id": ["0xm1", "0xm2", "0xm3"]})
+
+        result = strategy.compute_signals(trades, markets)
+        sizes = result.sort("condition_id")["size_usd"].to_list()
+        assert sizes[0] == pytest.approx(25.0, abs=1.0)  # 50 * 0.5
+        assert sizes[1] == pytest.approx(50.0, abs=1.0)  # 50 * 1.0
+        assert sizes[2] == pytest.approx(75.0, abs=1.0)  # 50 * 1.5
+
 
 # ---------------------------------------------------------------------------
-# Provider tests
+# Provider tests — legacy mode
 # ---------------------------------------------------------------------------
 
 
@@ -423,7 +628,7 @@ async def test_graded_pool_provider_refresh_swaps_atomically() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Grading filter tests
+# Provider tests — legacy grading filters
 # ---------------------------------------------------------------------------
 
 
@@ -433,22 +638,48 @@ async def test_graded_pool_filters_by_longshot_yes_fraction() -> None:
     # Trader A: 20 markets, 5 are YES buys at <0.50 → longshot_yes_frac = 0.25 (passes)
     # Trader B: 20 markets, 1 is YES buy at <0.50 → longshot_yes_frac = 0.05 (fails)
     rows_a_longshot = [
-        {"maker": "0xA", "condition_id": f"0xm{i}", "side": "BUY", "price": 0.30, "published_at": float(i)}
+        {
+            "maker": "0xA",
+            "condition_id": f"0xm{i}",
+            "side": "BUY",
+            "price": 0.30,
+            "published_at": float(i),
+        }
         for i in range(5)
     ]
     rows_a_normal = [
-        {"maker": "0xA", "condition_id": f"0xm{i}", "side": "SELL", "price": 0.70, "published_at": float(i)}
+        {
+            "maker": "0xA",
+            "condition_id": f"0xm{i}",
+            "side": "SELL",
+            "price": 0.70,
+            "published_at": float(i),
+        }
         for i in range(5, 20)
     ]
     rows_b_longshot = [
-        {"maker": "0xB", "condition_id": "0xn0", "side": "BUY", "price": 0.25, "published_at": 0.0}
+        {
+            "maker": "0xB",
+            "condition_id": "0xn0",
+            "side": "BUY",
+            "price": 0.25,
+            "published_at": 0.0,
+        }
     ]
     rows_b_normal = [
-        {"maker": "0xB", "condition_id": f"0xn{i}", "side": "SELL", "price": 0.75, "published_at": float(i)}
+        {
+            "maker": "0xB",
+            "condition_id": f"0xn{i}",
+            "side": "SELL",
+            "price": 0.75,
+            "published_at": float(i),
+        }
         for i in range(1, 20)
     ]
 
-    trades_df = pl.DataFrame(rows_a_longshot + rows_a_normal + rows_b_longshot + rows_b_normal)
+    trades_df = pl.DataFrame(
+        rows_a_longshot + rows_a_normal + rows_b_longshot + rows_b_normal
+    )
 
     backend = AsyncMock()
     backend.query_trades = AsyncMock(return_value=trades_df)
@@ -457,7 +688,7 @@ async def test_graded_pool_filters_by_longshot_yes_fraction() -> None:
     await provider.compute(backend)
 
     pool = provider.get_features()["pool_traders"]
-    assert "0xA" in pool   # 0.25 >= 0.15
+    assert "0xA" in pool  # 0.25 >= 0.15
     assert "0xB" not in pool  # 0.05 < 0.15
 
 
@@ -465,15 +696,57 @@ async def test_graded_pool_filters_by_longshot_yes_fraction() -> None:
 async def test_graded_pool_excludes_high_no_fraction() -> None:
     """Traders with no_fraction > 0.60 should be excluded."""
     # Trader C: 20 markets, 15 are SELL (NO), no_frac = 0.75 → excluded
-    rows_c = (
-        [{"maker": "0xC", "condition_id": f"0xp{i}", "side": "SELL", "price": 0.80, "published_at": float(i)} for i in range(15)]
-        + [{"maker": "0xC", "condition_id": f"0xp{i}", "side": "BUY", "price": 0.30, "published_at": float(i)} for i in range(15, 20)]
-    )
+    rows_c = [
+        {
+            "maker": "0xC",
+            "condition_id": f"0xp{i}",
+            "side": "SELL",
+            "price": 0.80,
+            "published_at": float(i),
+        }
+        for i in range(15)
+    ] + [
+        {
+            "maker": "0xC",
+            "condition_id": f"0xp{i}",
+            "side": "BUY",
+            "price": 0.30,
+            "published_at": float(i),
+        }
+        for i in range(15, 20)
+    ]
     # Trader D: 20 markets, 8 SELL, 12 BUY (4 longshot YES) → no_frac=0.40, longshot=0.20 → passes
     rows_d = (
-        [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "SELL", "price": 0.70, "published_at": float(i)} for i in range(8)]
-        + [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "BUY", "price": 0.30, "published_at": float(i)} for i in range(8, 12)]
-        + [{"maker": "0xD", "condition_id": f"0xq{i}", "side": "BUY", "price": 0.60, "published_at": float(i)} for i in range(12, 20)]
+        [
+            {
+                "maker": "0xD",
+                "condition_id": f"0xq{i}",
+                "side": "SELL",
+                "price": 0.70,
+                "published_at": float(i),
+            }
+            for i in range(8)
+        ]
+        + [
+            {
+                "maker": "0xD",
+                "condition_id": f"0xq{i}",
+                "side": "BUY",
+                "price": 0.30,
+                "published_at": float(i),
+            }
+            for i in range(8, 12)
+        ]
+        + [
+            {
+                "maker": "0xD",
+                "condition_id": f"0xq{i}",
+                "side": "BUY",
+                "price": 0.60,
+                "published_at": float(i),
+            }
+            for i in range(12, 20)
+        ]
     )
 
     trades_df = pl.DataFrame(rows_c + rows_d)
@@ -481,24 +754,29 @@ async def test_graded_pool_excludes_high_no_fraction() -> None:
     backend = AsyncMock()
     backend.query_trades = AsyncMock(return_value=trades_df)
 
-    provider = GradedPoolProvider(min_markets=10, min_longshot_yes_frac=0.15, max_no_fraction=0.60)
+    provider = GradedPoolProvider(
+        min_markets=10, min_longshot_yes_frac=0.15, max_no_fraction=0.60
+    )
     await provider.compute(backend)
 
     pool = provider.get_features()["pool_traders"]
     assert "0xC" not in pool  # no_frac 0.75 > 0.60
-    assert "0xD" in pool      # no_frac 0.40, longshot_yes 0.20
+    assert "0xD" in pool  # no_frac 0.40, longshot_yes 0.20
 
 
 @pytest.mark.asyncio
 async def test_graded_pool_backward_compat_no_grading() -> None:
     """When no grading params given, behaves like before (market count only)."""
-    trades_df = pl.DataFrame({
-        "maker": ["0xA"] * 60 + ["0xB"] * 30,
-        "condition_id": [f"0xmkt{i}" for i in range(60)] + [f"0xmkt{i}" for i in range(30)],
-        "side": ["BUY"] * 90,
-        "price": [0.50] * 90,
-        "published_at": [float(i) for i in range(90)],
-    })
+    trades_df = pl.DataFrame(
+        {
+            "maker": ["0xA"] * 60 + ["0xB"] * 30,
+            "condition_id": [f"0xmkt{i}" for i in range(60)]
+            + [f"0xmkt{i}" for i in range(30)],
+            "side": ["BUY"] * 90,
+            "price": [0.50] * 90,
+            "published_at": [float(i) for i in range(90)],
+        }
+    )
 
     backend = AsyncMock()
     backend.query_trades = AsyncMock(return_value=trades_df)
@@ -510,3 +788,190 @@ async def test_graded_pool_backward_compat_no_grading() -> None:
     pool = provider.get_features()["pool_traders"]
     assert "0xA" in pool
     assert "0xB" in pool
+
+
+# ---------------------------------------------------------------------------
+# Provider tests — consistency mode
+# ---------------------------------------------------------------------------
+
+
+def _make_consistency_data(
+    n_months: int = 9,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Create synthetic PnL, resolved, and MVF data for consistency mode tests.
+
+    Generates two traders:
+    - 0xGOOD: Profitable every month, pure taker, 60% longshot YES positions
+    - 0xBAD: Profitable every month, pure taker, but 80% NO positions
+    """
+    rows_pnl = []
+    rows_resolved = []
+
+    for m in range(n_months):
+        month_dt = datetime(2025, 4 + m, 15, tzinfo=UTC)
+        # 0xGOOD: 10 markets per month, mix of YES longshot + some NO
+        for i in range(10):
+            cid = f"0xcid_good_{m}_{i}"
+            is_longshot_yes = i < 6  # 60% longshot YES
+            rows_pnl.append(
+                {
+                    "trader": "0xGOOD",
+                    "condition_id": cid,
+                    "market_pnl": 10.0,  # always profitable
+                    "net_yes_tokens": 1.0 if is_longshot_yes else -1.0,
+                    "wavg_yes_entry_price": 0.30 if is_longshot_yes else 0.80,
+                }
+            )
+            rows_resolved.append(
+                {"condition_id": cid, "resolved_at": month_dt}
+            )
+
+        # 0xBAD: 10 markets per month, 80% NO positions
+        for i in range(10):
+            cid = f"0xcid_bad_{m}_{i}"
+            is_no = i < 8  # 80% NO
+            rows_pnl.append(
+                {
+                    "trader": "0xBAD",
+                    "condition_id": cid,
+                    "market_pnl": 10.0,
+                    "net_yes_tokens": -1.0 if is_no else 1.0,
+                    "wavg_yes_entry_price": 0.85 if is_no else 0.70,
+                }
+            )
+            rows_resolved.append(
+                {"condition_id": cid, "resolved_at": month_dt}
+            )
+
+    pnl_df = pl.DataFrame(rows_pnl)
+    resolved_df = pl.DataFrame(rows_resolved)
+    mvf_df = pl.DataFrame(
+        {"trader": ["0xGOOD", "0xBAD"], "mvf": [0.05, 0.05]}
+    )
+
+    return pnl_df, resolved_df, mvf_df
+
+
+@pytest.mark.asyncio
+async def test_consistency_mode_filters_correctly() -> None:
+    """Consistency mode: 0xGOOD passes (longshot YES), 0xBAD fails (too much NO)."""
+    pnl_df, resolved_df, mvf_df = _make_consistency_data(n_months=9)
+
+    provider = GradedPoolProvider(
+        pnl_df=pnl_df,
+        resolved_df=resolved_df,
+        mvf_df=mvf_df,
+        train_start=datetime(2025, 1, 1, tzinfo=UTC),
+        train_end=datetime(2026, 2, 1, tzinfo=UTC),
+        min_periods=9,
+        min_consistency_markets=20,
+        max_mvf=0.10,
+        max_median_entry=0.90,
+        min_longshot_yes_frac=0.15,
+        max_no_fraction=0.60,
+    )
+
+    backend = AsyncMock()
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert "0xGOOD" in pool  # 60% longshot YES, 40% NO
+    assert "0xBAD" not in pool  # 80% NO > 60% cap
+
+
+@pytest.mark.asyncio
+async def test_consistency_mode_empty_when_too_few_months() -> None:
+    """If traders have fewer months than required, pool should be empty."""
+    pnl_df, resolved_df, mvf_df = _make_consistency_data(n_months=3)
+
+    provider = GradedPoolProvider(
+        pnl_df=pnl_df,
+        resolved_df=resolved_df,
+        mvf_df=mvf_df,
+        train_start=datetime(2025, 1, 1, tzinfo=UTC),
+        train_end=datetime(2026, 2, 1, tzinfo=UTC),
+        min_periods=9,  # requires 9 but only 3 available
+        min_consistency_markets=20,
+        max_mvf=0.10,
+        max_median_entry=0.90,
+    )
+
+    backend = AsyncMock()
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert len(pool) == 0
+
+
+@pytest.mark.asyncio
+async def test_consistency_mode_relaxed_grading_includes_more() -> None:
+    """Relaxed grading (no longshot/NO filters) includes more traders."""
+    pnl_df, resolved_df, mvf_df = _make_consistency_data(n_months=9)
+
+    provider = GradedPoolProvider(
+        pnl_df=pnl_df,
+        resolved_df=resolved_df,
+        mvf_df=mvf_df,
+        train_start=datetime(2025, 1, 1, tzinfo=UTC),
+        train_end=datetime(2026, 2, 1, tzinfo=UTC),
+        min_periods=9,
+        min_consistency_markets=20,
+        max_mvf=0.10,
+        max_median_entry=0.90,
+        min_longshot_yes_frac=0.0,  # disabled
+        max_no_fraction=1.0,  # disabled
+    )
+
+    backend = AsyncMock()
+    await provider.compute(backend)
+
+    pool = provider.get_features()["pool_traders"]
+    assert "0xGOOD" in pool
+    assert "0xBAD" in pool  # passes without grading filters
+
+
+# ---------------------------------------------------------------------------
+# Grading stats helper test
+# ---------------------------------------------------------------------------
+
+
+def test_compute_grading_stats() -> None:
+    """_compute_grading_stats should compute correct per-trader fractions."""
+    pnl_df = pl.DataFrame(
+        {
+            "trader": ["0xA"] * 4 + ["0xB"] * 4,
+            "condition_id": [f"c{i}" for i in range(8)],
+            "net_yes_tokens": [1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0],
+            "wavg_yes_entry_price": [0.30, 0.60, 0.70, 0.80, 0.85, 0.90, 0.75, 0.40],
+        }
+    )
+    resolved_df = pl.DataFrame(
+        {
+            "condition_id": [f"c{i}" for i in range(8)],
+            "resolved_at": [
+                datetime(2025, 6, 1, tzinfo=UTC)
+            ]
+            * 8,
+        }
+    )
+
+    result = _compute_grading_stats(
+        pnl_df,
+        resolved_df,
+        frozenset({"0xA", "0xB"}),
+        datetime(2025, 1, 1, tzinfo=UTC),
+        datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    a_row = result.filter(pl.col("trader") == "0xA")
+    b_row = result.filter(pl.col("trader") == "0xB")
+
+    # 0xA: 4 positions. longshot YES = (net_yes>0 AND entry<0.50): only first. frac=1/4=0.25
+    # NO: (net_yes<=0): 2 out of 4. frac=0.50
+    assert a_row["longshot_yes_frac"][0] == pytest.approx(0.25)
+    assert a_row["no_frac"][0] == pytest.approx(0.50)
+
+    # 0xB: 4 positions. longshot YES = last one (net_yes>0 AND entry=0.40<0.50): 1/4=0.25
+    # NO: 3 out of 4. frac=0.75
+    assert b_row["longshot_yes_frac"][0] == pytest.approx(0.25)
+    assert b_row["no_frac"][0] == pytest.approx(0.75)

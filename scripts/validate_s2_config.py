@@ -192,6 +192,97 @@ async def main() -> None:
         print(f"    Avg bet:  ${total_bet/n_signals:.1f}" if n_signals > 0 else "")
 
 
+    # ── Per-band breakdown (for band calibration) ───────────────────────
+    print("\n" + "=" * 80)
+    print("  PER-BAND BREAKDOWN (expanded 10-50% range, prod_kw, vol<$2K)")
+    print("=" * 80)
+
+    # Re-filter with expanded range for band analysis
+    expanded = base.filter(
+        (pl.col("first_price") >= 0.10) & (pl.col("first_price") <= 0.50)
+    )
+    if cfg.prefer_keywords:
+        prefer_cond = pl.lit(False)
+        for kw in cfg.prefer_keywords:
+            prefer_cond = prefer_cond | q_lower.str.contains(kw.lower())
+        expanded = expanded.filter(prefer_cond)
+    for kw in cfg.avoid_keywords:
+        expanded = expanded.filter(~q_lower.str.contains(kw.lower()))
+    expanded = expanded.filter(pl.col("total_volume") <= 2000)
+    expanded = expanded.filter(pl.col("resolution_value") == 1)
+    expanded = expanded.with_columns(
+        (pl.col("winner_outcome") == "No").alias("won"),
+        pl.lit(50.0).alias("flat_bet"),  # flat $50 for comparison
+    )
+
+    bands_ext = [
+        (0.10, 0.15), (0.15, 0.20), (0.20, 0.25), (0.25, 0.30),
+        (0.30, 0.35), (0.35, 0.40), (0.40, 0.45), (0.45, 0.50),
+    ]
+    print(f"\n  {'Band':<10} {'Sigs':>6} {'HR':>7} {'ROI(0%)':>8} {'ROI(2%)':>8} "
+          f"{'$/bet':>7} {'Med LD':>7}")
+    print(f"  {'-' * 10} {'-' * 6} {'-' * 7} {'-' * 8} {'-' * 8} {'-' * 7} {'-' * 7}")
+
+    band_results = []
+    for lo, hi in bands_ext:
+        if (lo, hi) == bands_ext[-1]:
+            subset = expanded.filter(
+                (pl.col("first_price") >= lo) & (pl.col("first_price") <= hi)
+            )
+        else:
+            subset = expanded.filter(
+                (pl.col("first_price") >= lo) & (pl.col("first_price") < hi)
+            )
+        ns = len(subset)
+        if ns < 5:
+            continue
+        ws = subset.filter(pl.col("won")).height
+        hr = ws / ns
+        # PnL at 0% fee
+        pnl_0 = subset.with_columns(
+            pl.when(pl.col("won"))
+            .then(pl.col("flat_bet") * pl.col("first_price") / (1.0 - pl.col("first_price")))
+            .otherwise(-pl.col("flat_bet"))
+            .alias("pnl")
+        )["pnl"].sum()
+        # PnL at 2% fee
+        pnl_2 = subset.with_columns(
+            pl.when(pl.col("won"))
+            .then(
+                pl.col("flat_bet") * pl.col("first_price") / (1.0 - pl.col("first_price"))
+                - pl.col("flat_bet") * 0.02
+            )
+            .otherwise(-pl.col("flat_bet"))
+            .alias("pnl")
+        )["pnl"].sum()
+        total_bet = ns * 50.0
+        roi_0 = pnl_0 / total_bet * 100
+        roi_2 = pnl_2 / total_bet * 100
+        avg_pnl = pnl_2 / ns
+        ld = subset.filter(pl.col("lockup_days").is_not_null())["lockup_days"]
+        med_ld = ld.median() if len(ld) > 0 else None
+        ld_str = f"{med_ld:>6.1f}d" if med_ld is not None else "     —"
+        marker = "+" if roi_2 > 0 else "-"
+        print(f" {marker} {lo:.0%}-{hi:.0%}     {ns:>6,} {hr:>6.1%} {roi_0:>+7.1f}% "
+              f"{roi_2:>+7.1f}% ${avg_pnl:>+5.2f} {ld_str}")
+        band_results.append({
+            "lo": lo, "hi": hi, "n": ns, "hr": hr,
+            "roi_2": roi_2, "avg_pnl": avg_pnl, "med_ld": med_ld,
+        })
+
+    # Suggest multipliers (normalise to best band)
+    if band_results:
+        best_roi = max(b["roi_2"] for b in band_results if b["roi_2"] > 0)
+        print(f"\n  Suggested multipliers (normalised to best band = 1.00):")
+        for b in band_results:
+            if b["roi_2"] > 0:
+                mult = round(b["roi_2"] / best_roi, 2)
+                mult = max(mult, 0.15)  # floor at 0.15
+            else:
+                mult = 0.0
+            print(f"    ({b['lo']:.2f}, {b['hi']:.2f}, {mult:.2f}),  "
+                  f"# {b['lo']:.0%}-{b['hi']:.0%}: {b['roi_2']:+.1f}% ROI, {b['n']} sigs")
+
     # ── Capital efficiency ──────────────────────────────────────────────
     print("\n" + "=" * 80)
     print("  CAPITAL EFFICIENCY")
