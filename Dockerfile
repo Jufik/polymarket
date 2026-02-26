@@ -6,7 +6,7 @@ RUN pip install uv
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY src/ src/
-RUN uv sync --all-extras --no-dev --frozen
+RUN uv sync --extra live --extra strategy --extra api --extra clickhouse --extra postgres --no-dev --frozen
 
 # ── Runtime stage ────────────────────────────────────────────────────
 FROM python:3.11-slim
