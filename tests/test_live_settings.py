@@ -7,7 +7,7 @@ def test_settings_defaults():
     """Settings should have sensible defaults for local dev."""
     from polymarket_pipeline.live.settings import Settings
 
-    s = Settings(alchemy_ws_url="wss://test.example.com")
+    s = Settings()
     assert s.redpanda_url == "localhost:19092"
     assert s.ch_host == "localhost"
     assert s.ch_port == 18123
@@ -43,12 +43,11 @@ def test_dashboard_settings_defaults(monkeypatch: pytest.MonkeyPatch):
     assert s.dashboard_port == 8099
 
 
-def test_settings_alchemy_url_required(monkeypatch: pytest.MonkeyPatch):
-    """alchemy_ws_url has no default and must be provided."""
-    # Ensure the env var is NOT set, otherwise pydantic-settings would pick it up
+def test_settings_alchemy_url_has_free_default(monkeypatch: pytest.MonkeyPatch):
+    """alchemy_ws_url defaults to a free public Polygon RPC endpoint."""
     monkeypatch.delenv("PM_ALCHEMY_WS_URL", raising=False)
 
     from polymarket_pipeline.live.settings import Settings
 
-    with pytest.raises(Exception):  # ValidationError  # noqa: B017
-        Settings(_env_file=None)
+    s = Settings(_env_file=None)
+    assert s.alchemy_ws_url == "wss://polygon-bor-rpc.publicnode.com"
