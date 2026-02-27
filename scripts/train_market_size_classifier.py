@@ -80,7 +80,12 @@ async def query_ch(
         print(f"  [{label}] Empty result ({_fmt_elapsed(t0)})", flush=True)
         return pl.DataFrame()
 
-    df = pl.read_csv(io.BytesIO(data), has_header=True, skip_rows_after_header=1)
+    df = pl.read_csv(
+        io.BytesIO(data),
+        has_header=True,
+        skip_rows_after_header=1,
+        infer_schema_length=10000,
+    )
     print(
         f"  [{label}] {len(df):,} rows, {total_bytes / 1_000_000:.1f} MB "
         f"({_fmt_elapsed(t0)})",

@@ -43,7 +43,9 @@ class TestNormalizedTradeRoundTrip:
 
         from polymarket_pipeline.live.normalizers.polygon_rpc import PolygonRPCNormalizer
 
-        normalizer = PolygonRPCNormalizer()
+        normalizer = PolygonRPCNormalizer(
+            token_market_map={"12345": ("cond_12345", "YES")}
+        )
         data = encode(
             ["uint256", "uint256", "uint256", "uint256", "uint256"],
             [12345, 0, 1_000_000_000, 500_000_000, 5_000_000],

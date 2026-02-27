@@ -63,6 +63,7 @@ class TestAlchemyIngestor:
             broker=mock_broker,
             ws_url="wss://test.example.com",
             topic="trades.raw",
+            token_market_map={"12345": ("cond_12345", "YES")},
         )
         msg = _make_subscription_result()
         await ingestor._handle_message(json.dumps(msg))
@@ -113,6 +114,7 @@ class TestAlchemyIngestor:
         ingestor = AlchemyIngestor(
             broker=mock_broker,
             ws_url="wss://test.example.com",
+            token_market_map={"12345": ("cond_12345", "YES")},
         )
         # Fill the queue to capacity
         for i in range(1000):

@@ -408,8 +408,13 @@ def run(
             @broker.subscriber("pending.signal", group_id="strategy-runner")
             async def handle_pending(msg: str) -> None:
                 import json
+                import time as _time
 
                 from polymarket_pipeline.models import NormalizedTrade
+                from polymarket_pipeline.strategies.runners.helpers import (
+                    apply_fill_to_position,
+                    check_risk_gate,
+                )
 
                 data = json.loads(msg)
                 trade = NormalizedTrade(**data)
@@ -417,7 +422,35 @@ def run(
                     intents = await strategy.on_trade(trade, runner.ctx)
                     if intents:
                         for intent in intents:
+                            # Risk gate (same as _handle_trade)
+                            positions = runner.ctx.get_all_positions()
+                            allowed, reason = check_risk_gate(
+                                intent,
+                                _config,
+                                positions,
+                                runner._last_trade_times,
+                                _time.time(),
+                            )
+                            if not allowed:
+                                logger.info(
+                                    "pending_intent.rejected",
+                                    strategy=strategy.name,
+                                    reason=reason,
+                                    condition_id=intent.condition_id,
+                                )
+                                await runner._fire_intent(
+                                    intent, "risk_rejected", rejection_reason=reason,
+                                )
+                                continue
+
                             fill = await runner.gateway.submit(intent)
+
+                            # Position tracking
+                            old_pos = await runner.ctx.get_position(fill.condition_id)
+                            new_pos = apply_fill_to_position(old_pos, fill)
+                            runner.ctx.set_position(fill.condition_id, new_pos)
+                            runner._last_trade_times[intent.strategy] = fill.filled_at
+
                             await runner._fire_intent(
                                 intent,
                                 fill.status.value,
@@ -439,5 +472,6 @@ def run(
         finally:
             await runner.stop()
             await broker.close()
+            await pg_pool.close()
 
     asyncio.run(_run())
