@@ -6,10 +6,12 @@ import {
   fetchHealth,
   fetchIntents,
   fetchAnalytics,
+  fetchPnlSummary,
   triggerPanic,
   Position,
   Intent,
   AnalyticsData,
+  PnlSummary,
 } from "@/lib/api";
 import IntentDetailPanel from "@/components/IntentDetailPanel";
 import ReconciliationChart from "@/components/ReconciliationChart";
@@ -50,6 +52,7 @@ export default function Dashboard() {
   const [intentTotal, setIntentTotal] = useState(0);
   const [intentFilter, setIntentFilter] = useState<string>("");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [pnl, setPnl] = useState<PnlSummary | null>(null);
 
   // Hover panel state
   const [hoveredIntentId, setHoveredIntentId] = useState<number | null>(null);
@@ -101,6 +104,12 @@ export default function Dashboard() {
     try {
       const a = await fetchAnalytics();
       setAnalytics(a);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const p = await fetchPnlSummary();
+      setPnl(p);
     } catch {
       /* ignore */
     }
@@ -193,6 +202,56 @@ export default function Dashboard() {
         {panicResult && (
           <div className="bg-yellow-900/50 border border-yellow-600 rounded p-3 mb-4">
             {panicResult}
+          </div>
+        )}
+
+        {/* PnL Summary Cards */}
+        {pnl && (
+          <div className="flex gap-4 mb-8">
+            <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
+              <div className="text-sm text-gray-400">Total PnL</div>
+              <div
+                className={`text-2xl font-mono font-bold ${
+                  pnl.summary.total_pnl_usd >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+              >
+                {pnl.summary.total_pnl_usd >= 0 ? "+" : ""}
+                ${pnl.summary.total_pnl_usd.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {pnl.summary.n_fills} fills / ${pnl.summary.total_invested.toFixed(0)} invested
+              </div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
+              <div className="text-sm text-gray-400">Live (Unrealized)</div>
+              <div
+                className={`text-2xl font-mono font-bold ${
+                  pnl.live.pnl_usd >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+              >
+                {pnl.live.pnl_usd >= 0 ? "+" : ""}
+                ${pnl.live.pnl_usd.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {pnl.live.count} positions / ${pnl.live.invested.toFixed(0)} invested
+              </div>
+            </div>
+            <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
+              <div className="text-sm text-gray-400">Resolved (Realized)</div>
+              <div
+                className={`text-2xl font-mono font-bold ${
+                  pnl.resolved.pnl_usd >= 0 ? "text-green-400" : "text-red-400"
+                }`}
+              >
+                {pnl.resolved.pnl_usd >= 0 ? "+" : ""}
+                ${pnl.resolved.pnl_usd.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {pnl.resolved.wins}W / {pnl.resolved.losses}L
+                {pnl.summary.win_rate != null &&
+                  ` (${(pnl.summary.win_rate * 100).toFixed(0)}%)`}
+              </div>
+            </div>
           </div>
         )}
 
