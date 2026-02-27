@@ -251,6 +251,7 @@ def _build_runner(
         gateway=gateway,
         ctx=ctx,
         backend=backend,
+        intent_cb=None,  # wired at runtime when broker is available
     )
 
 
@@ -292,12 +293,63 @@ def run(
     runner = _build_runner(config, only=only, log_dir=log_dir)
 
     async def _run() -> None:
+        import json
+        from datetime import datetime, timezone
+
+        import asyncpg
         from faststream.kafka import KafkaBroker
 
+        from polymarket_pipeline.live.ingestors._publish import safe_publish
         from polymarket_pipeline.live.settings import Settings
 
         settings = Settings()
         broker = KafkaBroker(settings.redpanda_url)
+
+        # PG pool for intent persistence
+        pg_pool = await asyncpg.create_pool(dsn=settings.pg_dsn, min_size=1, max_size=2)
+
+        # Wire intent capture → Kafka topic + PostgreSQL
+        async def _publish_intent(record: dict[str, Any]) -> None:
+            key = f"{record['strategy']}:{record['condition_id']}".encode()
+            await safe_publish(
+                broker,
+                message=json.dumps(record, default=str),
+                topic="strategy.intents",
+                key=key,
+                source="strategy_runner",
+            )
+            # Persist to PG (best-effort, don't block hot path)
+            fill = record.get("fill")
+            try:
+                async with pg_pool.acquire() as conn:
+                    await conn.execute(
+                        """INSERT INTO strategy_intents
+                           (strategy, condition_id, side, outcome, size_usd,
+                            urgency, max_price, reason, signal_time, asset_id,
+                            disposition, rejection_reason,
+                            filled_price, filled_size_usd, fee_usd, captured_at)
+                           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
+                        record["strategy"],
+                        record["condition_id"],
+                        record["side"],
+                        record["outcome"],
+                        record["size_usd"],
+                        record.get("urgency", "patient"),
+                        record.get("max_price"),
+                        record.get("reason", ""),
+                        datetime.fromtimestamp(record["signal_time"], tz=timezone.utc),
+                        record.get("asset_id"),
+                        record["disposition"],
+                        record.get("rejection_reason", ""),
+                        fill["filled_price"] if fill else None,
+                        fill["filled_size_usd"] if fill else None,
+                        fill["fee_usd"] if fill else None,
+                        datetime.fromtimestamp(record["captured_at"], tz=timezone.utc),
+                    )
+            except Exception:
+                logger.exception("intent_pg.write_error")
+
+        runner._intent_cb = _publish_intent
 
         await runner.initialize()
         await runner.start_background_loops()
@@ -365,7 +417,13 @@ def run(
                     intents = await strategy.on_trade(trade, runner.ctx)
                     if intents:
                         for intent in intents:
-                            await runner.gateway.submit(intent)
+                            fill = await runner.gateway.submit(intent)
+                            await runner._fire_intent(
+                                intent,
+                                fill.status.value,
+                                fill=fill,
+                                rejection_reason=fill.error or "",
+                            )
 
         await broker.start()
         logger.warning(

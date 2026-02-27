@@ -198,11 +198,8 @@ services:
         condition: service_healthy
 
   polymarket-ui:
-    build: ./ui
+    build:
+      context: ./ui
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://polymarket-api:8000
-    depends_on:
-      - polymarket-api
 

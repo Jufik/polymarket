@@ -20,6 +20,7 @@ def ingestor(broker: AsyncMock) -> CLOBOrderbookIngestor:
         broker=broker,
         topic="orderbooks.raw",
         markets_events_topic="markets.events",
+        token_market_map={"tok123": ("cond_abc", "YES")},
     )
 
 
@@ -27,7 +28,7 @@ def ingestor(broker: AsyncMock) -> CLOBOrderbookIngestor:
 async def test_market_resolved_published_to_events_topic(
     ingestor: CLOBOrderbookIngestor, broker: AsyncMock
 ) -> None:
-    """market_resolved events should be published to markets.events topic."""
+    """market_resolved events (event_type field) go to markets.events topic."""
     msg = json.dumps({
         "event_type": "market_resolved",
         "condition_id": "0xabc123",
@@ -45,15 +46,16 @@ async def test_market_resolved_published_to_events_topic(
 
 
 @pytest.mark.asyncio
-async def test_new_market_published_to_events_topic(
+async def test_new_market_broadcast_published(
     ingestor: CLOBOrderbookIngestor, broker: AsyncMock
 ) -> None:
-    """new_market events should be published to markets.events topic."""
+    """New market broadcasts (question + market fields) go to markets.events."""
     msg = json.dumps({
-        "event_type": "new_market",
-        "condition_id": "0xdef456",
+        "id": "12345",
         "question": "Will BTC hit 100k?",
-        "timestamp": 1700000000.0,
+        "market": "0xdef456",
+        "slug": "btc-100k",
+        "description": "Resolves YES if...",
     })
     await ingestor._handle_message(msg)
 
@@ -61,29 +63,72 @@ async def test_new_market_published_to_events_topic(
     payload = json.loads(broker.publish.call_args.kwargs["message"])
     assert payload["type"] == "new_market"
     assert payload["condition_id"] == "0xdef456"
+    assert broker.publish.call_args.kwargs["topic"] == "markets.events"
 
 
 @pytest.mark.asyncio
-async def test_price_change_still_works(
+async def test_price_change_publishes_orderbook(
     ingestor: CLOBOrderbookIngestor, broker: AsyncMock
 ) -> None:
-    """price_change events should still go to orderbooks.raw."""
+    """price_changes messages (real WS format) go to orderbooks.raw."""
     msg = json.dumps({
-        "event_type": "price_change",
-        "asset_id": "tok123",
-        "best_bid": 0.55,
-        "best_ask": 0.57,
+        "market": "0xcond_abc",
+        "price_changes": [{
+            "asset_id": "tok123",
+            "price": "0.55",
+            "size": "100",
+            "side": "BUY",
+            "best_bid": "0.55",
+            "best_ask": "0.57",
+        }],
     })
     await ingestor._handle_message(msg)
 
     broker.publish.assert_called_once()
-    assert broker.publish.call_args.kwargs["topic"] == "orderbooks.raw"
+    published = broker.publish.call_args
+    assert published.kwargs["topic"] == "orderbooks.raw"
+    payload = json.loads(published.kwargs["message"])
+    assert payload["condition_id"] == "cond_abc"
+    assert payload["best_bid"] == 0.55
+    assert payload["best_ask"] == 0.57
 
 
 @pytest.mark.asyncio
-async def test_subscription_includes_custom_feature(
-    ingestor: CLOBOrderbookIngestor,
+async def test_orderbook_snapshot_publishes(
+    ingestor: CLOBOrderbookIngestor, broker: AsyncMock
 ) -> None:
-    """WS subscription payload should include custom_feature_enabled."""
-    payload = ingestor._subscription_payload()
-    assert payload["custom_feature_enabled"] is True
+    """Initial orderbook snapshots (list with bids/asks) go to orderbooks.raw."""
+    msg = json.dumps([{
+        "market": "0xcond_abc",
+        "asset_id": "tok123",
+        "bids": [{"price": "0.54", "size": "200"}],
+        "asks": [{"price": "0.56", "size": "150"}],
+    }])
+    await ingestor._handle_message(msg)
+
+    broker.publish.assert_called_once()
+    payload = json.loads(broker.publish.call_args.kwargs["message"])
+    assert payload["best_bid"] == 0.54
+    assert payload["best_ask"] == 0.56
+
+
+@pytest.mark.asyncio
+async def test_empty_list_ignored(
+    ingestor: CLOBOrderbookIngestor, broker: AsyncMock
+) -> None:
+    """Empty list ack from WS should be silently ignored."""
+    await ingestor._handle_message("[]")
+    broker.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_price_change_missing_bid_ignored(
+    ingestor: CLOBOrderbookIngestor, broker: AsyncMock
+) -> None:
+    """price_changes with missing best_bid/best_ask are silently dropped."""
+    msg = json.dumps({
+        "market": "0xabc",
+        "price_changes": [{"asset_id": "tok123", "best_bid": "0.50"}],
+    })
+    await ingestor._handle_message(msg)
+    broker.publish.assert_not_called()

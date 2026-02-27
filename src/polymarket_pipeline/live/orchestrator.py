@@ -35,7 +35,7 @@ async def load_token_map(pg_dsn: str) -> dict[str, tuple[str, str]]:
     return token_map
 
 
-def create_ingestors(
+async def create_ingestors(
     broker: KafkaBroker,
     settings: Settings,
     token_map: dict[str, tuple[str, str]],
@@ -86,6 +86,11 @@ def create_ingestors(
     if settings.clob_orderbook_enabled:
         from polymarket_pipeline.live.ingestors.clob_orderbook import CLOBOrderbookIngestor
 
+        # Subscribe to open market assets (not the full 1M+ token_map)
+        open_assets = await _load_open_asset_ids(
+            settings.pg_dsn,
+            limit=settings.clob_orderbook_max_connections * 500,
+        )
         clob_ob = CLOBOrderbookIngestor(
             broker=broker,
             ws_url=settings.clob_orderbook_ws_url,
@@ -93,6 +98,8 @@ def create_ingestors(
             status_topic="pipeline.status",
             token_market_map=token_map,
             markets_events_topic=settings.clob_markets_events_topic,
+            max_orderbook_connections=settings.clob_orderbook_max_connections,
+            subscribe_asset_ids=open_assets,
         )
         tasks.append(asyncio.create_task(clob_ob.run()))
 
@@ -195,6 +202,99 @@ async def supervise_tasks(
                 )
             else:
                 log.info("task.completed", task_name=task.get_name())
+
+
+async def periodic_token_map_refresh(
+    token_map: dict[str, tuple[str, str]],
+    settings: Settings,
+) -> None:
+    """Periodically fetch open-market tokens and reload the shared token_map.
+
+    Uses ``fetch_open_tokens()`` (Gamma API, ``closed=false``) which is much
+    faster than a full sync (~8K open events vs ~450K+ total).  New tokens are
+    upserted to PostgreSQL, then the full token_map is reloaded from PG so all
+    ingestors see new markets without a restart.
+
+    First iteration runs immediately (non-blocking background catch-up at
+    startup), then repeats every ``token_map_refresh_interval_s``.
+    """
+    while True:
+        try:
+            log.info("token_map_refresh.sync_start")
+            await _sync_open_tokens(settings.pg_dsn)
+        except Exception:
+            log.exception("token_map_refresh.sync_error")
+
+        try:
+            new_map = await _load_token_map_from_pg(settings.pg_dsn)
+            old_size = len(token_map)
+            token_map.clear()
+            token_map.update(new_map)
+            log.info(
+                "token_map_refresh.reloaded",
+                old_size=old_size,
+                new_size=len(token_map),
+                delta=len(token_map) - old_size,
+            )
+        except Exception:
+            log.exception("token_map_refresh.reload_error")
+
+        await asyncio.sleep(settings.token_map_refresh_interval_s)
+
+
+async def _sync_open_tokens(pg_dsn: str) -> None:
+    """Fetch open markets from Gamma API and upsert to PostgreSQL (FK order)."""
+    from polymarket_pipeline.market_sync import fetch_open_markets
+    from polymarket_pipeline.sinks.postgres import PostgresSink
+
+    result = await fetch_open_markets()
+    if not result.token_entries:
+        return
+    async with PostgresSink(dsn=pg_dsn) as pg:
+        await pg.upsert_events(result.events)
+        await pg.upsert_tags(result.tags)
+        await pg.upsert_event_tags(result.event_tag_pairs)
+        await pg.upsert_markets(result.markets)
+        await pg.upsert_token_map(result.token_entries)
+    log.info(
+        "token_map_refresh.upserted",
+        events=len(result.events),
+        markets=len(result.markets),
+        tokens=len(result.token_entries),
+    )
+
+
+async def _load_open_asset_ids(pg_dsn: str, limit: int = 2000) -> list[str]:
+    """Fetch asset IDs for open (unresolved, not closed) markets from PG."""
+    import asyncpg
+
+    conn = await asyncpg.connect(pg_dsn)
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT t.asset_id
+            FROM token_market_map t
+            JOIN markets m ON t.condition_id = m.condition_id
+            WHERE m.resolved_at IS NULL
+              AND m.closed_at IS NULL
+            ORDER BY m.created_at DESC NULLS LAST
+            LIMIT $1
+            """,
+            limit,
+        )
+        assets = [r["asset_id"] for r in rows]
+        log.info("open_asset_ids.loaded", count=len(assets), limit=limit)
+        return assets
+    finally:
+        await conn.close()
+
+
+async def _load_token_map_from_pg(pg_dsn: str) -> dict[str, tuple[str, str]]:
+    """Fetch token_market_map from PostgreSQL."""
+    from polymarket_pipeline.sinks.postgres import PostgresSink
+
+    async with PostgresSink(dsn=pg_dsn) as pg:
+        return await pg.fetch_token_market_map()
 
 
 async def periodic_quality_check(

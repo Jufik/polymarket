@@ -435,6 +435,89 @@ def _enrich_token(token: TokenMarketEntry, resolution: ClobResolution | None) ->
     return token.model_copy(update={"winner": True})
 
 
+@dataclass
+class OpenMarketsSyncResult:
+    """Result of fetch_open_markets() — events, markets, and tokens for open markets."""
+
+    events: list[Event]
+    markets: list[Market]
+    token_entries: list[TokenMarketEntry]
+    tags: list[Tag]
+    event_tag_pairs: list[tuple[int, int]]
+
+
+async def fetch_open_markets() -> OpenMarketsSyncResult:
+    """Fetch events/markets/tokens for open (non-closed) markets only via Gamma API.
+
+    Much faster than fetch_all_metadata() — ~8K open events vs ~450K+ total.
+    Returns full metadata needed for PG upsert (events, markets, tokens in FK order).
+    """
+    result = OpenMarketsSyncResult(
+        events=[], markets=[], token_entries=[], tags=[], event_tag_pairs=[]
+    )
+    seen_tags: dict[int, Tag] = {}
+    offset = 0
+    page_size = 500
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            resp = await client.get(
+                f"{GAMMA_API_BASE}/events",
+                params={"limit": page_size, "offset": offset, "closed": "false"},
+            )
+            resp.raise_for_status()
+            page = resp.json()
+            if not page:
+                break
+
+            for raw_event in page:
+                event = Event.from_gamma(raw_event)
+                if event is None:
+                    continue
+                result.events.append(event)
+
+                for raw_tag in raw_event.get("tags", []):
+                    tag = Tag.from_gamma(raw_tag)
+                    if tag is None:
+                        continue
+                    if tag.id not in seen_tags:
+                        seen_tags[tag.id] = tag
+                    result.event_tag_pairs.append((event.id, tag.id))
+
+                for raw_market in raw_event.get("markets", []):
+                    market = Market.from_gamma(raw_market, event_id=event.id)
+                    if market is None:
+                        continue
+                    result.markets.append(market)
+                    result.token_entries.append(
+                        TokenMarketEntry(
+                            asset_id=market.token_yes,
+                            condition_id=market.condition_id,
+                            outcome="YES",
+                        )
+                    )
+                    result.token_entries.append(
+                        TokenMarketEntry(
+                            asset_id=market.token_no,
+                            condition_id=market.condition_id,
+                            outcome="NO",
+                        )
+                    )
+
+            offset += page_size
+            if len(page) < page_size:
+                break
+
+    result.tags = list(seen_tags.values())
+    log.info(
+        "open_markets_fetched",
+        events=len(result.events),
+        markets=len(result.markets),
+        tokens=len(result.token_entries),
+    )
+    return result
+
+
 async def fetch_token_market_map(
     limit: int = 0,
 ) -> dict[str, tuple[str, str]]:

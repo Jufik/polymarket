@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     ch_port: int = 18123
     ch_database: str = "polymarket"
 
+    # Broker address as seen from ClickHouse (Docker-internal network)
+    ch_kafka_broker_list: str = "redpanda:9092"
+
     # PostgreSQL
     pg_dsn: str = ""  # Set via PM_PG_DSN env var or .env file
 
@@ -69,10 +72,14 @@ class Settings(BaseSettings):
     ch_batch_size: int = 100
     ch_flush_interval_s: float = 1.0
 
+    # Token map refresh (periodic re-sync from APIs + PG reload)
+    token_map_refresh_interval_s: int = 300  # 5 minutes
+
     # CLOB orderbook ingestor
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     clob_markets_events_topic: str = "markets.events"
+    clob_orderbook_max_connections: int = 4  # max targeted WS connections (500 assets each)
 
     # CLOB API (execution)
     clob_api_url: str = "https://clob.polymarket.com"

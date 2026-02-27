@@ -27,6 +27,7 @@ NEGRISK_EXCHANGE = "0xc5d563a36ae78145c45a50134d48a1215220f80a"
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 _QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
+_STALE_TIMEOUT = 120.0  # Force reconnect if no messages for 2 minutes
 
 
 class AlchemyIngestor(BaseIngestor):
@@ -158,7 +159,18 @@ class AlchemyIngestor(BaseIngestor):
                     )
                     await ws.send(subscribe)
 
-                    async for raw in ws:
+                    while True:
+                        try:
+                            raw = await asyncio.wait_for(
+                                ws.recv(), timeout=_STALE_TIMEOUT
+                            )
+                        except TimeoutError:
+                            log.warning(
+                                "alchemy.stale",
+                                last_block=self._last_block,
+                                timeout_s=_STALE_TIMEOUT,
+                            )
+                            break  # Force reconnect
                         await self._handle_message(raw)
 
             except websockets.ConnectionClosed as e:
