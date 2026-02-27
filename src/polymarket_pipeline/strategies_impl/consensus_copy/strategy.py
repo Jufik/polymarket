@@ -101,6 +101,12 @@ class ConsensusCopyStrategy:
 
         state.signal_fired = True
 
+        # max_price from triggering trade: directional entry + slippage
+        trade_price = float(trade.price)
+        is_yes = signal_direction == "YES"
+        entry = trade_price if is_yes else 1.0 - trade_price
+        max_price = min(entry + 0.05, 0.99)
+
         intent = TradeIntent(
             strategy=self.name,
             condition_id=cid,
@@ -108,7 +114,7 @@ class ConsensusCopyStrategy:
             outcome=signal_direction,
             size_usd=self._cfg.base_bet_usd,
             urgency="patient",
-            max_price=None,
+            max_price=max_price,
             reason=(
                 f"consensus_copy: {n_traders} skilled traders, "
                 f"{agreement:.0%} agree {signal_direction}"

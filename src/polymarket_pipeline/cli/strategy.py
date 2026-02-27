@@ -292,6 +292,11 @@ def run(
 
     runner = _build_runner(config, only=only, log_dir=log_dir)
 
+    # Unique group per process — avoids partition starvation when multiple
+    # strategy processes share a single-partition topic.
+    group_suffix = config.stem  # e.g. "will_no" from configs/will_no.toml
+    group_id = f"strategy-{group_suffix}"
+
     async def _run() -> None:
         import json
         import signal
@@ -385,11 +390,11 @@ def run(
             debounce_s=5.0,
         )
 
-        @broker.subscriber("markets.events", group_id="strategy-market-events")
+        @broker.subscriber("markets.events", group_id=f"{group_id}-events")
         async def handle_market_event(msg: str) -> None:
             await market_consumer.handle(msg)
 
-        @broker.subscriber("trades.raw", group_id="strategy-runner")
+        @broker.subscriber("trades.raw", group_id=group_id)
         async def handle_trade(msg: str) -> None:
             import json
 
@@ -399,7 +404,7 @@ def run(
             trade = NormalizedTrade(**data)
             await runner._handle_trade(trade)
 
-        @broker.subscriber("orderbooks.raw", group_id="strategy-runner")
+        @broker.subscriber("orderbooks.raw", group_id=group_id)
         async def handle_orderbook(msg: str) -> None:
             import json
 
@@ -413,7 +418,7 @@ def run(
 
         if _pending_strategies:
 
-            @broker.subscriber("pending.signal", group_id="strategy-runner")
+            @broker.subscriber("pending.signal", group_id=group_id)
             async def handle_pending(msg: str) -> None:
                 import json
                 import time as _time

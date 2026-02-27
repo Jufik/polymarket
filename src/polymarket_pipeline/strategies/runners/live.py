@@ -16,7 +16,7 @@ import structlog
 
 from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.strategies.runners.helpers import apply_fill_to_position, check_risk_gate
-from polymarket_pipeline.strategies.types import MarketInfo
+from polymarket_pipeline.strategies.types import FillStatus, MarketInfo
 
 if TYPE_CHECKING:
     from polymarket_pipeline.models import NormalizedTrade
@@ -244,11 +244,12 @@ class LiveRunner:
                         intent, disposition, fill=fill, rejection_reason=fill.error or ""
                     )
 
-                    # Position tracking
-                    old_pos = await self.ctx.get_position(fill.condition_id)
-                    new_pos = apply_fill_to_position(old_pos, fill)
-                    self.ctx.set_position(fill.condition_id, new_pos)
-                    self._last_trade_times[intent.strategy] = fill.filled_at
+                    # Position tracking (only for successful fills)
+                    if fill.status == FillStatus.FILLED:
+                        old_pos = await self.ctx.get_position(fill.condition_id)
+                        new_pos = apply_fill_to_position(old_pos, fill)
+                        self.ctx.set_position(fill.condition_id, new_pos)
+                        self._last_trade_times[intent.strategy] = fill.filled_at
 
         self._trades_processed += 1
 
@@ -373,11 +374,12 @@ class LiveRunner:
                             intent, disposition, fill=fill, rejection_reason=fill.error or ""
                         )
 
-                        # Position tracking
-                        old_pos = await self.ctx.get_position(fill.condition_id)
-                        new_pos = apply_fill_to_position(old_pos, fill)
-                        self.ctx.set_position(fill.condition_id, new_pos)
-                        self._last_trade_times[intent.strategy] = fill.filled_at
+                        # Position tracking (only for successful fills)
+                        if fill.status == FillStatus.FILLED:
+                            old_pos = await self.ctx.get_position(fill.condition_id)
+                            new_pos = apply_fill_to_position(old_pos, fill)
+                            self.ctx.set_position(fill.condition_id, new_pos)
+                            self._last_trade_times[intent.strategy] = fill.filled_at
 
     async def _refresh_loop(self) -> None:
         """Periodic provider refresh, with support for on-demand triggers."""
