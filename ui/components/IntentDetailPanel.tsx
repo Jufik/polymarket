@@ -53,6 +53,61 @@ function formatCountdown(endDate: string): string {
   return `${m}m`;
 }
 
+function OrderbookGrid({
+  ob,
+}: {
+  ob: { best_bid: number; best_ask: number; spread: number; source: string };
+}) {
+  return (
+    <div>
+      <div className="text-xs text-gray-400 mb-1">Orderbook at Signal</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+        <div className="text-gray-500">Bid</div>
+        <div className="text-right font-mono text-green-400">
+          ${ob.best_bid.toFixed(4)}
+        </div>
+        <div className="text-gray-500">Ask</div>
+        <div className="text-right font-mono text-red-400">
+          ${ob.best_ask.toFixed(4)}
+        </div>
+        <div className="text-gray-500">Spread</div>
+        <div className="text-right font-mono text-gray-300">
+          ${ob.spread.toFixed(4)}
+        </div>
+        <div className="text-gray-500">Source</div>
+        <div className="text-right text-gray-400">{ob.source}</div>
+      </div>
+    </div>
+  );
+}
+
+function RationaleGrid({ rationale }: { rationale: Record<string, unknown> }) {
+  const entries = Object.entries(rationale).filter(
+    ([k]) => k !== "strategy"
+  );
+  if (entries.length === 0) return null;
+
+  return (
+    <div>
+      <div className="text-xs text-gray-400 mb-1">Rationale</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+        {entries.map(([key, value]) => (
+          <div key={key} className="contents">
+            <div className="text-gray-500">{key.replace(/_/g, " ")}</div>
+            <div className="text-right font-mono text-gray-300 truncate max-w-[140px]">
+              {Array.isArray(value)
+                ? value.join(", ")
+                : value === null
+                ? "-"
+                : String(value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   intentId: number;
   anchorRect: DOMRect | null;
@@ -96,7 +151,6 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
   if (!anchorRect) return null;
 
   // Position: right of the row, vertically centered
-  const top = Math.max(8, anchorRect.top + window.scrollY - 40);
   const left = anchorRect.right + 12;
 
   return (
@@ -147,6 +201,20 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
                 <span className="font-mono">${detail.current_price.toFixed(4)}</span>
               </div>
             )
+          )}
+
+          {/* Orderbook at signal */}
+          {detail.metadata?.orderbook && (
+            <div className="border-t border-gray-700 pt-2">
+              <OrderbookGrid ob={detail.metadata.orderbook} />
+            </div>
+          )}
+
+          {/* Rationale */}
+          {detail.metadata?.rationale && (
+            <div className="border-t border-gray-700 pt-2">
+              <RationaleGrid rationale={detail.metadata.rationale} />
+            </div>
           )}
 
           {/* Resolution */}

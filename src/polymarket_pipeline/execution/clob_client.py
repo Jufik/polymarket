@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -46,6 +47,16 @@ class OpenOrder:
     size_matched: float
 
 
+@dataclass(frozen=True)
+class ClobOrderbook:
+    """Orderbook snapshot from CLOB REST API."""
+
+    best_bid: float
+    best_ask: float
+    spread: float
+    fetched_at: float
+
+
 class ClobClient:
     """Async client for the Polymarket CLOB REST API.
 
@@ -77,6 +88,8 @@ class ClobClient:
             timeout=30.0,
             headers=self._auth_headers(),
         )
+        self._ob_cache: dict[str, tuple[float, ClobOrderbook]] = {}
+        self._ob_ttl = 5.0  # seconds
 
     def _auth_headers(self) -> dict[str, str]:
         """Build authentication headers."""
@@ -184,3 +197,40 @@ class ClobClient:
         except Exception:
             log.exception("clob.get_balances_error")
             return {}
+
+    async def get_orderbook(self, token_id: str) -> ClobOrderbook | None:
+        """Fetch orderbook from CLOB REST API with 5s TTL cache.
+
+        ``GET /book?token_id=X`` — public endpoint, no auth required.
+        Returns best bid/ask or None on failure.
+        """
+        now = time.monotonic()
+        cached = self._ob_cache.get(token_id)
+        if cached is not None:
+            ts, ob = cached
+            if now - ts < self._ob_ttl:
+                return ob
+
+        try:
+            resp = await self._client.get("/book", params={"token_id": token_id})
+            resp.raise_for_status()
+            data = resp.json()
+
+            bids = data.get("bids", [])
+            asks = data.get("asks", [])
+            if not bids or not asks:
+                return None
+
+            best_bid = float(bids[0]["price"])
+            best_ask = float(asks[0]["price"])
+            ob = ClobOrderbook(
+                best_bid=best_bid,
+                best_ask=best_ask,
+                spread=round(best_ask - best_bid, 6),
+                fetched_at=time.time(),
+            )
+            self._ob_cache[token_id] = (now, ob)
+            return ob
+        except Exception:
+            log.warning("clob.get_orderbook_error", token_id=token_id[:16])
+            return None

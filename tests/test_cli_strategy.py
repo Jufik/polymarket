@@ -18,32 +18,28 @@ def test_cli_build_runner_from_config(tmp_path: Path) -> None:
 
     config_file = tmp_path / "strategies.toml"
     config_file.write_text("""
-[provider.skilled_traders]
+[provider.will_markets]
 enabled = true
 refresh_interval_s = 900
-[provider.skilled_traders.params]
-min_trades = 5
+[provider.will_markets.params]
+question_pattern = "^Will\\\\b"
 
-[strategy.consensus_copy]
+[strategy.will_no]
 enabled = true
 mode = "paper_dev"
-capital_usd = 1000.0
-max_position_usd = 100.0
-max_open_positions = 20
-cooldown_s = 300
-features = ["skilled_traders"]
-[strategy.consensus_copy.params]
-min_traders = 3
-agreement_pct = 0.80
-direction = "NO"
-delay_s = 60
-base_bet_usd = 10.0
+capital_usd = 5000.0
+max_position_usd = 150.0
+max_open_positions = 100
+cooldown_s = 0
+features = ["will_markets"]
+[strategy.will_no.params]
+base_bet_usd = 50
 """)
 
     runner = _build_runner(config_file)
     assert len(runner.strategies) == 1
     assert len(runner.providers) == 1
-    assert runner.providers[0].name == "skilled_traders"
+    assert runner.providers[0].name == "will_markets"
 
 
 def test_cli_build_runner_validates_features(tmp_path: Path) -> None:
@@ -52,20 +48,16 @@ def test_cli_build_runner_validates_features(tmp_path: Path) -> None:
 
     config_file = tmp_path / "strategies.toml"
     config_file.write_text("""
-[strategy.consensus_copy]
+[strategy.will_no]
 enabled = true
 mode = "paper_dev"
-capital_usd = 1000.0
-max_position_usd = 100.0
-max_open_positions = 20
-cooldown_s = 300
+capital_usd = 5000.0
+max_position_usd = 150.0
+max_open_positions = 100
+cooldown_s = 0
 features = ["nonexistent_provider"]
-[strategy.consensus_copy.params]
-min_traders = 3
-agreement_pct = 0.80
-direction = "NO"
-delay_s = 60
-base_bet_usd = 10.0
+[strategy.will_no.params]
+base_bet_usd = 50
 """)
 
     with pytest.raises(ValueError, match="nonexistent_provider"):
@@ -78,57 +70,48 @@ def test_cli_build_runner_only_filter(tmp_path: Path) -> None:
 
     config_file = tmp_path / "strategies.toml"
     config_file.write_text("""
-[strategy.consensus_copy]
+[strategy.will_no]
 enabled = true
 mode = "paper_dev"
-capital_usd = 1000.0
-max_position_usd = 100.0
-max_open_positions = 20
-cooldown_s = 300
-[strategy.consensus_copy.params]
-min_traders = 3
-agreement_pct = 0.80
-direction = "NO"
-delay_s = 60
-base_bet_usd = 10.0
+capital_usd = 5000.0
+max_position_usd = 150.0
+max_open_positions = 100
+cooldown_s = 0
+[strategy.will_no.params]
+base_bet_usd = 50
 
-[strategy.other_strat]
+[strategy.hr_pool]
 enabled = true
 mode = "paper_dev"
-capital_usd = 500.0
-max_position_usd = 50.0
-max_open_positions = 5
-cooldown_s = 60
-[strategy.other_strat.params]
-min_traders = 3
-agreement_pct = 0.80
+capital_usd = 10000.0
+max_position_usd = 200.0
+max_open_positions = 50
+cooldown_s = 0
+[strategy.hr_pool.params]
+bet_size_usd = 100
 direction = "NO"
-delay_s = 60
-base_bet_usd = 10.0
+max_entry_price = 0.70
 """)
 
-    runner = _build_runner(config_file, only="consensus_copy")
+    runner = _build_runner(config_file, only="will_no")
     assert len(runner.strategies) == 1
-    assert runner.strategies[0][0].name == "consensus_copy"
+    assert runner.strategies[0][0].name == "will_no"
 
 
-def test_all_strategies_registered() -> None:
-    """All four strategies should be registered in the factory."""
+def test_active_strategies_registered() -> None:
+    """Active strategies (hr_pool, will_no) should be registered."""
     from polymarket_pipeline.cli.strategy import _STRATEGY_FACTORIES, _register_strategies
 
     _register_strategies()
-    assert "consensus_copy" in _STRATEGY_FACTORIES
-    assert "crypto_otm_no" in _STRATEGY_FACTORIES
     assert "will_no" in _STRATEGY_FACTORIES
-    assert "proportional_copy" in _STRATEGY_FACTORIES
+    assert "hr_pool" in _STRATEGY_FACTORIES
 
 
-def test_all_providers_registered() -> None:
-    """All providers should be registered."""
+def test_active_providers_registered() -> None:
+    """Active providers should be registered."""
     from polymarket_pipeline.cli.strategy import _PROVIDER_REGISTRY, _register_providers
 
     _register_providers()
-    assert "skilled_traders" in _PROVIDER_REGISTRY
-    assert "crypto_markets" in _PROVIDER_REGISTRY
     assert "will_markets" in _PROVIDER_REGISTRY
-    assert "pool_traders" in _PROVIDER_REGISTRY
+    assert "market_size" in _PROVIDER_REGISTRY
+    assert "hr_pool" in _PROVIDER_REGISTRY

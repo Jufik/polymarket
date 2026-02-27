@@ -188,6 +188,22 @@ class ProportionalCopyStrategy:
     ) -> list[TradeIntent] | None:
         return None
 
+    def get_rationale(
+        self, condition_id: str, trade: NormalizedTrade, ctx: StrategyContext
+    ) -> dict[str, Any]:
+        """Return rationale metadata for an intent on this market."""
+        maker = trade.maker or ""
+        stats = self._trader_stats.get(maker)
+        is_yes = trade.side == "BUY"
+        return {
+            "strategy": self.name,
+            "trader_address": maker,
+            "direction": "YES" if is_yes else "NO",
+            "sizing_mode": self._cfg.sizing,
+            "trade_usd": round(float(trade.amount_usd), 2),
+            "trader_avg_usd": round(stats.avg_usd, 2) if stats else None,
+        }
+
     # ------------------------------------------------------------------
     # Vectorized path
     # ------------------------------------------------------------------

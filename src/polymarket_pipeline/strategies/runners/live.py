@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 # Callback type: (intent_dict, disposition, fill_dict_or_none) -> awaitable
 IntentCallback = Callable[[dict[str, Any]], Awaitable[None]]
+# Callback type: (provider_name, features_dict) -> awaitable
+PoolRefreshCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 logger = structlog.get_logger(__name__)
 
@@ -93,6 +95,7 @@ class LiveRunner:
         self._refresh_event = asyncio.Event()
         self._market_volumes: dict[str, float] = {}
         self._intent_cb = intent_cb
+        self._pool_refresh_cb: PoolRefreshCallback | None = None
 
     def _sync_markets_from_features(self) -> None:
         """Bridge MarketInfo from provider features into ctx markets store.
@@ -152,12 +155,43 @@ class LiveRunner:
         # Establish running volume dict reference in features
         self.ctx.update_features({"market_volume": self._market_volumes})
 
+    def _build_intent_metadata(
+        self,
+        intent: TradeIntent,
+        trade: NormalizedTrade,
+        strategy: Any,
+    ) -> dict[str, Any]:
+        """Capture orderbook + strategy rationale as metadata dict."""
+        metadata: dict[str, Any] = {}
+
+        # Orderbook snapshot from context (if available)
+        ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
+        if ob is not None:
+            metadata["orderbook"] = {
+                "best_bid": round(ob.best_bid, 4),
+                "best_ask": round(ob.best_ask, 4),
+                "spread": round(ob.spread, 4),
+                "source": "clob_ws",
+            }
+
+        # Strategy rationale (duck-typed)
+        if hasattr(strategy, "get_rationale"):
+            try:
+                metadata["rationale"] = strategy.get_rationale(
+                    intent.condition_id, trade, self.ctx
+                )
+            except Exception:
+                logger.debug("metadata.rationale_error", strategy=strategy.name)
+
+        return metadata
+
     async def _fire_intent(
         self,
         intent: TradeIntent,
         disposition: str,
         fill: Fill | None = None,
         rejection_reason: str = "",
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Fire the intent callback (if configured) with full context."""
         if self._intent_cb is None:
@@ -167,6 +201,7 @@ class LiveRunner:
             "disposition": disposition,
             "rejection_reason": rejection_reason,
             "fill": dataclasses.asdict(fill) if fill is not None else None,
+            "metadata": metadata or {},
             "captured_at": time.time(),
         }
         try:
@@ -221,6 +256,11 @@ class LiveRunner:
 
             if intents:
                 for intent in intents:
+                    # Capture metadata: orderbook + strategy rationale
+                    metadata = self._build_intent_metadata(
+                        intent, trade, strategy
+                    )
+
                     # Risk gate
                     positions = self.ctx.get_all_positions()
                     allowed, reason = check_risk_gate(
@@ -233,7 +273,10 @@ class LiveRunner:
                             reason=reason,
                             condition_id=intent.condition_id,
                         )
-                        await self._fire_intent(intent, "risk_rejected", rejection_reason=reason)
+                        await self._fire_intent(
+                            intent, "risk_rejected",
+                            rejection_reason=reason, metadata=metadata,
+                        )
                         continue
 
                     fill = await self.gateway.submit(intent)
@@ -241,7 +284,9 @@ class LiveRunner:
 
                     disposition = fill.status.value  # "filled" or "rejected"
                     await self._fire_intent(
-                        intent, disposition, fill=fill, rejection_reason=fill.error or ""
+                        intent, disposition, fill=fill,
+                        rejection_reason=fill.error or "",
+                        metadata=metadata,
                     )
 
                     # Position tracking (only for successful fills)
@@ -397,6 +442,16 @@ class LiveRunner:
                 await provider.refresh(self.backend)
                 self.ctx.update_features(provider.get_features())
                 logger.info("provider.refresh_done", provider=provider.name)
+                # Publish pool contents to PG (if callback wired)
+                if self._pool_refresh_cb is not None:
+                    try:
+                        await self._pool_refresh_cb(
+                            provider.name, provider.get_features()
+                        )
+                    except Exception:
+                        logger.exception(
+                            "pool_refresh_cb.error", provider=provider.name
+                        )
             # Re-sync market metadata after refresh (new markets may have appeared)
             self._sync_markets_from_features()
 
