@@ -132,8 +132,8 @@ async def main() -> None:
     first_trades = await query_ch(client, """
         WITH wm AS (SELECT condition_id FROM markets WHERE question LIKE 'Will %%')
         SELECT condition_id,
-               argMin(CAST(price AS Float64), toUnixTimestamp(timestamp)) AS first_price,
-               min(toUnixTimestamp(timestamp)) AS first_ts
+               argMin(CAST(price AS Float64), timestamp) AS first_price,
+               toUnixTimestamp64Milli(min(timestamp)) / 1000.0 AS first_ts
         FROM (SELECT * FROM polymarket.trades_raw FINAL) t
         WHERE condition_id IN (SELECT condition_id FROM wm)
         GROUP BY condition_id""", label="first-trades")

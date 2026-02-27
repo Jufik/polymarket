@@ -365,12 +365,12 @@ async def main() -> None:
         events_df = await query_ch(
             client,
             """SELECT toString(id) AS id,
-                      toFloat64(toUnixTimestamp(assumeNotNull(end_date))) AS end_date,
+                      toFloat64(dateDiff('second', toDateTime64('1970-01-01', 3), assumeNotNull(end_date))) AS end_date,
                       toFloat64(volume) AS volume,
                       toFloat64(liquidity) AS liquidity
                FROM events
                WHERE end_date IS NOT NULL
-               AND toUnixTimestamp(assumeNotNull(end_date)) > 86400""",
+               AND dateDiff('second', toDateTime64('1970-01-01', 3), assumeNotNull(end_date)) > 86400""",
             label="events",
         )
 
@@ -395,7 +395,7 @@ async def main() -> None:
                 SELECT t.condition_id, t.maker,
                        toFloat64(t.price) AS price,
                        toFloat64(t.size) AS size,
-                       toFloat64(toUnixTimestamp(t.timestamp)) AS timestamp
+                       toUnixTimestamp64Milli(t.timestamp) / 1000.0 AS timestamp
                 FROM trades_raw t
                 INNER JOIN first_ts f ON t.condition_id = f.condition_id
                 WHERE t.timestamp <= addHours(f.ft, {ms_cfg.feature_window_hours})""",
@@ -466,8 +466,8 @@ async def main() -> None:
               price, size,
               price * size AS amount_usd,
               maker, taker,
-              toUnixTimestamp(timestamp) AS timestamp,
-              toUnixTimestamp(timestamp) AS published_at,
+              toUnixTimestamp64Milli(timestamp) / 1000.0 AS timestamp,
+              toUnixTimestamp64Milli(timestamp) / 1000.0 AS published_at,
               block_number
             FROM trades_raw
             WHERE condition_id IN (
