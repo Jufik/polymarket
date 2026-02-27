@@ -18,6 +18,7 @@ from polymarket_pipeline.live.orchestrator import (
     create_ingestors,
     load_token_map,
     periodic_quality_check,
+    periodic_token_map_refresh,
     supervise_tasks,
 )
 from polymarket_pipeline.live.protection import auto_protect
@@ -89,16 +90,21 @@ async def on_startup(context: ContextRepo) -> None:
     log.info("live_pipeline.starting", redpanda=settings.redpanda_url)
     context.set_global("settings", settings)
 
-    # Load token_map from PostgreSQL
+    # Load token_map from PostgreSQL (fast — uses whatever pm-sync last wrote)
     token_map = await load_token_map(settings.pg_dsn)
 
     # Check for gaps and recover via subgraph if needed
     _ingestor_tasks.append(asyncio.create_task(check_and_recover(broker, settings, token_map)))
 
-    # Initialize quality checker
+    # Ensure Kafka engine tables exist (idempotent — all CREATE IF NOT EXISTS)
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
     ch = ClickHouseSink(host=settings.ch_host, port=settings.ch_port, database=settings.ch_database)
+
+    from polymarket_pipeline.live.schema import apply_schema
+
+    apply_schema(ch, broker_list=settings.ch_kafka_broker_list)
+    log.info("live_pipeline.schema_applied")
 
     # Connect PG pool for quality checks (metadata freshness, resolved completeness)
     pg_pool = None
@@ -129,7 +135,12 @@ async def on_startup(context: ContextRepo) -> None:
     )
 
     # Launch ingestors as background tasks
-    _ingestor_tasks.extend(create_ingestors(broker, settings, token_map))
+    _ingestor_tasks.extend(await create_ingestors(broker, settings, token_map))
+
+    # Periodic token_map refresh (re-sync APIs -> PG -> shared dict)
+    _ingestor_tasks.append(
+        asyncio.create_task(periodic_token_map_refresh(token_map, settings))
+    )
 
     # Supervisor watches for ingestor crashes (immediate visibility)
     _ingestor_tasks.append(

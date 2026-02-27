@@ -41,12 +41,15 @@ def _max_timestamp_from_parquet(parquet_dir: str) -> int | None:
 
 
 def _max_timestamp_from_clickhouse(ch_host: str, ch_port: int, ch_db: str) -> int | None:
-    """Query ClickHouse for the latest trade timestamp."""
+    """Query ClickHouse for the latest subgraph trade timestamp."""
     from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
     ch = ClickHouseSink(host=ch_host, port=ch_port, database=ch_db)
     try:
-        rows = ch.query("SELECT max(timestamp) AS max_ts FROM trades_raw")
+        rows = ch.query(
+            "SELECT max(timestamp) AS max_ts FROM trades_raw"
+            " WHERE source = 'goldsky_subgraph'"
+        )
         val = rows[0]["max_ts"] if rows else None
     except Exception:
         return None

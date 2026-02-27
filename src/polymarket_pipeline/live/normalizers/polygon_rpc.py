@@ -6,11 +6,14 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+import structlog
 from eth_abi import decode
 
 from polymarket_pipeline.constants import EXCHANGE_ADDRS, USDC_SCALE
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
+
+_log = structlog.get_logger()
 
 # OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker,
 #             uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled,
@@ -26,6 +29,7 @@ class PolygonRPCNormalizer:
         token_market_map: dict[str, tuple[str, str]] | None = None,
     ) -> None:
         self._token_map = token_market_map or {}
+        self._unknown_assets: set[str] = set()
 
     def normalize(self, log: dict[str, Any]) -> NormalizedTrade | None:
         """Normalize a single raw log event.
@@ -78,10 +82,13 @@ class PolygonRPCNormalizer:
         price = (amount_usd / size).quantize(Decimal("0.0001")) if size > 0 else Decimal("0")
 
         # Resolve condition_id
-        if asset_id in self._token_map:
-            condition_id = self._token_map[asset_id][0]
-        else:
-            condition_id = asset_id  # best effort fallback
+        mapping = self._token_map.get(asset_id)
+        if mapping is None:
+            if asset_id not in self._unknown_assets:
+                self._unknown_assets.add(asset_id)
+                _log.warning("polygon_rpc.unknown_asset_id", asset_id=asset_id)
+            return None
+        condition_id = mapping[0]
 
         tx_hash = log["transactionHash"]
         block_number = int(log["blockNumber"], 16)
