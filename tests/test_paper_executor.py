@@ -14,6 +14,13 @@ from polymarket_pipeline.strategies.types import (
 )
 
 
+def _ob(cid: str = "0xabc", bid: float = 0.58, ask: float = 0.62) -> OrderbookSnapshot:
+    return OrderbookSnapshot(
+        condition_id=cid, best_bid=bid, best_ask=ask,
+        bid_depth=1000.0, ask_depth=500.0, timestamp=1_700_000_000.0,
+    )
+
+
 def _make_intent(
     *,
     side: str = "BUY",
@@ -37,7 +44,9 @@ def _make_intent(
 
 @pytest.fixture
 def ctx() -> InMemoryContext:
-    return InMemoryContext()
+    ctx = InMemoryContext()
+    ctx.set_orderbook("0xabc", _ob())
+    return ctx
 
 
 @pytest.fixture
@@ -49,105 +58,68 @@ async def test_satisfies_executor_protocol(executor: PaperExecutor) -> None:
     assert isinstance(executor, Executor)
 
 
-async def test_fills_at_max_price_when_no_orderbook(executor: PaperExecutor) -> None:
-    fill = await executor.execute(_make_intent(max_price=0.65))
+async def test_fills_at_orderbook_ask_for_buy_yes(executor: PaperExecutor) -> None:
+    fill = await executor.execute(_make_intent(side="BUY", outcome="YES"))
     assert fill.status == FillStatus.FILLED
-    assert fill.filled_price == 0.65
+    assert fill.filled_price == 0.62  # best_ask
     assert fill.filled_size_usd == 100.0
 
 
-async def test_rejects_when_no_ob_no_max_price(
-    executor: PaperExecutor,
-) -> None:
-    fill = await executor.execute(_make_intent(max_price=None))
-    assert fill.status == FillStatus.REJECTED
+async def test_fills_at_orderbook_bid_for_sell_yes(executor: PaperExecutor) -> None:
+    fill = await executor.execute(_make_intent(side="SELL", outcome="YES"))
+    assert fill.status == FillStatus.FILLED
+    assert fill.filled_price == 0.58  # best_bid
 
 
-async def test_fills_at_best_ask_for_buy_yes(
-    ctx: InMemoryContext,
-) -> None:
-    ctx.set_orderbook(
-        "0xabc",
-        OrderbookSnapshot(
-            condition_id="0xabc",
-            best_bid=0.58,
-            best_ask=0.62,
-            bid_depth=1000.0,
-            ask_depth=500.0,
-            timestamp=1_700_000_000.0,
-        ),
-    )
-    executor = PaperExecutor(ctx=ctx, fee_pct=0.02)
-    fill = await executor.execute(_make_intent(side="BUY", outcome="YES", condition_id="0xabc"))
-    assert fill.filled_price == 0.62
-
-
-async def test_fills_at_best_bid_for_sell_yes(
-    ctx: InMemoryContext,
-) -> None:
-    ctx.set_orderbook(
-        "0xabc",
-        OrderbookSnapshot(
-            condition_id="0xabc",
-            best_bid=0.58,
-            best_ask=0.62,
-            bid_depth=1000.0,
-            ask_depth=500.0,
-            timestamp=1_700_000_000.0,
-        ),
-    )
-    executor = PaperExecutor(ctx=ctx, fee_pct=0.02)
-    fill = await executor.execute(_make_intent(side="SELL", outcome="YES", condition_id="0xabc"))
-    assert fill.filled_price == 0.58
-
-
-async def test_buy_no_uses_flipped_price(
-    ctx: InMemoryContext,
-) -> None:
-    """BUY NO should use 1 - YES_bid as the fill price."""
-    ctx.set_orderbook(
-        "0xabc",
-        OrderbookSnapshot(
-            condition_id="0xabc",
-            best_bid=0.10,
-            best_ask=0.12,
-            bid_depth=1000.0,
-            ask_depth=500.0,
-            timestamp=1_700_000_000.0,
-        ),
-    )
+async def test_buy_no_uses_flipped_price(ctx: InMemoryContext) -> None:
+    """BUY NO → NO ask = 1 - YES bid."""
+    ctx.set_orderbook("0xabc", _ob(bid=0.10, ask=0.12))
     executor = PaperExecutor(ctx=ctx)
     fill = await executor.execute(
-        _make_intent(side="BUY", outcome="NO", max_price=0.95, condition_id="0xabc")
+        _make_intent(side="BUY", outcome="NO", max_price=0.95)
     )
     assert fill.status == FillStatus.FILLED
     assert fill.filled_price == pytest.approx(0.90)  # 1 - 0.10
 
 
-async def test_rejects_large_price_gap(
-    ctx: InMemoryContext,
-) -> None:
-    """Reject fill when market price diverges too much from max_price."""
-    ctx.set_orderbook(
-        "0xabc",
-        OrderbookSnapshot(
-            condition_id="0xabc",
-            best_bid=0.05,
-            best_ask=0.07,
-            bid_depth=1000.0,
-            ask_depth=500.0,
-            timestamp=1_700_000_000.0,
-        ),
-    )
-    executor = PaperExecutor(ctx=ctx, max_price_gap=0.10)
-    # max_price=0.50 but market ask=0.07 → gap=0.43 > 0.10
-    fill = await executor.execute(
-        _make_intent(side="BUY", outcome="YES", max_price=0.50, condition_id="0xabc")
+async def test_rejects_when_no_orderbook() -> None:
+    ctx = InMemoryContext()  # no orderbook set
+    executor = PaperExecutor(ctx=ctx)
+    fill = await executor.execute(_make_intent())
+    assert fill.status == FillStatus.REJECTED
+    assert "no orderbook" in fill.error
+
+
+async def test_rejects_when_market_exceeds_limit(ctx: InMemoryContext) -> None:
+    """max_price acts as limit — reject if market price is higher."""
+    fill = await ctx_executor(ctx).execute(
+        _make_intent(side="BUY", outcome="YES", max_price=0.55)  # ask=0.62 > 0.55
     )
     assert fill.status == FillStatus.REJECTED
+    assert "market" in fill.error
+
+
+async def test_fills_when_market_within_limit(ctx: InMemoryContext) -> None:
+    fill = await ctx_executor(ctx).execute(
+        _make_intent(side="BUY", outcome="YES", max_price=0.70)  # ask=0.62 < 0.70
+    )
+    assert fill.status == FillStatus.FILLED
+    assert fill.filled_price == 0.62
+
+
+async def test_no_limit_when_max_price_none(ctx: InMemoryContext) -> None:
+    fill = await ctx_executor(ctx).execute(
+        _make_intent(side="BUY", outcome="YES", max_price=None)
+    )
+    assert fill.status == FillStatus.FILLED
+    assert fill.filled_price == 0.62
 
 
 async def test_fee_calculation(executor: PaperExecutor) -> None:
-    fill = await executor.execute(_make_intent(max_price=0.65, size_usd=100.0))
-    expected = 0.02 * min(0.65, 1.0 - 0.65) * 100.0
+    fill = await executor.execute(_make_intent(max_price=0.70, size_usd=100.0))
+    expected = 0.02 * min(0.62, 1.0 - 0.62) * 100.0  # fills at ask=0.62
     assert fill.fee_usd == pytest.approx(expected)
+
+
+def ctx_executor(ctx: InMemoryContext) -> PaperExecutor:
+    return PaperExecutor(ctx=ctx)

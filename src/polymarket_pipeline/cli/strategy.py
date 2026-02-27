@@ -488,3 +488,63 @@ def run(
             await pg_pool.close()
 
     asyncio.run(_run())
+
+
+@app.command()
+def reset(
+    log_dir: Path = typer.Option(
+        "logs/paper", "--log-dir", help="Root log directory to clear JSONL files from"
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+) -> None:
+    """Wipe all paper trading state: PG intents/fills/positions, JSONL logs, Kafka topic.
+
+    Strategies should be stopped first (supervisorctl stop strategies:*).
+    """
+    import shutil
+    import subprocess
+
+    if not yes:
+        typer.confirm("This will DELETE all intents, fills, positions, and JSONL logs. Continue?", abort=True)
+
+    from polymarket_pipeline.live.settings import Settings
+
+    settings = Settings()
+
+    # 1. Truncate PG tables
+    logger.warning("reset.pg_truncate")
+    try:
+        result = subprocess.run(
+            ["psql", settings.pg_dsn, "-c", "TRUNCATE strategy_intents, fills, positions CASCADE"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            typer.echo("  PG tables truncated")
+        else:
+            typer.echo(f"  PG truncate failed: {result.stderr.strip()}")
+    except Exception as e:
+        typer.echo(f"  PG truncate error: {e}")
+
+    # 2. Delete JSONL files
+    logger.warning("reset.jsonl_cleanup", log_dir=str(log_dir))
+    count = 0
+    if log_dir.exists():
+        for jsonl in log_dir.rglob("*.jsonl"):
+            jsonl.unlink()
+            count += 1
+    typer.echo(f"  Deleted {count} JSONL files")
+
+    # 3. Recreate Kafka topic
+    logger.warning("reset.kafka_topic")
+    try:
+        rpk = shutil.which("rpk")
+        if rpk:
+            subprocess.run([rpk, "topic", "delete", "strategy.intents"], capture_output=True, timeout=10)
+            subprocess.run([rpk, "topic", "create", "strategy.intents", "-p", "1", "-r", "1"], capture_output=True, timeout=10)
+            typer.echo("  Kafka strategy.intents topic recreated")
+        else:
+            typer.echo("  rpk not found — manually recreate strategy.intents topic")
+    except Exception as e:
+        typer.echo(f"  Kafka reset error: {e}")
+
+    typer.echo("Done. Restart strategies: supervisorctl start strategies:*")
