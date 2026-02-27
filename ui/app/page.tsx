@@ -29,7 +29,7 @@ function CountdownBadge({ endDate, resolvedAt, winner }: {
   if (!endDate) return <span className="text-xs text-gray-600">-</span>;
 
   const diff = new Date(endDate).getTime() - Date.now();
-  if (diff <= 0) return <span className="text-xs text-gray-500">Ended</span>;
+  if (diff <= 0) return <span className="text-xs text-orange-400">Awaiting resolution</span>;
 
   const d = Math.floor(diff / 86400000);
   const h = Math.floor((diff % 86400000) / 3600000);
