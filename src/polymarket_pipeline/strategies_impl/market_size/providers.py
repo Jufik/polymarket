@@ -103,10 +103,12 @@ class MarketSizeProvider:
                 sum(toFloat64(price) * toFloat64(size)) AS total_volume,
                 toUnixTimestamp64Milli(min(timestamp)) / 1000.0 AS first_ts
             FROM (
-                SELECT *,
-                    dateDiff('second', min(timestamp) OVER (PARTITION BY condition_id), timestamp) AS secs
-                FROM trades_raw FINAL
-                WHERE timestamp >= now() - INTERVAL 30 DAY
+                SELECT t.*,
+                    dateDiff('second', min(t.timestamp) OVER (PARTITION BY t.condition_id), t.timestamp) AS secs
+                FROM trades_raw t
+                INNER JOIN markets m ON t.condition_id = m.condition_id
+                WHERE t.timestamp >= now() - INTERVAL 30 DAY
+                  AND m.resolution_value = 0  -- open markets only (~20K vs ~500K)
             )
             WHERE secs <= {window_secs}
             GROUP BY condition_id
