@@ -155,7 +155,7 @@ class LiveRunner:
         # Establish running volume dict reference in features
         self.ctx.update_features({"market_volume": self._market_volumes})
 
-    def _build_intent_metadata(
+    async def _build_intent_metadata(
         self,
         intent: TradeIntent,
         trade: NormalizedTrade,
@@ -179,7 +179,34 @@ class LiveRunner:
             ob = self.ctx.get_orderbook_by_asset(asset_id)
         if ob is None:
             ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
-        if ob is not None:
+
+        # Fallback: CLOB REST API /book (most markets aren't WS-subscribed)
+        if ob is None and asset_id:
+            try:
+                import httpx
+
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    resp = await client.get(
+                        "https://clob.polymarket.com/book",
+                        params={"token_id": asset_id},
+                    )
+                    resp.raise_for_status()
+                    book = resp.json()
+                    bids = book.get("bids") or []
+                    asks = book.get("asks") or []
+                    if bids and asks:
+                        best_bid = float(bids[0]["price"])
+                        best_ask = float(asks[0]["price"])
+                        metadata["orderbook"] = {
+                            "best_bid": round(best_bid, 4),
+                            "best_ask": round(best_ask, 4),
+                            "spread": round(best_ask - best_bid, 4),
+                            "source": "clob_api",
+                        }
+            except Exception:
+                logger.debug("metadata.clob_book_failed", asset_id=asset_id[:16])
+
+        if ob is not None and "orderbook" not in metadata:
             metadata["orderbook"] = {
                 "best_bid": round(ob.best_bid, 4),
                 "best_ask": round(ob.best_ask, 4),
@@ -270,7 +297,7 @@ class LiveRunner:
             if intents:
                 for intent in intents:
                     # Capture metadata: orderbook + strategy rationale
-                    metadata = self._build_intent_metadata(
+                    metadata = await self._build_intent_metadata(
                         intent, trade, strategy
                     )
 
