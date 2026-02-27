@@ -165,7 +165,7 @@ class MarketSizeProvider:
                 "CAST(volume AS Float64) AS volume, "
                 "CAST(liquidity AS Float64) AS liquidity "
                 "FROM events WHERE end_date IS NOT NULL "
-                "AND end_date != '1970-01-01 00:00:00'"
+                "AND end_date > toDateTime64('1970-01-02', 6)"
             )
             for col in ["end_date", "volume", "liquidity"]:
                 events = events.with_columns(pl.col(col).cast(pl.Float64))
