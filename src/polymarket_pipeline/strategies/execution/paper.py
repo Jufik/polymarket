@@ -1,4 +1,4 @@
-"""PaperExecutor — paper-trading executor with orderbook-aware pricing."""
+"""PaperExecutor — paper-trading executor with orderbook-driven pricing."""
 
 from __future__ import annotations
 
@@ -17,11 +17,13 @@ logger = structlog.get_logger(__name__)
 
 
 class PaperExecutor:
-    """Executor that simulates fills with market-aware pricing.
+    """Executor that simulates fills using real orderbook prices.
 
-    Checks orderbook from context when available. Falls back to
-    ``max_price`` when no orderbook exists. Rejects fills when the
-    price gap between intent and market is too large.
+    Fills are ONLY executed when an orderbook snapshot is available for the
+    market. The intent's ``max_price`` acts as a limit — if the market price
+    exceeds it, the fill is rejected.
+
+    When no orderbook is available, the fill is rejected with a clear error.
 
     Parameters
     ----------
@@ -30,54 +32,35 @@ class PaperExecutor:
     fee_pct:
         Fee as fraction of ``min(price, 1-price) * size_usd``.
         Default 0.0 — most Polymarket markets have zero trading fees.
-    max_price_gap:
-        Maximum allowed gap between intent max_price and actual market
-        price. Fills outside this band are rejected. Default 0.10 (10%).
     """
 
     def __init__(
         self,
         ctx: StrategyContext,
         fee_pct: float = 0.0,
-        max_price_gap: float = 0.10,
     ) -> None:
         self._ctx = ctx
         self._fee_pct = fee_pct
-        self._max_price_gap = max_price_gap
 
     async def execute(self, intent: TradeIntent) -> Fill:
-        """Simulate a fill using orderbook or fallback pricing.
+        """Fill at orderbook price or reject.
 
         Orderbook snapshots are YES-side (from CLOB WS). For NO positions
         we flip: NO_ask = 1 - YES_bid, NO_bid = 1 - YES_ask.
-
-        When orderbook is available but the gap vs max_price is too large,
-        the fill is rejected (stale signal or wrong price).
         """
         ob = await self._ctx.get_orderbook(intent.condition_id)
         is_no = intent.outcome == "NO"
-        source = "orderbook"
 
-        if ob is not None:
-            if is_no:
-                # NO ask = 1 - YES bid, NO bid = 1 - YES ask
-                market_price = (1.0 - ob.best_bid) if intent.side == "BUY" else (1.0 - ob.best_ask)
-            else:
-                market_price = ob.best_ask if intent.side == "BUY" else ob.best_bid
-            price = market_price
-        elif intent.max_price is not None:
-            price = intent.max_price
-            market_price = None
-            source = "max_price"
-        else:
-            # No orderbook AND no max_price — reject (don't guess at 0.50)
+        # No orderbook → reject
+        if ob is None:
             intent_id = uuid.uuid4().hex[:12]
             logger.warning(
                 "paper_fill.rejected",
                 intent_id=intent_id,
                 strategy=intent.strategy,
                 condition_id=intent.condition_id,
-                reason="no_orderbook_no_max_price",
+                outcome=intent.outcome,
+                reason="no_orderbook",
             )
             return Fill(
                 intent_id=intent_id,
@@ -89,42 +72,44 @@ class PaperExecutor:
                 filled_size_usd=0.0,
                 fee_usd=0.0,
                 status=FillStatus.REJECTED,
-                error="no price available (no orderbook, no max_price)",
+                error="no orderbook available",
                 filled_at=time.time(),
             )
 
-        # Price gap validation: reject if intent max_price diverges too much
-        # from actual market price (stale signal or wrong price)
-        if market_price is not None and intent.max_price is not None:
-            gap = abs(market_price - intent.max_price)
-            if gap > self._max_price_gap:
-                intent_id = uuid.uuid4().hex[:12]
-                logger.warning(
-                    "paper_fill.rejected",
-                    intent_id=intent_id,
-                    strategy=intent.strategy,
-                    condition_id=intent.condition_id,
-                    reason="price_gap_too_large",
-                    market_price=round(market_price, 4),
-                    max_price=round(intent.max_price, 4),
-                    gap=round(gap, 4),
-                )
-                return Fill(
-                    intent_id=intent_id,
-                    strategy=intent.strategy,
-                    condition_id=intent.condition_id,
-                    side=intent.side,
-                    outcome=intent.outcome,
-                    filled_price=0.0,
-                    filled_size_usd=0.0,
-                    fee_usd=0.0,
-                    status=FillStatus.REJECTED,
-                    error=f"price gap {gap:.4f} > {self._max_price_gap} "
-                          f"(market={market_price:.4f}, max_price={intent.max_price:.4f})",
-                    filled_at=time.time(),
-                )
+        # Compute market price from YES-side orderbook
+        if is_no:
+            market_price = (1.0 - ob.best_bid) if intent.side == "BUY" else (1.0 - ob.best_ask)
+        else:
+            market_price = ob.best_ask if intent.side == "BUY" else ob.best_bid
 
-        fee = self._fee_pct * min(price, 1.0 - price) * intent.size_usd
+        # max_price acts as a limit — reject if market exceeds it
+        if intent.max_price is not None and intent.side == "BUY" and market_price > intent.max_price:
+            intent_id = uuid.uuid4().hex[:12]
+            logger.warning(
+                "paper_fill.rejected",
+                intent_id=intent_id,
+                strategy=intent.strategy,
+                condition_id=intent.condition_id,
+                outcome=intent.outcome,
+                reason="market_exceeds_limit",
+                market_price=round(market_price, 4),
+                max_price=round(intent.max_price, 4),
+            )
+            return Fill(
+                intent_id=intent_id,
+                strategy=intent.strategy,
+                condition_id=intent.condition_id,
+                side=intent.side,
+                outcome=intent.outcome,
+                filled_price=0.0,
+                filled_size_usd=0.0,
+                fee_usd=0.0,
+                status=FillStatus.REJECTED,
+                error=f"market {market_price:.4f} > limit {intent.max_price:.4f}",
+                filled_at=time.time(),
+            )
+
+        fee = self._fee_pct * min(market_price, 1.0 - market_price) * intent.size_usd
         intent_id = uuid.uuid4().hex[:12]
 
         fill = Fill(
@@ -133,7 +118,7 @@ class PaperExecutor:
             condition_id=intent.condition_id,
             side=intent.side,
             outcome=intent.outcome,
-            filled_price=price,
+            filled_price=market_price,
             filled_size_usd=intent.size_usd,
             fee_usd=fee,
             status=FillStatus.FILLED,
@@ -147,10 +132,9 @@ class PaperExecutor:
             condition_id=intent.condition_id,
             side=intent.side,
             outcome=intent.outcome,
-            price=round(price, 4),
+            price=round(market_price, 4),
             size_usd=round(intent.size_usd, 2),
             fee_usd=round(fee, 4),
-            source=source,
         )
 
         return fill
