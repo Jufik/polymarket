@@ -55,12 +55,16 @@ class PaperExecutor:
         self._fee_pct = fee_pct
 
     def _resolve_asset_id(self, intent: TradeIntent) -> str | None:
-        """Resolve the asset_id for the intent's outcome (YES or NO)."""
+        """Resolve the asset_id for the intent's outcome (YES or NO).
+
+        Never fall back to a different outcome — returning the YES asset_id
+        for a NO intent causes fills at the wrong price.
+        """
         if intent.asset_id:
             return intent.asset_id
         tokens = self._token_map.get(intent.condition_id)
         if tokens:
-            return tokens.get(intent.outcome, tokens.get("YES"))
+            return tokens.get(intent.outcome)
         return None
 
     async def execute(self, intent: TradeIntent) -> Fill:
