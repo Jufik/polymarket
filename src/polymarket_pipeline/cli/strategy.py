@@ -325,7 +325,7 @@ def run(
         logger.warning("token_map.loaded", count=len(token_map))
 
         # Wire token_map into executor
-        runner.gateway._executor._token_map = token_map  # type: ignore[attr-defined]
+        runner.gateway.executor._token_map = token_map  # type: ignore[attr-defined]
 
         # Wire intent capture → Kafka topic + PostgreSQL
         async def _publish_intent(record: dict[str, Any]) -> None:
