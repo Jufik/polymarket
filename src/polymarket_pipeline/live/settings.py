@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     clob_markets_events_topic: str = "markets.events"
-    clob_orderbook_max_connections: int = 4  # max targeted WS connections (500 assets each)
+    clob_orderbook_max_connections: int = 30  # max targeted WS connections (500 assets each)
 
     # CLOB API (execution)
     clob_api_url: str = "https://clob.polymarket.com"

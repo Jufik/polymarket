@@ -86,9 +86,12 @@ async def create_ingestors(
     if settings.clob_orderbook_enabled:
         from polymarket_pipeline.live.ingestors.clob_orderbook import CLOBOrderbookIngestor
 
-        # Subscribe to open market assets (not the full 1M+ token_map)
+        # Subscribe to recently active open markets (CH activity → PG filter)
         open_assets = await _load_open_asset_ids(
-            settings.pg_dsn,
+            pg_dsn=settings.pg_dsn,
+            ch_host=settings.ch_host,
+            ch_port=settings.ch_port,
+            ch_database=settings.ch_database,
             limit=settings.clob_orderbook_max_connections * 500,
         )
         clob_ob = CLOBOrderbookIngestor(
@@ -264,27 +267,112 @@ async def _sync_open_tokens(pg_dsn: str) -> None:
     )
 
 
-async def _load_open_asset_ids(pg_dsn: str, limit: int = 2000) -> list[str]:
-    """Fetch asset IDs for open (unresolved, not closed) markets from PG."""
-    import asyncpg
+async def _load_open_asset_ids(
+    pg_dsn: str,
+    ch_host: str = "localhost",
+    ch_port: int = 18123,
+    ch_database: str = "polymarket",
+    limit: int = 15000,
+) -> list[str]:
+    """Load asset IDs for open markets, prioritized by recent trading activity.
 
+    1. Query CH for condition_ids with trades in the last 48h, ranked by trade count.
+    2. Cross-reference with PG to get asset_ids for open (unresolved) markets only.
+
+    This gives orderbook coverage to the markets that are actually active,
+    instead of blindly picking the newest by creation date.
+    """
+    import asyncpg
+    import httpx
+
+    # Step 1: get active condition_ids from CH, ranked by recent activity
+    active_cids: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            query = """
+                SELECT condition_id, count() AS trades
+                FROM trades_raw
+                WHERE timestamp >= now() - INTERVAL 48 HOUR
+                GROUP BY condition_id
+                HAVING trades >= 3
+                ORDER BY trades DESC
+                FORMAT JSONEachRow
+            """
+            resp = await client.post(
+                f"http://{ch_host}:{ch_port}/",
+                content=query,
+                params={"database": ch_database},
+                headers={"Content-Type": "text/plain"},
+            )
+            resp.raise_for_status()
+            import json
+            for line in resp.text.strip().split("\n"):
+                if line.strip():
+                    row = json.loads(line)
+                    active_cids.append(row["condition_id"])
+    except Exception:
+        log.exception("open_asset_ids.ch_query_failed")
+
+    log.info("open_asset_ids.ch_active", condition_ids=len(active_cids))
+
+    # Step 2: map to asset_ids via PG, filtering to open markets only
     conn = await asyncpg.connect(pg_dsn)
     try:
-        rows = await conn.fetch(
-            """
-            SELECT t.asset_id
-            FROM token_market_map t
-            JOIN markets m ON t.condition_id = m.condition_id
-            WHERE m.resolved_at IS NULL
-              AND m.closed_at IS NULL
-            ORDER BY m.created_at DESC NULLS LAST
-            LIMIT $1
-            """,
-            limit,
-        )
-        assets = [r["asset_id"] for r in rows]
+        if active_cids:
+            # Prioritize CH-active markets, then fill remaining slots with newest open
+            rows = await conn.fetch(
+                """
+                WITH active AS (
+                    SELECT unnest($1::text[]) AS condition_id
+                )
+                SELECT t.asset_id
+                FROM token_market_map t
+                JOIN markets m ON t.condition_id = m.condition_id
+                WHERE m.resolved_at IS NULL
+                  AND m.closed_at IS NULL
+                  AND t.condition_id IN (SELECT condition_id FROM active)
+                """,
+                active_cids,
+            )
+            assets = [r["asset_id"] for r in rows]
+
+            # Fill remaining slots with newest open markets not yet covered
+            remaining = limit - len(assets)
+            if remaining > 0:
+                covered = set(active_cids)
+                fill_rows = await conn.fetch(
+                    """
+                    SELECT t.asset_id
+                    FROM token_market_map t
+                    JOIN markets m ON t.condition_id = m.condition_id
+                    WHERE m.resolved_at IS NULL
+                      AND m.closed_at IS NULL
+                      AND t.condition_id != ALL($1::text[])
+                    ORDER BY m.created_at DESC NULLS LAST
+                    LIMIT $2
+                    """,
+                    list(covered),
+                    remaining,
+                )
+                assets.extend(r["asset_id"] for r in fill_rows)
+        else:
+            # Fallback: just newest open markets
+            rows = await conn.fetch(
+                """
+                SELECT t.asset_id
+                FROM token_market_map t
+                JOIN markets m ON t.condition_id = m.condition_id
+                WHERE m.resolved_at IS NULL
+                  AND m.closed_at IS NULL
+                ORDER BY m.created_at DESC NULLS LAST
+                LIMIT $1
+                """,
+                limit,
+            )
+            assets = [r["asset_id"] for r in rows]
+
         log.info("open_asset_ids.loaded", count=len(assets), limit=limit)
-        return assets
+        return assets[:limit]
     finally:
         await conn.close()
 
