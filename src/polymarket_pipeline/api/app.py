@@ -89,6 +89,7 @@ def create_app() -> FastAPI:
     from polymarket_pipeline.api.routes.markets import router as markets_router
     from polymarket_pipeline.api.routes.metrics import router as metrics_router
     from polymarket_pipeline.api.routes.panic import router as panic_router
+    from polymarket_pipeline.api.routes.pnl import router as pnl_router
     from polymarket_pipeline.api.routes.positions import router as positions_router
     from polymarket_pipeline.api.routes.quality import router as quality_router
 
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(panic_router, prefix="/api")
     app.include_router(quality_router, prefix="/api")
     app.include_router(markets_router, prefix="/api")
+    app.include_router(pnl_router, prefix="/api")
     app.include_router(metrics_router)  # No prefix — /metrics at root
 
     return app

@@ -214,6 +214,63 @@ export async function fetchPoolTraders(
   return res.json();
 }
 
+// --- PnL ---
+
+export interface PnlLivePosition {
+  id: number;
+  strategy: string;
+  question: string | null;
+  outcome: string;
+  entry_price: number;
+  current_price: number | null;
+  size_usd: number;
+  pnl_usd: number | null;
+  pnl_pct: number | null;
+  end_date: string | null;
+}
+
+export interface PnlResolvedPosition {
+  id: number;
+  strategy: string;
+  question: string | null;
+  outcome: string;
+  entry_price: number;
+  size_usd: number;
+  won: boolean;
+  pnl_usd: number;
+  pnl_pct: number;
+  resolved_at: string | null;
+  winner_outcome: string | null;
+}
+
+export interface PnlSummary {
+  summary: {
+    total_pnl_usd: number;
+    total_invested: number;
+    n_fills: number;
+    win_rate: number | null;
+  };
+  live: {
+    count: number;
+    invested: number;
+    pnl_usd: number;
+    positions: PnlLivePosition[];
+  };
+  resolved: {
+    count: number;
+    invested: number;
+    pnl_usd: number;
+    wins: number;
+    losses: number;
+    positions: PnlResolvedPosition[];
+  };
+}
+
+export async function fetchPnlSummary(): Promise<PnlSummary> {
+  const res = await fetch(`${API_BASE}/api/pnl`, { cache: "no-store" });
+  return res.json();
+}
+
 // --- Intent detail metadata ---
 
 export interface IntentMetadata {
