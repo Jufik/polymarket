@@ -24,12 +24,16 @@ class InMemoryContext:
     helpers used by the backtest runner to advance simulated state.
     """
 
-    __slots__ = ("_features", "_markets", "_orderbooks", "_positions", "_time")
+    __slots__ = (
+        "_features", "_markets", "_orderbooks", "_orderbooks_by_asset",
+        "_positions", "_time",
+    )
 
     def __init__(self) -> None:
         self._positions: dict[str, Position] = {}
         self._markets: dict[str, MarketInfo] = {}
         self._orderbooks: dict[str, OrderbookSnapshot] = {}
+        self._orderbooks_by_asset: dict[str, OrderbookSnapshot] = {}
         self._features: dict[str, Any] = {}
         self._time: float = 0.0
 
@@ -84,9 +88,22 @@ class InMemoryContext:
         """Advance simulated clock to *t*."""
         self._time = t
 
-    def set_orderbook(self, condition_id: str, ob: OrderbookSnapshot) -> None:
-        """Store order-book snapshot for *condition_id*."""
+    def set_orderbook(
+        self, condition_id: str, ob: OrderbookSnapshot, asset_id: str | None = None,
+    ) -> None:
+        """Store order-book snapshot for *condition_id* (and *asset_id* if given).
+
+        When ``asset_id`` is provided, the snapshot is also stored in a
+        per-asset index so callers can look up by token without ambiguity
+        between YES and NO sides.
+        """
         self._orderbooks[condition_id] = ob
+        if asset_id is not None:
+            self._orderbooks_by_asset[asset_id] = ob
+
+    def get_orderbook_by_asset(self, asset_id: str) -> OrderbookSnapshot | None:
+        """Return the orderbook for a specific asset token, or ``None``."""
+        return self._orderbooks_by_asset.get(asset_id)
 
     def get_all_positions(self) -> dict[str, Position]:
         """Return a copy of all current positions (runner-facing, not protocol)."""
