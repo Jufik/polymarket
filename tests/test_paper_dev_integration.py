@@ -95,6 +95,12 @@ async def test_full_paper_dev_flow(backend: PolarsBackend) -> None:
     )
 
     ctx = InMemoryContext()
+    # Provide orderbook so PaperExecutor can fill
+    from polymarket_pipeline.strategies.types import OrderbookSnapshot
+    ctx.set_orderbook(CID, OrderbookSnapshot(
+        condition_id=CID, best_bid=0.58, best_ask=0.62,
+        bid_depth=1000.0, ask_depth=500.0, timestamp=1_700_000_000.0,
+    ))
     executor = PaperExecutor(ctx=ctx)
     gateway = ExecutionGateway(executor=executor)
 
