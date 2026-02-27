@@ -417,13 +417,25 @@ def run(
             )
 
         # Subscribe to market events for pool refresh
-        from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer
+        from polymarket_pipeline.live.consumers.market_events import (
+            MarketEventsConsumer,
+            ResolutionPoller,
+        )
 
         market_consumer = MarketEventsConsumer(
             pg_pool=None,  # PG updates handled by main pipeline
             runner=runner,
             debounce_s=5.0,
         )
+
+        # Periodic CLOB API resolution checker (WS firehose doesn't emit
+        # market_resolved events, so we poll for our filled markets)
+        resolution_poller = ResolutionPoller(
+            pg_pool=pg_pool,
+            runner=runner,
+            interval_s=60.0,
+        )
+        resolution_poller.start()
 
         @broker.subscriber("markets.events", group_id=f"{group_id}-events")
         async def handle_market_event(msg: str) -> None:
