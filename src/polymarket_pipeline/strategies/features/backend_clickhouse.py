@@ -38,7 +38,7 @@ class ClickHouseBackend:
 
         self._client = httpx.AsyncClient(
             base_url=f"http://{host}:{port}",
-            timeout=30.0,
+            timeout=120.0,
         )
 
     async def _execute(self, query: str) -> pl.DataFrame:
