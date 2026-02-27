@@ -225,12 +225,16 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
                 Resolved: {detail.resolution.winner_outcome || "N/A"}
               </span>
             ) : detail.resolution.end_date ? (
-              <span className="text-gray-400">
-                Ends in{" "}
-                <span className="text-gray-200 font-mono">
-                  {formatCountdown(detail.resolution.end_date)}
+              new Date(detail.resolution.end_date).getTime() <= Date.now() ? (
+                <span className="text-orange-400">Awaiting resolution</span>
+              ) : (
+                <span className="text-gray-400">
+                  Ends in{" "}
+                  <span className="text-gray-200 font-mono">
+                    {formatCountdown(detail.resolution.end_date)}
+                  </span>
                 </span>
-              </span>
+              )
             ) : (
               <span className="text-gray-500">No end date</span>
             )}
