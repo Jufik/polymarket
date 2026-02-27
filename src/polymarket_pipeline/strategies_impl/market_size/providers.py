@@ -101,7 +101,7 @@ class MarketSizeProvider:
                 avg(toFloat64(size)) AS avg_trade_size,
                 max(toFloat64(size)) AS max_trade_size,
                 sum(toFloat64(price) * toFloat64(size)) AS total_volume,
-                min(timestamp) AS first_ts
+                toUnixTimestamp64Milli(min(timestamp)) / 1000.0 AS first_ts
             FROM (
                 SELECT *,
                     dateDiff('second', min(timestamp) OVER (PARTITION BY condition_id), timestamp) AS secs
