@@ -186,7 +186,7 @@ async def main() -> None:
     events = await query_ch(
         client,
         """SELECT toString(id) AS event_id,
-                  toUnixTimestamp(end_date) AS end_ts
+                  dateDiff('second', toDateTime64('1970-01-01', 3), end_date) AS end_ts
            FROM events WHERE end_date IS NOT NULL""",
         label="events",
     )
