@@ -196,7 +196,7 @@ async def main() -> None:
         client,
         """SELECT toString(id) AS event_id,
                   volume AS event_volume,
-                  toUnixTimestamp(end_date) AS end_ts
+                  dateDiff('second', toDateTime64('1970-01-01', 3), end_date) AS end_ts
            FROM events""",
         label="events",
     )

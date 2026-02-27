@@ -226,7 +226,7 @@ async def main() -> None:
     events = await query_ch(
         client,
         """SELECT toString(id) AS id,
-                  toUnixTimestamp(end_date) AS end_date,
+                  dateDiff('second', toDateTime64('1970-01-01', 3), end_date) AS end_date,
                   CAST(volume AS Float64) AS volume,
                   CAST(liquidity AS Float64) AS liquidity
            FROM events WHERE end_date IS NOT NULL""",

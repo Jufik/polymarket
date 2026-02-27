@@ -158,7 +158,7 @@ class MarketSizeProvider:
         # Events
         try:
             events = await backend.query_custom(
-                "SELECT id AS event_id, toUnixTimestamp(end_date) AS end_date, "
+                "SELECT id AS event_id, dateDiff('second', toDateTime64('1970-01-01', 3), end_date) AS end_date, "
                 "CAST(volume AS Float64) AS volume, "
                 "CAST(liquidity AS Float64) AS liquidity "
                 "FROM events WHERE end_date IS NOT NULL "
