@@ -128,7 +128,7 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
         except Exception:
             log.warning("intent_detail.clob_midpoint_failed", intent_id=intent_id)
 
-    # Fallback: orderbook snapshot from CH (CLOB WS, YES-side)
+    # Fallback 1: orderbook snapshot from CH (CLOB WS, YES-side)
     if current_price is None and cid_valid:
         try:
             ob_rows = await _ch_query(
@@ -146,6 +146,23 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
                 current_price = (1.0 - yes_mid) if is_no else yes_mid
         except Exception:
             log.warning("intent_detail.orderbook_price_failed", intent_id=intent_id)
+
+    # Fallback 2: last trade price from CH (for ended markets with no active book)
+    if current_price is None and cid_valid:
+        try:
+            trade_rows = await _ch_query(
+                request,
+                f"""SELECT medianExact(price) AS price
+                    FROM trades_raw FINAL
+                    WHERE condition_id = '{condition_id}'
+                    ORDER BY timestamp DESC
+                    LIMIT 100""",
+            )
+            if trade_rows and trade_rows[0].get("price"):
+                yes_price = float(trade_rows[0]["price"])
+                current_price = (1.0 - yes_price) if is_no else yes_price
+        except Exception:
+            log.warning("intent_detail.last_trade_price_failed", intent_id=intent_id)
 
     # --- PnL calculation ---
     pnl: dict | None = None
