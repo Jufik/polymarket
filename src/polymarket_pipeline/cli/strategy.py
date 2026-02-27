@@ -166,26 +166,18 @@ def _build_runner(
             pcfg = provider_configs.get(pname)
             params = pcfg.params if pcfg else {}
 
-            # Special case: skilled_traders with data_dir uses consistency mode
-            if pname == "skilled_traders" and "data_dir" in params:
-                from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
-                    load_skilled_provider,
-                )
-
-                provider = load_skilled_provider(**params)
-            # Special case: pool_traders with data_dir uses consistency+grading mode
-            elif pname == "pool_traders" and "data_dir" in params:
-                from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
-                    load_graded_pool_provider,
-                )
-
-                provider = load_graded_pool_provider(**params)
-            elif pname == "market_size":
+            if pname == "market_size":
                 from polymarket_pipeline.strategies_impl.market_size.config import (
                     MarketSizeConfig,
                 )
 
                 provider = _PROVIDER_REGISTRY[pname](config=MarketSizeConfig(**params))
+            elif pname == "hr_pool":
+                from polymarket_pipeline.strategies_impl.hr_pool.config import (
+                    HRPoolConfig as _HRPoolConfig,
+                )
+
+                provider = _PROVIDER_REGISTRY[pname](config=_HRPoolConfig(**params))
             else:
                 provider = _PROVIDER_REGISTRY[pname](**params)
 
