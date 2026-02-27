@@ -78,10 +78,10 @@ class PaperExecutor:
         if asset_id is not None and hasattr(self._ctx, "get_orderbook_by_asset"):
             ob = self._ctx.get_orderbook_by_asset(asset_id)
             if ob is not None:
-                market_price = (
-                    ob.best_ask if intent.side == "BUY" else ob.best_bid
-                )
-                price_source = "ws_orderbook"
+                price_val = ob.best_ask if intent.side == "BUY" else ob.best_bid
+                if price_val > 0:
+                    market_price = price_val
+                    price_source = "ws_orderbook"
 
         # --- Source 2: CLOB REST API /price (fallback) ---
         if market_price is None and self._clob is not None and asset_id is not None:
@@ -93,8 +93,10 @@ class PaperExecutor:
                 resp.raise_for_status()
                 price_str = resp.json().get("price")
                 if price_str:
-                    market_price = float(price_str)
-                    price_source = "clob_api"
+                    price_val = float(price_str)
+                    if price_val > 0:
+                        market_price = price_val
+                        price_source = "clob_api"
             except Exception:
                 logger.debug(
                     "paper_fill.api_price_failed",
