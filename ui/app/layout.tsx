@@ -25,6 +25,12 @@ function NavBar() {
       >
         Markets
       </Link>
+      <Link
+        href="/pnl"
+        className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+      >
+        PnL
+      </Link>
     </nav>
   );
 }

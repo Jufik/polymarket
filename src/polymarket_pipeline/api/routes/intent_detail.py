@@ -146,16 +146,32 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
     filled_price = row["filled_price"]
     filled_size_usd = row["filled_size_usd"]
 
-    if filled_price and filled_size_usd and filled_price > 0 and current_price is not None:
-        tokens = filled_size_usd / filled_price
-        pnl_usd = tokens * current_price - filled_size_usd
-        pnl_pct = (pnl_usd / filled_size_usd) * 100 if filled_size_usd else 0
-        pnl = {
-            "entry_price": round(filled_price, 4),
-            "current_price": round(current_price, 4),
-            "pnl_usd": round(pnl_usd, 4),
-            "pnl_pct": round(pnl_pct, 2),
-        }
+    if filled_price and filled_size_usd and filled_price > 0:
+        if row["resolved_at"] and row["winner_outcome"]:
+            # Resolved market — deterministic PnL
+            won = (outcome == row["winner_outcome"])
+            tokens = filled_size_usd / filled_price
+            pnl_usd = (tokens * 1.0 - filled_size_usd) if won else -filled_size_usd
+            pnl_pct = (pnl_usd / filled_size_usd) * 100 if filled_size_usd else 0
+            pnl = {
+                "entry_price": round(filled_price, 4),
+                "current_price": 1.0 if won else 0.0,
+                "pnl_usd": round(pnl_usd, 4),
+                "pnl_pct": round(pnl_pct, 2),
+                "resolved": True,
+                "won": won,
+            }
+        elif current_price is not None:
+            # Live market — mark-to-market
+            tokens = filled_size_usd / filled_price
+            pnl_usd = tokens * current_price - filled_size_usd
+            pnl_pct = (pnl_usd / filled_size_usd) * 100 if filled_size_usd else 0
+            pnl = {
+                "entry_price": round(filled_price, 4),
+                "current_price": round(current_price, 4),
+                "pnl_usd": round(pnl_usd, 4),
+                "pnl_pct": round(pnl_pct, 2),
+            }
 
     # --- Resolution info ---
     resolution = {
