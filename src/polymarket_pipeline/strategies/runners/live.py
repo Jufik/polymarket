@@ -164,8 +164,12 @@ class LiveRunner:
         """Capture orderbook + strategy rationale as metadata dict."""
         metadata: dict[str, Any] = {}
 
-        # Orderbook snapshot from context (if available)
-        ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
+        # Orderbook snapshot — prefer asset-specific (outcome-aware)
+        ob = None
+        if hasattr(self.ctx, "get_orderbook_by_asset") and intent.asset_id:
+            ob = self.ctx.get_orderbook_by_asset(intent.asset_id)
+        if ob is None:
+            ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
         if ob is not None:
             metadata["orderbook"] = {
                 "best_bid": round(ob.best_bid, 4),
@@ -302,6 +306,8 @@ class LiveRunner:
         """Process an orderbook snapshot and update context.
 
         Called by the Kafka subscriber for the ``orderbooks.raw`` topic.
+        Stores by both ``condition_id`` (backward compat) and ``asset_id``
+        (outcome-specific lookup for PaperExecutor).
         """
         from polymarket_pipeline.strategies.types import OrderbookSnapshot
 
@@ -322,7 +328,8 @@ class LiveRunner:
             ask_depth=0.0,
             timestamp=data.get("timestamp", time.time()),
         )
-        self.ctx.set_orderbook(condition_id, ob)
+        asset_id = data.get("asset_id")
+        self.ctx.set_orderbook(condition_id, ob, asset_id=asset_id)
 
     def reset(self) -> None:
         """Clear all paper state: positions, budgets, counters, dedup cache.

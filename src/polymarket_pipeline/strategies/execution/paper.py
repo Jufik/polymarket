@@ -1,4 +1,4 @@
-"""PaperExecutor — paper-trading executor with CLOB API price verification."""
+"""PaperExecutor — paper-trading executor with outcome-specific orderbook pricing."""
 
 from __future__ import annotations
 
@@ -18,25 +18,25 @@ logger = structlog.get_logger(__name__)
 
 
 class PaperExecutor:
-    """Executor that simulates fills using CLOB REST API prices.
+    """Executor that simulates fills using real orderbook prices.
 
-    Price resolution order:
-    1. CLOB REST API ``GET /book`` (authoritative, 5s TTL cache)
-    2. WS orderbook snapshot from context (fallback if API fails)
-    3. Reject if neither source is available
+    Price resolution order (each source is outcome-specific):
+    1. WS orderbook snapshot by ``asset_id`` — fastest, already in context
+    2. CLOB REST API ``/price?token_id=X&side=Y`` — authoritative fallback
+    3. Reject if neither available
 
-    When both sources exist and diverge by > $0.02, a warning is logged.
+    The ``token_map`` maps ``condition_id → {YES: asset_id, NO: asset_id}``
+    so we always query the correct outcome token.
 
     Parameters
     ----------
     ctx:
-        Strategy context for WS orderbook lookups (fallback).
+        Strategy context for WS orderbook lookups.
     clob_client:
-        CLOB REST API client for authoritative price lookups.
-        None disables API verification (WS-only mode, backward compat).
+        CLOB REST API client for fallback price lookups.
+        None disables API fallback (WS-only mode).
     token_map:
         Mapping of ``condition_id`` → ``{YES: asset_id, NO: asset_id}``.
-        Loaded from PG ``token_market_map`` at startup.
     fee_pct:
         Fee as fraction of ``min(price, 1-price) * size_usd``.
         Default 0.0 — most Polymarket markets have zero trading fees.
@@ -55,11 +55,7 @@ class PaperExecutor:
         self._fee_pct = fee_pct
 
     def _resolve_asset_id(self, intent: TradeIntent) -> str | None:
-        """Resolve the asset_id matching the intent's outcome (YES or NO).
-
-        Each outcome has its own CLOB orderbook. Querying the correct
-        token directly avoids flipping prices from the opposite side.
-        """
+        """Resolve the asset_id for the intent's outcome (YES or NO)."""
         if intent.asset_id:
             return intent.asset_id
         tokens = self._token_map.get(intent.condition_id)
@@ -68,25 +64,42 @@ class PaperExecutor:
         return None
 
     async def execute(self, intent: TradeIntent) -> Fill:
-        """Fill at CLOB REST API price or reject.
+        """Fill at outcome-specific orderbook price or reject.
 
-        Queries the outcome-specific orderbook (YES or NO token) so
-        prices are read directly — no flipping needed.
-        Books with spread >= $0.50 are skipped (empty/illiquid).
+        The WS ``price_change`` events already include cross-token matched
+        prices per asset_id. We look up the intent's outcome token directly
+        — no YES/NO flipping needed.
         """
         market_price: float | None = None
         price_source = "none"
+        asset_id = self._resolve_asset_id(intent)
 
-        # --- CLOB REST API (outcome-specific book) ---
-        if self._clob is not None:
-            asset_id = self._resolve_asset_id(intent)
-            if asset_id:
-                ob_api = await self._clob.get_orderbook(asset_id)
-                if ob_api is not None and ob_api.spread < 0.50:
-                    market_price = (
-                        ob_api.best_ask if intent.side == "BUY" else ob_api.best_bid
-                    )
+        # --- Source 1: WS orderbook snapshot (by asset_id) ---
+        if asset_id is not None and hasattr(self._ctx, "get_orderbook_by_asset"):
+            ob = self._ctx.get_orderbook_by_asset(asset_id)
+            if ob is not None:
+                market_price = (
+                    ob.best_ask if intent.side == "BUY" else ob.best_bid
+                )
+                price_source = "ws_orderbook"
+
+        # --- Source 2: CLOB REST API /price (fallback) ---
+        if market_price is None and self._clob is not None and asset_id is not None:
+            try:
+                resp = await self._clob._client.get(
+                    "/price",
+                    params={"token_id": asset_id, "side": intent.side},
+                )
+                resp.raise_for_status()
+                price_str = resp.json().get("price")
+                if price_str:
+                    market_price = float(price_str)
                     price_source = "clob_api"
+            except Exception:
+                logger.debug(
+                    "paper_fill.api_price_failed",
+                    condition_id=intent.condition_id,
+                )
 
         # No price → reject
         if market_price is None:

@@ -6,14 +6,18 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from polymarket_pipeline.execution.clob_client import ClobOrderbook
 from polymarket_pipeline.strategies.context.memory import InMemoryContext
 from polymarket_pipeline.strategies.execution.paper import PaperExecutor
 from polymarket_pipeline.strategies.protocol import Executor
 from polymarket_pipeline.strategies.types import (
     FillStatus,
+    OrderbookSnapshot,
     TradeIntent,
 )
+
+CID = "0xabc"
+YES_ASSET = "yes_token_123"
+NO_ASSET = "no_token_456"
 
 
 def _make_intent(
@@ -22,7 +26,7 @@ def _make_intent(
     outcome: str = "YES",
     max_price: float | None = 0.65,
     size_usd: float = 100.0,
-    condition_id: str = "0xabc",
+    condition_id: str = CID,
 ) -> TradeIntent:
     return TradeIntent(
         strategy="test",
@@ -37,88 +41,77 @@ def _make_intent(
     )
 
 
-def _mock_clob(bid: float = 0.58, ask: float = 0.62) -> AsyncMock:
-    """Create a mock ClobClient that returns a fixed orderbook."""
-    clob = AsyncMock()
-    clob.get_orderbook.return_value = ClobOrderbook(
-        best_bid=bid, best_ask=ask, spread=round(ask - bid, 6), fetched_at=1_700_000_000.0,
+def _ob(asset_id: str, cid: str = CID, bid: float = 0.58, ask: float = 0.62) -> OrderbookSnapshot:
+    return OrderbookSnapshot(
+        condition_id=cid, best_bid=bid, best_ask=ask,
+        bid_depth=1000.0, ask_depth=500.0, timestamp=1_700_000_000.0,
     )
-    return clob
 
 
-def _token_map(cid: str = "0xabc") -> dict[str, dict[str, str]]:
-    return {cid: {"YES": "yes_token", "NO": "no_token"}}
+def _token_map() -> dict[str, dict[str, str]]:
+    return {CID: {"YES": YES_ASSET, "NO": NO_ASSET}}
 
 
 @pytest.fixture
 def ctx() -> InMemoryContext:
-    return InMemoryContext()
+    """Context with YES and NO orderbooks stored by asset_id."""
+    ctx = InMemoryContext()
+    # YES token: bid=0.58, ask=0.62
+    ctx.set_orderbook(CID, _ob(YES_ASSET), asset_id=YES_ASSET)
+    # NO token: bid=0.35, ask=0.40
+    ctx.set_orderbook(CID, _ob(NO_ASSET, bid=0.35, ask=0.40), asset_id=NO_ASSET)
+    return ctx
 
 
 @pytest.fixture
 def executor(ctx: InMemoryContext) -> PaperExecutor:
-    return PaperExecutor(
-        ctx=ctx, clob_client=_mock_clob(), token_map=_token_map(), fee_pct=0.02,
-    )
+    return PaperExecutor(ctx=ctx, token_map=_token_map(), fee_pct=0.02)
 
 
 async def test_satisfies_executor_protocol(executor: PaperExecutor) -> None:
     assert isinstance(executor, Executor)
 
 
-async def test_fills_at_orderbook_ask_for_buy_yes(executor: PaperExecutor) -> None:
+async def test_fills_at_yes_ask_for_buy_yes(executor: PaperExecutor) -> None:
     fill = await executor.execute(_make_intent(side="BUY", outcome="YES"))
     assert fill.status == FillStatus.FILLED
-    assert fill.filled_price == 0.62  # best_ask
+    assert fill.filled_price == 0.62  # YES best_ask
     assert fill.filled_size_usd == 100.0
 
 
-async def test_fills_at_orderbook_bid_for_sell_yes(executor: PaperExecutor) -> None:
+async def test_fills_at_yes_bid_for_sell_yes(executor: PaperExecutor) -> None:
     fill = await executor.execute(_make_intent(side="SELL", outcome="YES"))
     assert fill.status == FillStatus.FILLED
-    assert fill.filled_price == 0.58  # best_bid
+    assert fill.filled_price == 0.58  # YES best_bid
 
 
-async def test_buy_no_uses_no_token_book(ctx: InMemoryContext) -> None:
-    """BUY NO queries the NO token book directly — no flipping."""
-    clob = _mock_clob(bid=0.85, ask=0.90)  # NO book: bid=0.85, ask=0.90
-    executor = PaperExecutor(ctx=ctx, clob_client=clob, token_map=_token_map())
+async def test_buy_no_uses_no_token_orderbook(executor: PaperExecutor) -> None:
+    """BUY NO reads the NO token's orderbook directly — no flipping."""
     fill = await executor.execute(
-        _make_intent(side="BUY", outcome="NO", max_price=0.95)
+        _make_intent(side="BUY", outcome="NO", max_price=0.50)
     )
     assert fill.status == FillStatus.FILLED
-    assert fill.filled_price == pytest.approx(0.90)  # NO best_ask
-    # Verify the NO token was queried
-    clob.get_orderbook.assert_called_with("no_token")
+    assert fill.filled_price == pytest.approx(0.40)  # NO best_ask
 
 
-async def test_rejects_when_no_clob_client() -> None:
+async def test_sell_no_uses_no_token_bid(executor: PaperExecutor) -> None:
+    fill = await executor.execute(
+        _make_intent(side="SELL", outcome="NO", max_price=None)
+    )
+    assert fill.status == FillStatus.FILLED
+    assert fill.filled_price == pytest.approx(0.35)  # NO best_bid
+
+
+async def test_rejects_when_no_orderbook() -> None:
+    """No WS snapshot and no CLOB client → reject."""
     ctx = InMemoryContext()
-    executor = PaperExecutor(ctx=ctx)  # no clob_client
-    fill = await executor.execute(_make_intent())
+    executor = PaperExecutor(ctx=ctx, token_map=_token_map())
+    fill = await executor.execute(_make_intent(max_price=None))
     assert fill.status == FillStatus.REJECTED
     assert "no orderbook" in fill.error
 
 
-async def test_rejects_when_api_returns_none(ctx: InMemoryContext) -> None:
-    clob = AsyncMock()
-    clob.get_orderbook.return_value = None
-    executor = PaperExecutor(ctx=ctx, clob_client=clob, token_map=_token_map())
-    fill = await executor.execute(_make_intent())
-    assert fill.status == FillStatus.REJECTED
-
-
-async def test_rejects_wide_spread_book(ctx: InMemoryContext) -> None:
-    """Books with spread >= 0.50 are skipped (illiquid)."""
-    clob = _mock_clob(bid=0.01, ask=0.99)  # spread = 0.98
-    executor = PaperExecutor(ctx=ctx, clob_client=clob, token_map=_token_map())
-    fill = await executor.execute(_make_intent())
-    assert fill.status == FillStatus.REJECTED
-
-
-async def test_rejects_when_market_exceeds_limit(ctx: InMemoryContext) -> None:
-    """max_price acts as limit — reject if market price is higher."""
-    executor = PaperExecutor(ctx=ctx, clob_client=_mock_clob(), token_map=_token_map())
+async def test_rejects_when_market_exceeds_limit(executor: PaperExecutor) -> None:
     fill = await executor.execute(
         _make_intent(side="BUY", outcome="YES", max_price=0.55)  # ask=0.62 > 0.55
     )
@@ -126,8 +119,7 @@ async def test_rejects_when_market_exceeds_limit(ctx: InMemoryContext) -> None:
     assert "market" in fill.error
 
 
-async def test_fills_when_market_within_limit(ctx: InMemoryContext) -> None:
-    executor = PaperExecutor(ctx=ctx, clob_client=_mock_clob(), token_map=_token_map())
+async def test_fills_when_market_within_limit(executor: PaperExecutor) -> None:
     fill = await executor.execute(
         _make_intent(side="BUY", outcome="YES", max_price=0.70)  # ask=0.62 < 0.70
     )
@@ -135,8 +127,7 @@ async def test_fills_when_market_within_limit(ctx: InMemoryContext) -> None:
     assert fill.filled_price == 0.62
 
 
-async def test_no_limit_when_max_price_none(ctx: InMemoryContext) -> None:
-    executor = PaperExecutor(ctx=ctx, clob_client=_mock_clob(), token_map=_token_map())
+async def test_no_limit_when_max_price_none(executor: PaperExecutor) -> None:
     fill = await executor.execute(
         _make_intent(side="BUY", outcome="YES", max_price=None)
     )
@@ -146,5 +137,29 @@ async def test_no_limit_when_max_price_none(ctx: InMemoryContext) -> None:
 
 async def test_fee_calculation(executor: PaperExecutor) -> None:
     fill = await executor.execute(_make_intent(max_price=0.70, size_usd=100.0))
-    expected = 0.02 * min(0.62, 1.0 - 0.62) * 100.0  # fills at ask=0.62
+    expected = 0.02 * min(0.62, 1.0 - 0.62) * 100.0
     assert fill.fee_usd == pytest.approx(expected)
+
+
+async def test_clob_api_fallback_when_no_ws() -> None:
+    """When WS has no snapshot, falls back to CLOB REST API /price."""
+    from unittest.mock import MagicMock
+
+    ctx = InMemoryContext()  # empty — no WS snapshots
+    clob = MagicMock()
+    # Mock the internal httpx AsyncClient.get() as an async method
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"price": "0.45"}
+    mock_resp.raise_for_status = MagicMock()
+
+    async def mock_get(*args: object, **kwargs: object) -> object:
+        return mock_resp
+
+    clob._client.get = mock_get
+
+    executor = PaperExecutor(ctx=ctx, clob_client=clob, token_map=_token_map())
+    fill = await executor.execute(
+        _make_intent(side="BUY", outcome="NO", max_price=0.50)
+    )
+    assert fill.status == FillStatus.FILLED
+    assert fill.filled_price == 0.45
