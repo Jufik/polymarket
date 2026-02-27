@@ -44,7 +44,8 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
     # --- Intent + market metadata from PG ---
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """SELECT si.*, m.question, m.resolved_at, m.winner_outcome,
+            """SELECT si.*, si.metadata,
+                      m.question, m.resolved_at, m.winner_outcome,
                       m.token_yes, m.token_no,
                       e.end_date
                FROM strategy_intents si
@@ -163,6 +164,15 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
         "winner_outcome": row["winner_outcome"] or None,
     }
 
+    # --- Metadata (orderbook + rationale) ---
+    metadata_raw = row.get("metadata")
+    metadata: dict = {}
+    if metadata_raw:
+        try:
+            metadata = json.loads(metadata_raw) if isinstance(metadata_raw, str) else metadata_raw
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return {
         "id": row["id"],
         "strategy": row["strategy"],
@@ -180,4 +190,5 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
         "current_price": current_price,
         "pnl": pnl,
         "resolution": resolution,
+        "metadata": metadata,
     }
