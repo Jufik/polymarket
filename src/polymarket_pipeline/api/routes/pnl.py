@@ -43,8 +43,9 @@ async def pnl_summary(request: Request) -> dict:
                       si.side, si.outcome, si.size_usd,
                       si.filled_price, si.filled_size_usd,
                       m.question, m.resolved_at, m.winner_outcome,
+                      m.token_yes, m.token_no,
                       e.end_date,
-                      tmm.asset_id AS no_asset_id
+                      tmm.asset_id AS tmm_asset_id
                FROM strategy_intents si
                LEFT JOIN markets m ON si.condition_id = m.condition_id
                LEFT JOIN events e ON m.event_id = e.id
@@ -107,10 +108,24 @@ async def pnl_summary(request: Request) -> dict:
         })
 
     # --- Live PnL (batch CLOB midpoints) ---
+    # Resolve correct outcome-specific asset_id for each position
+    def _resolve_aid(r: dict) -> str | None:  # type: ignore[type-arg]
+        """Pick the right asset_id: intent > token_market_map > markets table."""
+        if r["asset_id"]:
+            return r["asset_id"]
+        if r["tmm_asset_id"]:
+            return r["tmm_asset_id"]
+        outcome = r["outcome"] or "YES"
+        if outcome == "NO" and r.get("token_no"):
+            return r["token_no"]
+        if r.get("token_yes"):
+            return r["token_yes"]
+        return None
+
     # Collect unique asset_ids for live positions
     asset_ids_needed: set[str] = set()
     for r in live_positions:
-        aid = r["asset_id"] or r["no_asset_id"]
+        aid = _resolve_aid(r)
         if aid:
             asset_ids_needed.add(aid)
 
@@ -138,7 +153,7 @@ async def pnl_summary(request: Request) -> dict:
         fp = float(r["filled_price"])
         fs = float(r["filled_size_usd"])
         outcome = r["outcome"] or "YES"
-        aid = r["asset_id"] or r["no_asset_id"]
+        aid = _resolve_aid(r)
         current = midpoints.get(aid) if aid else None
 
         tokens = fs / fp

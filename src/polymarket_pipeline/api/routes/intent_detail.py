@@ -74,6 +74,12 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
             )
             if token_row:
                 asset_id = token_row["asset_id"]
+        # Fallback: use token_yes/token_no from markets table
+        if not asset_id:
+            if outcome == "NO" and row["token_no"]:
+                asset_id = row["token_no"]
+            elif row["token_yes"]:
+                asset_id = row["token_yes"]
 
     # --- Price history from ClickHouse (48h, 5-minute buckets) ---
     price_history: list[dict] = []
