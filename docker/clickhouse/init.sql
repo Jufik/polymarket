@@ -55,65 +55,14 @@ ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_ts_minmax timestam
 CREATE VIEW IF NOT EXISTS polymarket.trades AS SELECT * FROM polymarket.trades_raw;
 
 -- ---------------------------------------------------------------------------
--- Event & market metadata (reads directly from PostgreSQL — single source of truth)
+-- Event & market metadata (views over pg_replicated — single source of truth)
 -- ---------------------------------------------------------------------------
--- DateTime64(3) misreads PG TIMESTAMPTZ (year-2299 bug); use DateTime instead.
--- Loses sub-second precision but values are correct.
-CREATE TABLE IF NOT EXISTS polymarket.events (
-    id Int32,
-    slug String,
-    title String,
-    category String,
-    neg_risk Bool,
-    active Bool,
-    closed Bool,
-    archived Bool,
-    liquidity Float64,
-    volume Float64,
-    start_date Nullable(DateTime('Etc/UTC')),
-    end_date Nullable(DateTime('Etc/UTC')),
-    created_at Nullable(DateTime('Etc/UTC')),
-    updated_at Nullable(DateTime('Etc/UTC'))
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'events', 'polymarket', 'polymarket');
-
-CREATE TABLE IF NOT EXISTS polymarket.tags (
-    id Int32,
-    label String,
-    slug String
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'tags', 'polymarket', 'polymarket');
-
-CREATE TABLE IF NOT EXISTS polymarket.event_tags (
-    event_id Int32,
-    tag_id Int32
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'event_tags', 'polymarket', 'polymarket');
-
-CREATE TABLE IF NOT EXISTS polymarket.markets (
-    condition_id String,
-    event_id Nullable(Int32),
-    question String,
-    slug String,
-    category String,
-    token_yes String,
-    token_no String,
-    neg_risk Bool,
-    status String,
-    resolution_value Int16,
-    winner_outcome String,
-    created_at Nullable(DateTime('Etc/UTC')),
-    closed_at Nullable(DateTime('Etc/UTC')),
-    resolved_at Nullable(DateTime('Etc/UTC')),
-    updated_at Nullable(DateTime('Etc/UTC'))
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'markets', 'polymarket', 'polymarket');
-
--- Token -> Market lookup
-CREATE TABLE IF NOT EXISTS polymarket.token_market_map (
-    asset_id String,
-    condition_id String,
-    outcome String,
-    winner Bool
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'token_market_map', 'polymarket', 'polymarket');
+-- Production uses pg_replicated (MaterializedPostgreSQL engine) which provides
+-- DateTime64(6) for TIMESTAMPTZ columns. These views alias into polymarket db.
+-- Previous approach used direct PostgreSQL engine with DateTime (UInt32) but
+-- that had precision loss and a hard ceiling at 2106-02-07.
+CREATE VIEW IF NOT EXISTS polymarket.events AS SELECT * FROM pg_replicated.events;
+CREATE VIEW IF NOT EXISTS polymarket.tags AS SELECT * FROM pg_replicated.tags;
+CREATE VIEW IF NOT EXISTS polymarket.event_tags AS SELECT * FROM pg_replicated.event_tags;
+CREATE VIEW IF NOT EXISTS polymarket.markets AS SELECT * FROM pg_replicated.markets;
+CREATE VIEW IF NOT EXISTS polymarket.token_market_map AS SELECT * FROM pg_replicated.token_market_map;

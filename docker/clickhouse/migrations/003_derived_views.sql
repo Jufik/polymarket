@@ -2,37 +2,13 @@
 -- Derived feature tables: markets_resolved VIEW, trader_volumes MV, trader_trade_agg MV
 
 -- =================================================================
--- 0. Recreate PG engine tables with resolution columns
---    (init.sql may have created these before PG migration 001 ran)
+-- 0. Recreate PG views (pg_replicated provides DateTime64(6) for TIMESTAMPTZ)
 -- =================================================================
 DROP TABLE IF EXISTS polymarket.token_market_map;
-CREATE TABLE IF NOT EXISTS polymarket.token_market_map (
-    asset_id String,
-    condition_id String,
-    outcome String,
-    winner Bool
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'token_market_map', 'polymarket', 'polymarket');
+CREATE VIEW IF NOT EXISTS polymarket.token_market_map AS SELECT * FROM pg_replicated.token_market_map;
 
 DROP TABLE IF EXISTS polymarket.markets;
-CREATE TABLE IF NOT EXISTS polymarket.markets (
-    condition_id String,
-    event_id Nullable(Int32),
-    question String,
-    slug String,
-    category String,
-    token_yes String,
-    token_no String,
-    neg_risk Bool,
-    status String,
-    resolution_value Int16,
-    winner_outcome String,
-    created_at Nullable(DateTime('Etc/UTC')),
-    closed_at Nullable(DateTime('Etc/UTC')),
-    resolved_at Nullable(DateTime('Etc/UTC')),
-    updated_at Nullable(DateTime('Etc/UTC'))
-)
-ENGINE = PostgreSQL('postgres:5432', 'polymarket', 'markets', 'polymarket', 'polymarket');
+CREATE VIEW IF NOT EXISTS polymarket.markets AS SELECT * FROM pg_replicated.markets;
 
 -- =================================================================
 -- 1. markets_resolved — VIEW over PG engine tables (always fresh)
