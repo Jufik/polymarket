@@ -44,11 +44,20 @@ class PaperExecutor:
         self._default_price = default_price
 
     async def execute(self, intent: TradeIntent) -> Fill:
-        """Simulate a fill using orderbook or fallback pricing."""
+        """Simulate a fill using orderbook or fallback pricing.
+
+        Orderbook snapshots are YES-side (from CLOB WS). For NO positions
+        we flip: NO_ask = 1 - YES_bid, NO_bid = 1 - YES_ask.
+        """
         ob = await self._ctx.get_orderbook(intent.condition_id)
+        is_no = intent.outcome == "NO"
 
         if ob is not None:
-            price = ob.best_ask if intent.side == "BUY" else ob.best_bid
+            if is_no:
+                # NO ask = 1 - YES bid, NO bid = 1 - YES ask
+                price = (1.0 - ob.best_bid) if intent.side == "BUY" else (1.0 - ob.best_ask)
+            else:
+                price = ob.best_ask if intent.side == "BUY" else ob.best_bid
         elif intent.max_price is not None:
             price = intent.max_price
         else:
