@@ -78,6 +78,10 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
     price_history: list[dict] = []
     current_price: float | None = None
 
+    # trades_raw.price is always YES-side; flip for NO positions
+    outcome = row["outcome"] or "YES"
+    is_no = outcome == "NO"
+
     # Validate hex IDs before interpolating into CH queries
     cid_valid = bool(_VALID_HEX.match(condition_id)) if condition_id else False
 
@@ -94,6 +98,9 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
                     GROUP BY ts
                     ORDER BY ts""",
             )
+            if is_no:
+                for p in price_history:
+                    p["price"] = 1.0 - float(p["price"])
         except Exception:
             log.warning("intent_detail.price_history_failed", intent_id=intent_id)
 
@@ -109,11 +116,12 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
                     LIMIT 1""",
             )
             if trade_rows:
-                current_price = float(trade_rows[0]["price"])
+                yes_price = float(trade_rows[0]["price"])
+                current_price = (1.0 - yes_price) if is_no else yes_price
         except Exception:
             log.warning("intent_detail.trade_price_failed", intent_id=intent_id)
 
-    # Fallback: CLOB REST API midpoint (works for any active market, no auth)
+    # Fallback: CLOB REST API midpoint (token-specific, already correct side)
     if current_price is None and asset_id:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
