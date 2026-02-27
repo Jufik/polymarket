@@ -118,6 +118,7 @@ export interface IntentDetail {
   current_price: number | null;
   pnl: IntentDetailPnL | null;
   resolution: IntentDetailResolution;
+  metadata?: IntentMetadata;
 }
 
 export async function fetchIntents(
@@ -167,4 +168,60 @@ export interface AnalyticsData {
 export async function fetchAnalytics(): Promise<AnalyticsData> {
   const res = await fetch(`${API_BASE}/api/analytics`, { cache: "no-store" });
   return res.json();
+}
+
+// --- Markets ---
+
+export interface WillNoMarket {
+  condition_id: string;
+  question: string;
+  category: string | null;
+  keywords_matched: string[];
+  end_date: string | null;
+  event_slug: string | null;
+  polymarket_url: string | null;
+}
+
+export interface PoolTrader {
+  strategy: string;
+  trader_address: string;
+  n_trades: number;
+  n_markets: number;
+  volume_usd: number;
+  refreshed_at: string | null;
+}
+
+export async function fetchWillNoMarkets(): Promise<{
+  markets: WillNoMarket[];
+  total: number;
+}> {
+  const res = await fetch(`${API_BASE}/api/markets/will_no`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+
+export async function fetchPoolTraders(
+  strategy?: string
+): Promise<{ traders: PoolTrader[]; total: number }> {
+  const params = new URLSearchParams();
+  if (strategy) params.set("strategy", strategy);
+  const qs = params.toString();
+  const res = await fetch(
+    `${API_BASE}/api/markets/pool${qs ? `?${qs}` : ""}`,
+    { cache: "no-store" }
+  );
+  return res.json();
+}
+
+// --- Intent detail metadata ---
+
+export interface IntentMetadata {
+  orderbook?: {
+    best_bid: number;
+    best_ask: number;
+    spread: number;
+    source: string;
+  };
+  rationale?: Record<string, unknown>;
 }

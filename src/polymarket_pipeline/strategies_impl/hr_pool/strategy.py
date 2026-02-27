@@ -130,6 +130,28 @@ class HRPoolStrategy:
     ) -> list[TradeIntent] | None:
         return None
 
+    def get_rationale(
+        self, condition_id: str, trade: NormalizedTrade, ctx: StrategyContext
+    ) -> dict[str, Any]:
+        """Return rationale metadata for an intent on this market."""
+        maker = trade.maker or ""
+        trade_price = float(trade.price)
+        is_yes = trade.side == "BUY"
+        dir_entry = trade_price if is_yes else 1.0 - trade_price
+
+        state = self._states.get(condition_id)
+        return {
+            "strategy": self.name,
+            "trader_address": maker,
+            "direction": "YES" if is_yes else "NO",
+            "entry_price": round(dir_entry, 4),
+            "max_entry": self._cfg.max_entry_price,
+            "min_hr": self._cfg.min_hr,
+            "pool_size": len(self._cfg.pool_traders),
+            "n_yes": state.n_yes if state else 0,
+            "n_no": state.n_no if state else 0,
+        }
+
     # ------------------------------------------------------------------
     # Vectorized path (backtesting)
     # ------------------------------------------------------------------

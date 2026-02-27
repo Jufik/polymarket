@@ -267,3 +267,34 @@ class WillNoStrategy:
         if self._cfg.price_bands:
             return self._cfg.band_multiplier(yes_price) > 0
         return self._cfg.yes_price_min <= yes_price <= self._cfg.yes_price_max
+
+    def get_rationale(
+        self, condition_id: str, trade: NormalizedTrade, ctx: StrategyContext
+    ) -> dict[str, Any]:
+        """Return rationale metadata for an intent on this market."""
+        rationale: dict[str, Any] = {"strategy": self.name}
+        market = None
+        # Sync context — called right after on_trade so market should be cached
+        # Duck-type: ctx may have _markets dict
+        markets = getattr(ctx, "_markets", {})
+        market = markets.get(condition_id)
+
+        if market is not None:
+            q_lower = market.question.lower()
+            matched = [
+                kw for kw in self._cfg.prefer_keywords if kw.lower() in q_lower
+            ]
+            rationale["keywords_matched"] = matched
+            yes_price = market.yes_price or float(trade.price)
+            rationale["yes_price"] = round(yes_price, 4)
+            rationale["multiplier"] = round(self._cfg.band_multiplier(yes_price), 2)
+
+            # Find which band matched
+            for lo, hi, mult in self._cfg.price_bands:
+                if lo <= yes_price <= hi and mult > 0:
+                    rationale["price_band"] = f"{lo:.0%}-{hi:.0%}"
+                    break
+
+        rationale["max_volume_usd"] = self._cfg.max_volume_usd
+        rationale["max_bucket"] = self._cfg.max_bucket
+        return rationale

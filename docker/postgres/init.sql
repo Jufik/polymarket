@@ -112,12 +112,21 @@ CREATE TABLE IF NOT EXISTS strategy_intents (
     filled_price DOUBLE PRECISION,
     filled_size_usd DOUBLE PRECISION,
     fee_usd DOUBLE PRECISION,
+    metadata JSONB NOT NULL DEFAULT '{}',
     captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_intents_strategy ON strategy_intents(strategy);
 CREATE INDEX IF NOT EXISTS idx_intents_captured ON strategy_intents(captured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_intents_disposition ON strategy_intents(disposition);
+
+-- Strategy copy pool (refreshed atomically by pm-strategy)
+CREATE TABLE IF NOT EXISTS strategy_pool (
+    strategy TEXT NOT NULL,
+    trader_address TEXT NOT NULL,
+    refreshed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (strategy, trader_address)
+);
 
 CREATE INDEX IF NOT EXISTS idx_markets_event_id ON markets(event_id);
 CREATE INDEX IF NOT EXISTS idx_token_map_condition ON token_market_map(condition_id);

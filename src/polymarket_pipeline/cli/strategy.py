@@ -39,26 +39,14 @@ _PROVIDER_REGISTRY: dict[str, type[Any]] = {}
 
 def _register_providers() -> None:
     """Register known provider classes."""
-    from polymarket_pipeline.strategies_impl.consensus_copy.providers import (
-        SkilledTradersProvider,
-    )
-    from polymarket_pipeline.strategies_impl.crypto_otm_no.providers import (
-        CryptoMarketProvider,
-    )
     from polymarket_pipeline.strategies_impl.market_size.providers import (
         MarketSizeProvider,
-    )
-    from polymarket_pipeline.strategies_impl.proportional_copy.providers import (
-        GradedPoolProvider,
     )
     from polymarket_pipeline.strategies_impl.will_no.providers import (
         WillMarketProvider,
     )
 
-    _PROVIDER_REGISTRY["skilled_traders"] = SkilledTradersProvider
-    _PROVIDER_REGISTRY["crypto_markets"] = CryptoMarketProvider
     _PROVIDER_REGISTRY["will_markets"] = WillMarketProvider
-    _PROVIDER_REGISTRY["pool_traders"] = GradedPoolProvider
     _PROVIDER_REGISTRY["market_size"] = MarketSizeProvider
 
     from polymarket_pipeline.strategies_impl.hr_pool.providers import HRPoolProvider
@@ -119,10 +107,7 @@ def _make_hr_pool(config: StrategyConfig) -> Any:
 
 def _register_strategies() -> None:
     """Register known strategy factories."""
-    _STRATEGY_FACTORIES["consensus_copy"] = _make_consensus_copy
-    _STRATEGY_FACTORIES["crypto_otm_no"] = _make_crypto_otm_no
     _STRATEGY_FACTORIES["will_no"] = _make_will_no
-    _STRATEGY_FACTORIES["proportional_copy"] = _make_proportional_copy
     _STRATEGY_FACTORIES["hr_pool"] = _make_hr_pool
 
 
@@ -218,7 +203,12 @@ def _build_runner(
 
     # Assemble
     ctx = InMemoryContext()
-    executor = PaperExecutor(ctx=ctx)
+    # ClobClient for CLOB REST API price verification (public, no auth needed)
+    from polymarket_pipeline.execution.clob_client import ClobClient
+
+    clob_client = ClobClient()  # default base_url, no auth for /book
+    # token_map loaded async at startup — placeholder here, filled in _run()
+    executor = PaperExecutor(ctx=ctx, clob_client=clob_client)
     log_path = (log_dir / "intents.jsonl") if log_dir else None
     # Use delay_s from first strategy's params (if any)
     delay_s = 0.0
@@ -321,6 +311,22 @@ def run(
         # PG pool for intent persistence
         pg_pool = await asyncpg.create_pool(dsn=settings.pg_dsn, min_size=1, max_size=2)
 
+        # Load token_map from PG for CLOB REST API price verification
+        async with pg_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT condition_id, outcome, asset_id FROM token_market_map"
+            )
+        token_map: dict[str, dict[str, str]] = {}
+        for r in rows:
+            cid = r["condition_id"]
+            if cid not in token_map:
+                token_map[cid] = {}
+            token_map[cid][r["outcome"]] = r["asset_id"]
+        logger.warning("token_map.loaded", count=len(token_map))
+
+        # Wire token_map into executor
+        runner.gateway._executor._token_map = token_map  # type: ignore[attr-defined]
+
         # Wire intent capture → Kafka topic + PostgreSQL
         async def _publish_intent(record: dict[str, Any]) -> None:
             key = f"{record['strategy']}:{record['condition_id']}".encode()
@@ -332,7 +338,12 @@ def run(
                 source="strategy_runner",
             )
             # Persist to PG (best-effort, don't block hot path)
+            # Skip risk_rejected — these flood PG (~252 per 30s from proportional_copy)
+            if record["disposition"] == "risk_rejected":
+                return
+
             fill = record.get("fill")
+            metadata = record.get("metadata") or {}
             try:
                 async with pg_pool.acquire() as conn:
                     await conn.execute(
@@ -340,8 +351,9 @@ def run(
                            (strategy, condition_id, side, outcome, size_usd,
                             urgency, max_price, reason, signal_time, asset_id,
                             disposition, rejection_reason,
-                            filled_price, filled_size_usd, fee_usd, captured_at)
-                           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
+                            filled_price, filled_size_usd, fee_usd, metadata,
+                            captured_at)
+                           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)""",
                         record["strategy"],
                         record["condition_id"],
                         record["side"],
@@ -357,12 +369,43 @@ def run(
                         fill["filled_price"] if fill else None,
                         fill["filled_size_usd"] if fill else None,
                         fill["fee_usd"] if fill else None,
+                        json.dumps(metadata, default=str),
                         datetime.fromtimestamp(record["captured_at"], tz=timezone.utc),
                     )
             except Exception:
                 logger.exception("intent_pg.write_error")
 
         runner._intent_cb = _publish_intent
+
+        # Wire pool refresh callback → PG strategy_pool table
+        async def _publish_pool(provider_name: str, features: dict[str, Any]) -> None:
+            # Only publish for providers that expose a pool (frozenset of addresses)
+            pool = features.get("pool_traders")
+            if pool is None or not isinstance(pool, (set, frozenset)):
+                return
+            strategy_name = provider_name  # provider name matches strategy key
+            try:
+                async with pg_pool.acquire() as conn:
+                    async with conn.transaction():
+                        await conn.execute(
+                            "DELETE FROM strategy_pool WHERE strategy = $1",
+                            strategy_name,
+                        )
+                        if pool:
+                            await conn.executemany(
+                                """INSERT INTO strategy_pool (strategy, trader_address)
+                                   VALUES ($1, $2)""",
+                                [(strategy_name, addr) for addr in pool],
+                            )
+                logger.info(
+                    "pool_pg.published",
+                    strategy=strategy_name,
+                    count=len(pool),
+                )
+            except Exception:
+                logger.exception("pool_pg.write_error", strategy=strategy_name)
+
+        runner._pool_refresh_cb = _publish_pool
 
         await runner.initialize()
         await runner.start_background_loops()

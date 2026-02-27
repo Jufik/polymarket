@@ -1,0 +1,41 @@
+# HR Pool — Fixed-bet copy of high hit-rate traders
+#
+# Sweep-validated: NO direction, entry <= 0.70, HR >= 0.65
+# Walk-forward (May 2025 → Jan 2026): 590 sigs, 61.4% ROI, 9/9 months positive
+# Pool: ~28 traders, 96-97% stable month-to-month
+
+[strategy.hr_pool]
+enabled = true
+mode = "paper_dev"
+capital_usd = 10000
+max_position_usd = 200
+max_open_positions = 50
+cooldown_s = 0
+features = ["hr_pool"]
+
+[strategy.hr_pool.params]
+bet_size_usd = 100
+direction = "NO"
+max_entry_price = 0.70
+price_slippage = 0.05
+contradiction_filter = true
+# Pool construction params (used by HRPoolProvider)
+min_hr = 0.65
+min_markets = 30
+min_good_months = 6
+monthly_hr = 0.50
+monthly_min_bets = 3
+max_classification_entry = 0.90
+min_positions = 3
+max_positions = 5000
+
+[provider.hr_pool]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.hr_pool.params]
+min_hr = 0.65
+min_markets = 30
+min_good_months = 6
+monthly_hr = 0.50
+monthly_min_bets = 3
