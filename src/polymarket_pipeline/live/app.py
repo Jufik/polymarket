@@ -11,7 +11,7 @@ import structlog
 from faststream import ContextRepo, FastStream
 from faststream.kafka import KafkaBroker
 
-from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer
+from polymarket_pipeline.live.consumers.market_events import MarketEventsConsumer, ResolutionPoller
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.orchestrator import (
     check_and_recover,
@@ -122,6 +122,14 @@ async def on_startup(context: ContextRepo) -> None:
         runner=_NullRunner(),
         debounce_s=5.0,
     )
+
+    # Periodic CLOB API resolution checker (WS firehose doesn't emit
+    # market_resolved events, so we poll for filled markets past end_date)
+    if pg_pool is not None:
+        resolution_poller = ResolutionPoller(
+            pg_pool=pg_pool, runner=None, interval_s=60.0
+        )
+        resolution_poller.start()
 
     # Periodic quality check (detects silent ingestor failures)
     async def _protect() -> None:
