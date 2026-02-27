@@ -87,11 +87,12 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
 
     if cid_valid:
         try:
+            # Use median to be robust against taker-side dups (which record 1-price)
             price_history = await _ch_query(
                 request,
                 f"""SELECT
                         toStartOfFiveMinutes(timestamp) AS ts,
-                        argMax(price, timestamp) AS price
+                        medianExact(price) AS price
                     FROM trades_raw FINAL
                     WHERE condition_id = '{condition_id}'
                       AND timestamp >= now() - INTERVAL 48 HOUR
@@ -104,25 +105,9 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
         except Exception:
             log.warning("intent_detail.price_history_failed", intent_id=intent_id)
 
-    # Current price: last trade from CH
-    if cid_valid:
-        try:
-            trade_rows = await _ch_query(
-                request,
-                f"""SELECT price
-                    FROM trades_raw FINAL
-                    WHERE condition_id = '{condition_id}'
-                    ORDER BY timestamp DESC
-                    LIMIT 1""",
-            )
-            if trade_rows:
-                yes_price = float(trade_rows[0]["price"])
-                current_price = (1.0 - yes_price) if is_no else yes_price
-        except Exception:
-            log.warning("intent_detail.trade_price_failed", intent_id=intent_id)
-
-    # Fallback: CLOB REST API midpoint (token-specific, already correct side)
-    if current_price is None and asset_id:
+    # Current price: CLOB API midpoint (authoritative, token-specific)
+    # trades_raw is unreliable here — taker-side dups record 1-price
+    if asset_id:
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(
@@ -135,6 +120,25 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
                     current_price = float(mid)
         except Exception:
             log.warning("intent_detail.clob_midpoint_failed", intent_id=intent_id)
+
+    # Fallback: orderbook snapshot from CH (CLOB WS, YES-side)
+    if current_price is None and cid_valid:
+        try:
+            ob_rows = await _ch_query(
+                request,
+                f"""SELECT best_bid, best_ask
+                    FROM orderbook_snapshots
+                    WHERE condition_id = '{condition_id}'
+                    ORDER BY timestamp DESC
+                    LIMIT 1""",
+            )
+            if ob_rows:
+                bid = float(ob_rows[0]["best_bid"])
+                ask = float(ob_rows[0]["best_ask"])
+                yes_mid = (bid + ask) / 2
+                current_price = (1.0 - yes_mid) if is_no else yes_mid
+        except Exception:
+            log.warning("intent_detail.orderbook_price_failed", intent_id=intent_id)
 
     # --- PnL calculation ---
     pnl: dict | None = None
