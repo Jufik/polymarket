@@ -104,7 +104,7 @@ class MarketSizeProvider:
                 min(timestamp) AS first_ts
             FROM (
                 SELECT *,
-                    timestamp - min(timestamp) OVER (PARTITION BY condition_id) AS secs
+                    dateDiff('second', min(timestamp) OVER (PARTITION BY condition_id), timestamp) AS secs
                 FROM trades_raw FINAL
                 WHERE timestamp >= now() - INTERVAL 30 DAY
             )
