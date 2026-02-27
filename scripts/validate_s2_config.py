@@ -68,7 +68,7 @@ async def main() -> None:
     first_trades = await query_ch(client, """
         WITH wm AS (SELECT condition_id FROM markets WHERE question LIKE 'Will %%')
         SELECT condition_id,
-               argMin(CAST(price AS Float64), toUnixTimestamp(timestamp)) AS first_price
+               argMin(CAST(price AS Float64), timestamp) AS first_price
         FROM (SELECT * FROM polymarket.trades_raw FINAL) t
         WHERE condition_id IN (SELECT condition_id FROM wm)
         GROUP BY condition_id""", label="first-trades")
@@ -92,13 +92,13 @@ async def main() -> None:
             ),
             ft AS (
                 SELECT condition_id,
-                       min(toUnixTimestamp(timestamp)) AS first_ts
+                       toUnixTimestamp64Milli(min(timestamp)) / 1000.0 AS first_ts
                 FROM (SELECT * FROM polymarket.trades_raw FINAL) t
                 WHERE condition_id IN (SELECT condition_id FROM wm)
                 GROUP BY condition_id
             )
         SELECT w.condition_id AS condition_id,
-               (CAST(toUnixTimestamp(e.end_date) AS Float64) - ft.first_ts) / 86400.0
+               (dateDiff('second', toDateTime64('1970-01-01', 3), e.end_date) - ft.first_ts) / 86400.0
                    AS lockup_days
         FROM wm w
         JOIN ft ON ft.condition_id = w.condition_id

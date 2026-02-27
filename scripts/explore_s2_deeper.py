@@ -251,7 +251,7 @@ async def main() -> None:
         client,
         """SELECT condition_id, toString(event_id) AS event_id, question,
                   category, neg_risk,
-                  toUnixTimestamp(created_at) AS created_ts
+                  dateDiff('second', toDateTime64('1970-01-01', 3), created_at) AS created_ts
            FROM markets""",
         label="all-markets",
     )
@@ -259,8 +259,8 @@ async def main() -> None:
     first_trades = await query_ch(
         client,
         """SELECT condition_id,
-                  argMin(CAST(price AS Float64), toUnixTimestamp(timestamp)) AS first_price,
-                  min(toUnixTimestamp(timestamp)) AS first_ts
+                  argMin(CAST(price AS Float64), timestamp) AS first_price,
+                  toUnixTimestamp64Milli(min(timestamp)) / 1000.0 AS first_ts
            FROM (SELECT * FROM polymarket.trades_raw FINAL) t
            GROUP BY condition_id""",
         label="first-trades",
