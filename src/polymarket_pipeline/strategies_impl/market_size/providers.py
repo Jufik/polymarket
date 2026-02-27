@@ -43,7 +43,11 @@ class MarketSizeProvider:
         self._model_loaded = False
 
     def _ensure_model(self) -> bool:
-        """Load the model if not yet loaded. Returns True if model is available."""
+        """Load the model if not yet loaded. Returns True if model is available.
+
+        Raises ``FileNotFoundError`` if the model file is missing — fail-fast
+        so supervisor restarts the process and the operator sees the error.
+        """
         if self._model_loaded:
             return True
         try:
@@ -51,8 +55,10 @@ class MarketSizeProvider:
             self._model_loaded = True
             return True
         except FileNotFoundError:
-            logger.warning("market_size.model_not_found", path=self._cfg.model_path)
-            return False
+            raise FileNotFoundError(
+                f"MarketSize model not found at {self._cfg.model_path!r}. "
+                f"Train with: uv run python scripts/train_market_size_classifier.py"
+            ) from None
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Classify all markets using the backend's data.

@@ -13,7 +13,11 @@ ORDER_FILLED_SIG = "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65b
 def normalizer():
     from polymarket_pipeline.live.normalizers.polygon_rpc import PolygonRPCNormalizer
 
-    return PolygonRPCNormalizer()
+    # Default tests use maker_asset_id=12345; provide a token_map so normalize()
+    # doesn't return None for unknown asset_ids.
+    return PolygonRPCNormalizer(
+        token_market_map={"12345": ("cond_12345", "YES"), "99999": ("cond_99999", "YES")}
+    )
 
 
 def _make_log(
@@ -122,12 +126,13 @@ class TestPolygonRPCNormalizer:
         trade = normalizer.normalize(log)
         assert trade.asset_id == "99999"
 
-    def test_condition_id_empty_without_map(self, normalizer):
-        """Without a token_map, condition_id defaults to asset_id (best effort)."""
+    def test_unknown_asset_returns_none(self):
+        """Without a token_map entry, unknown asset_id returns None."""
+        from polymarket_pipeline.live.normalizers.polygon_rpc import PolygonRPCNormalizer
+
+        n = PolygonRPCNormalizer()  # empty token_map
         log = _make_log()
-        trade = normalizer.normalize(log)
-        # Without token_map, condition_id should be the asset_id (best effort)
-        assert trade.condition_id != ""
+        assert n.normalize(log) is None
 
     def test_with_token_map(self):
         """With token_map, asset_id is resolved to condition_id."""

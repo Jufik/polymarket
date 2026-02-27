@@ -53,8 +53,13 @@ class MarketEventsConsumer:
             await self._handle_new_market(condition_id, data.get("payload", {}))
 
     async def _handle_resolved(self, condition_id: str, payload: dict[str, Any]) -> None:
-        """Handle a market resolution -- update PG + schedule refresh."""
+        """Handle a market resolution -- settle positions, update PG, schedule refresh."""
         log.info("market_events.resolved", condition_id=condition_id)
+
+        # Settle paper positions before refresh (frees budget + max_open slots)
+        winner = payload.get("resolution", "")
+        if winner in ("YES", "NO") and hasattr(self._runner, "settle_resolved_market"):
+            self._runner.settle_resolved_market(condition_id, winner)
 
         if self._pg_pool is not None:
             await self._upsert_resolution(condition_id, payload)
