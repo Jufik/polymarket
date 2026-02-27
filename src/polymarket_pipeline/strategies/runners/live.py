@@ -7,7 +7,9 @@ then dispatches to strategies. Manages timer and refresh background loops.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import time
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -26,6 +28,10 @@ if TYPE_CHECKING:
         FeatureProvider,
         Strategy,
     )
+    from polymarket_pipeline.strategies.types import Fill, TradeIntent
+
+# Callback type: (intent_dict, disposition, fill_dict_or_none) -> awaitable
+IntentCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 logger = structlog.get_logger(__name__)
 
@@ -66,6 +72,7 @@ class LiveRunner:
         hot_path_warn_ms: float = 5.0,
         dedup_ttl_s: float = 600.0,
         max_trade_age_s: float = 120.0,
+        intent_cb: IntentCallback | None = None,
     ) -> None:
         self.strategies = strategies
         self.providers = providers
@@ -85,6 +92,7 @@ class LiveRunner:
         self._last_trade_times: dict[str, float] = {}
         self._refresh_event = asyncio.Event()
         self._market_volumes: dict[str, float] = {}
+        self._intent_cb = intent_cb
 
     def _sync_markets_from_features(self) -> None:
         """Bridge MarketInfo from provider features into ctx markets store.
@@ -143,6 +151,28 @@ class LiveRunner:
 
         # Establish running volume dict reference in features
         self.ctx.update_features({"market_volume": self._market_volumes})
+
+    async def _fire_intent(
+        self,
+        intent: TradeIntent,
+        disposition: str,
+        fill: Fill | None = None,
+        rejection_reason: str = "",
+    ) -> None:
+        """Fire the intent callback (if configured) with full context."""
+        if self._intent_cb is None:
+            return
+        record: dict[str, Any] = {
+            **dataclasses.asdict(intent),
+            "disposition": disposition,
+            "rejection_reason": rejection_reason,
+            "fill": dataclasses.asdict(fill) if fill is not None else None,
+            "captured_at": time.time(),
+        }
+        try:
+            await self._intent_cb(record)
+        except Exception:
+            logger.exception("intent_cb.error")
 
     async def _handle_trade(self, trade: NormalizedTrade) -> None:
         """Hot path: dispatch trade to providers then strategies."""
@@ -203,10 +233,16 @@ class LiveRunner:
                             reason=reason,
                             condition_id=intent.condition_id,
                         )
+                        await self._fire_intent(intent, "risk_rejected", rejection_reason=reason)
                         continue
 
                     fill = await self.gateway.submit(intent)
                     self._intents_submitted += 1
+
+                    disposition = fill.status.value  # "filled" or "rejected"
+                    await self._fire_intent(
+                        intent, disposition, fill=fill, rejection_reason=fill.error or ""
+                    )
 
                     # Position tracking
                     old_pos = await self.ctx.get_position(fill.condition_id)
@@ -289,10 +325,16 @@ class LiveRunner:
                                 reason=reason,
                                 condition_id=intent.condition_id,
                             )
+                            await self._fire_intent(intent, "risk_rejected", rejection_reason=reason)
                             continue
 
                         fill = await self.gateway.submit(intent)
                         self._intents_submitted += 1
+
+                        disposition = fill.status.value
+                        await self._fire_intent(
+                            intent, disposition, fill=fill, rejection_reason=fill.error or ""
+                        )
 
                         # Position tracking
                         old_pos = await self.ctx.get_position(fill.condition_id)
