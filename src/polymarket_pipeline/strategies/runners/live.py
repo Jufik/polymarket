@@ -278,6 +278,43 @@ class LiveRunner:
         )
         self.ctx.set_orderbook(condition_id, ob)
 
+    def reset(self) -> None:
+        """Clear all paper state: positions, budgets, counters, dedup cache.
+
+        Triggered by SIGUSR1 in the strategy CLI. Does NOT re-run providers —
+        use ``request_refresh()`` for that.
+        """
+        # Snapshot for the log
+        n_positions = sum(
+            1 for p in self.ctx._positions.values()
+            if p.qty_yes > 0 or p.qty_no > 0
+        )
+        realized = sum(p.realized_pnl for p in self.ctx._positions.values())
+        spent = dict(self.gateway._strategy_spent)
+
+        self.ctx._positions.clear()
+        self.ctx._orderbooks.clear()
+        self.gateway._strategy_spent.clear()
+        self._dedup._seen.clear()
+        self._market_volumes.clear()
+        self._last_trade_times.clear()
+
+        prev_trades = self._trades_processed
+        prev_intents = self._intents_submitted
+        self._trades_processed = 0
+        self._intents_submitted = 0
+        self._drops_dedup = 0
+        self._drops_stale = 0
+
+        logger.warning(
+            "live_runner.reset",
+            cleared_positions=n_positions,
+            realized_pnl=round(realized, 2),
+            budget_spent={k: round(v, 2) for k, v in spent.items()},
+            prev_trades=prev_trades,
+            prev_intents=prev_intents,
+        )
+
     def request_refresh(self) -> None:
         """Signal the refresh loop to run immediately (non-blocking)."""
         self._refresh_event.set()
