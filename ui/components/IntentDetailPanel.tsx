@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchIntentDetail, IntentDetail } from "@/lib/api";
 
-// Client-side cache to avoid re-fetching the same intent
-const detailCache = new Map<number, IntentDetail>();
+// Client-side cache with 60s TTL
+const detailCache = new Map<number, { data: IntentDetail; ts: number }>();
+const CACHE_TTL_MS = 60_000;
 
 function Sparkline({ prices }: { prices: { ts: string; price: number }[] }) {
   if (prices.length < 2) {
@@ -122,10 +123,10 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
     setLoading(true);
     setDetail(null);
 
-    // Check cache first
+    // Check cache first (with TTL)
     const cached = detailCache.get(intentId);
-    if (cached) {
-      setDetail(cached);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      setDetail(cached.data);
       setLoading(false);
       return;
     }
@@ -134,7 +135,7 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await fetchIntentDetail(intentId);
-        detailCache.set(intentId, data);
+        detailCache.set(intentId, { data, ts: Date.now() });
         setDetail(data);
       } catch {
         /* ignore fetch errors */
