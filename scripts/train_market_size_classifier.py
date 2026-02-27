@@ -186,7 +186,7 @@ async def main() -> None:
                 SELECT condition_id, maker,
                        CAST(price AS Float64) AS price,
                        CAST(size AS Float64) AS size,
-                       toUnixTimestamp(timestamp) AS ts
+                       toUnixTimestamp64Milli(timestamp) / 1000.0 AS ts
                 FROM (SELECT * FROM polymarket.trades_raw FINAL) t
                 WHERE condition_id IN (SELECT condition_id FROM will_markets)
             ),

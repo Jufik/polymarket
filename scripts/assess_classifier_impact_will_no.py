@@ -153,7 +153,7 @@ async def main() -> None:
                 SELECT condition_id, maker,
                        CAST(price AS Float64) AS price,
                        CAST(size AS Float64) AS size,
-                       toUnixTimestamp(timestamp) AS ts
+                       toUnixTimestamp64Milli(timestamp) / 1000.0 AS ts
                 FROM (SELECT * FROM polymarket.trades_raw FINAL) t
                 WHERE condition_id IN (SELECT condition_id FROM will_markets)
             ),
@@ -248,7 +248,7 @@ async def main() -> None:
         """
         WITH will_markets AS (SELECT condition_id FROM markets WHERE question LIKE 'Will %%')
         SELECT condition_id,
-               argMin(CAST(price AS Float64), toUnixTimestamp(timestamp)) AS first_price
+               argMin(CAST(price AS Float64), timestamp) AS first_price
         FROM (SELECT * FROM polymarket.trades_raw FINAL) t
         WHERE condition_id IN (SELECT condition_id FROM will_markets)
         GROUP BY condition_id
