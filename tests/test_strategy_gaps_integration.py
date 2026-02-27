@@ -146,15 +146,16 @@ async def test_config_skilled_ignored_when_context_set() -> None:
 
 
 async def test_orderbook_feeds_paper_executor() -> None:
-    """PaperExecutor should fill at best_ask when orderbook is available."""
+    """PaperExecutor should fill at NO price from YES-side orderbook."""
     strategy = _make_strategy(skilled=SKILLED_CONFIG)
     ctx = InMemoryContext()
 
-    # Set orderbook with best_ask=0.35 for the market
+    # Orderbook: YES bid=0.58, ask=0.62 (consistent with trade price 0.60)
+    # Consensus signal is BUY NO → NO ask = 1 - YES_bid = 0.42
     ob = OrderbookSnapshot(
         condition_id="0xm1",
-        best_bid=0.30,
-        best_ask=0.35,
+        best_bid=0.58,
+        best_ask=0.62,
         bid_depth=1000.0,
         ask_depth=500.0,
         timestamp=50.0,
@@ -173,8 +174,8 @@ async def test_orderbook_feeds_paper_executor() -> None:
     result = await runner.run(trades)
 
     assert result.total_fills == 1
-    # BUY intent -> PaperExecutor uses best_ask (0.35), not default 0.50
-    assert result.fills[0].filled_price == pytest.approx(0.35)
+    # BUY NO → fill at NO ask = 1 - YES_bid = 1 - 0.58 = 0.42
+    assert result.fills[0].filled_price == pytest.approx(0.42)
 
 
 # ---------------------------------------------------------------------------
