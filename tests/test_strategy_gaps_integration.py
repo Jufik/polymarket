@@ -13,8 +13,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from unittest.mock import AsyncMock
+
 import pytest
 
+from polymarket_pipeline.execution.clob_client import ClobOrderbook
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.strategies.config import StrategyConfig
 from polymarket_pipeline.strategies.context.memory import InMemoryContext
@@ -146,23 +149,19 @@ async def test_config_skilled_ignored_when_context_set() -> None:
 
 
 async def test_orderbook_feeds_paper_executor() -> None:
-    """PaperExecutor should fill at NO price from YES-side orderbook."""
+    """PaperExecutor should fill at NO price from CLOB REST API."""
     strategy = _make_strategy(skilled=SKILLED_CONFIG)
     ctx = InMemoryContext()
 
-    # Orderbook: YES bid=0.58, ask=0.62 (consistent with trade price 0.60)
-    # Consensus signal is BUY NO → NO ask = 1 - YES_bid = 0.42
-    ob = OrderbookSnapshot(
-        condition_id="0xm1",
-        best_bid=0.58,
-        best_ask=0.62,
-        bid_depth=1000.0,
-        ask_depth=500.0,
-        timestamp=50.0,
+    # Mock CLOB client: returns NO-token orderbook directly (bid=0.38, ask=0.42)
+    # Consensus signal is BUY NO → fill at NO best_ask = 0.42
+    clob = AsyncMock()
+    clob.get_orderbook.return_value = ClobOrderbook(
+        best_bid=0.38, best_ask=0.42, spread=0.04, fetched_at=50.0,
     )
-    ctx.set_orderbook("0xm1", ob)
+    token_map = {"0xm1": {"YES": "yes_tok", "NO": "no_tok"}}
 
-    executor = PaperExecutor(ctx=ctx)
+    executor = PaperExecutor(ctx=ctx, clob_client=clob, token_map=token_map)
     gw = ExecutionGateway(executor=executor)
     runner = BacktestRunner(strategy=strategy, ctx=ctx, gateway=gw, config=_PERMISSIVE)
 
@@ -174,7 +173,7 @@ async def test_orderbook_feeds_paper_executor() -> None:
     result = await runner.run(trades)
 
     assert result.total_fills == 1
-    # BUY NO → fill at NO ask = 1 - YES_bid = 1 - 0.58 = 0.42
+    # BUY NO → fill at NO best_ask = 0.42
     assert result.fills[0].filled_price == pytest.approx(0.42)
 
 

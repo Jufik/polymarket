@@ -55,79 +55,38 @@ class PaperExecutor:
         self._fee_pct = fee_pct
 
     def _resolve_asset_id(self, intent: TradeIntent) -> str | None:
-        """Resolve the YES-side asset_id for a condition_id.
+        """Resolve the asset_id matching the intent's outcome (YES or NO).
 
-        The CLOB ``/book`` endpoint requires a token_id. We always use the
-        YES token because orderbooks are YES-side.
+        Each outcome has its own CLOB orderbook. Querying the correct
+        token directly avoids flipping prices from the opposite side.
         """
         if intent.asset_id:
             return intent.asset_id
         tokens = self._token_map.get(intent.condition_id)
         if tokens:
-            return tokens.get("YES")
+            return tokens.get(intent.outcome, tokens.get("YES"))
         return None
 
     async def execute(self, intent: TradeIntent) -> Fill:
-        """Fill at best available price or reject.
+        """Fill at CLOB REST API price or reject.
 
-        Price sources:
-        1. CLOB REST API /book (authoritative)
-        2. WS orderbook snapshot (fallback)
+        Queries the outcome-specific orderbook (YES or NO token) so
+        prices are read directly — no flipping needed.
+        Books with spread >= $0.50 are skipped (empty/illiquid).
         """
-        is_no = intent.outcome == "NO"
+        market_price: float | None = None
         price_source = "none"
-        api_price: float | None = None
-        ws_price: float | None = None
 
-        # --- Source 1: CLOB REST API ---
+        # --- CLOB REST API (outcome-specific book) ---
         if self._clob is not None:
             asset_id = self._resolve_asset_id(intent)
             if asset_id:
                 ob_api = await self._clob.get_orderbook(asset_id)
-                if ob_api is not None:
-                    if is_no:
-                        api_price = (
-                            (1.0 - ob_api.best_bid)
-                            if intent.side == "BUY"
-                            else (1.0 - ob_api.best_ask)
-                        )
-                    else:
-                        api_price = (
-                            ob_api.best_ask if intent.side == "BUY" else ob_api.best_bid
-                        )
+                if ob_api is not None and ob_api.spread < 0.50:
+                    market_price = (
+                        ob_api.best_ask if intent.side == "BUY" else ob_api.best_bid
+                    )
                     price_source = "clob_api"
-
-        # --- Source 2: WS orderbook snapshot ---
-        ob_ws = await self._ctx.get_orderbook(intent.condition_id)
-        if ob_ws is not None:
-            if is_no:
-                ws_price = (
-                    (1.0 - ob_ws.best_bid)
-                    if intent.side == "BUY"
-                    else (1.0 - ob_ws.best_ask)
-                )
-            else:
-                ws_price = ob_ws.best_ask if intent.side == "BUY" else ob_ws.best_bid
-
-        # Divergence warning
-        if api_price is not None and ws_price is not None:
-            delta = abs(api_price - ws_price)
-            if delta > 0.02:
-                logger.warning(
-                    "paper_fill.price_divergence",
-                    strategy=intent.strategy,
-                    condition_id=intent.condition_id,
-                    api_price=round(api_price, 4),
-                    ws_price=round(ws_price, 4),
-                    delta=round(delta, 4),
-                )
-
-        # Pick best available price (API > WS)
-        market_price = api_price
-        if market_price is None:
-            market_price = ws_price
-            if market_price is not None:
-                price_source = "ws_snapshot"
 
         # No price → reject
         if market_price is None:
