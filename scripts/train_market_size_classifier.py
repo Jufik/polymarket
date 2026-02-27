@@ -270,7 +270,10 @@ async def main() -> None:
         "SELECT condition_id, toString(event_id) AS event_id, neg_risk, question FROM markets WHERE question LIKE 'Will %%'",
         label="markets",
     )
-    markets = markets.with_columns(pl.col("neg_risk").cast(pl.Boolean))
+    markets = markets.with_columns(
+        pl.col("event_id").cast(pl.Utf8),
+        pl.col("neg_risk").cast(pl.Boolean),
+    )
 
     events = await query_ch(
         client,
@@ -292,6 +295,7 @@ async def main() -> None:
         "SELECT toString(et.event_id) AS event_id, t.label AS tag FROM event_tags et JOIN tags t ON et.tag_id = t.id",
         label="tags",
     )
+    tags = tags.with_columns(pl.col("event_id").cast(pl.Utf8))
     tags = tags.sort("tag").unique(subset=["event_id"], keep="first")
 
     await client.aclose()
@@ -316,7 +320,7 @@ async def main() -> None:
     )
     features = features.join(
         events.select(
-            pl.col("id").alias("event_id"),
+            pl.col("id").cast(pl.Utf8).alias("event_id"),
             pl.col("end_date").alias("event_end_date"),
             pl.col("volume").alias("event_volume"),
             pl.col("liquidity").alias("event_liquidity"),
