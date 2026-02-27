@@ -166,8 +166,17 @@ class LiveRunner:
 
         # Orderbook snapshot — prefer asset-specific (outcome-aware)
         ob = None
-        if hasattr(self.ctx, "get_orderbook_by_asset") and intent.asset_id:
-            ob = self.ctx.get_orderbook_by_asset(intent.asset_id)
+        asset_id = intent.asset_id
+        # Resolve asset_id from executor's token_map if not on intent
+        if not asset_id and hasattr(self, "gateway"):
+            executor = getattr(self.gateway, "executor", None)
+            tmap = getattr(executor, "_token_map", None)
+            if tmap:
+                tokens = tmap.get(intent.condition_id)
+                if tokens:
+                    asset_id = tokens.get(intent.outcome)
+        if asset_id and hasattr(self.ctx, "get_orderbook_by_asset"):
+            ob = self.ctx.get_orderbook_by_asset(asset_id)
         if ob is None:
             ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
         if ob is not None:
