@@ -294,6 +294,7 @@ def run(
 
     async def _run() -> None:
         import json
+        import signal
         from datetime import datetime, timezone
 
         import asyncpg
@@ -304,6 +305,13 @@ def run(
 
         settings = Settings()
         broker = KafkaBroker(settings.redpanda_url)
+
+        # SIGUSR1 → reset all paper state (positions, budgets, counters)
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(
+            signal.SIGUSR1,
+            lambda: runner.reset(),
+        )
 
         # PG pool for intent persistence
         pg_pool = await asyncpg.create_pool(dsn=settings.pg_dsn, min_size=1, max_size=2)
