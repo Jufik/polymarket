@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import structlog
 
 from polymarket_pipeline.execution.clob_client import ClobClient, OrderSide, OrderType
-from polymarket_pipeline.execution.models import FillRecord
+from polymarket_pipeline.execution.models import FillRecord, Position
 from polymarket_pipeline.execution.position_tracker import PositionTracker
 from polymarket_pipeline.strategies.types import Fill, FillStatus, TradeIntent
 
@@ -135,7 +135,33 @@ class LiveExecutor:
                 error=result.error or "order failed",
             )
 
-        filled_price = result.filled_price or intent.max_price or 0.50
+        # Require a confirmed fill price — never guess.  If the CLOB API
+        # returns success but no ``filled_price``, the order is likely still
+        # sitting on the book (unfilled limit).  Recording a fabricated price
+        # corrupts position avg_entry and budget tracking.
+        filled_price = result.filled_price
+        if filled_price is None or filled_price <= 0:
+            logger.warning(
+                "live.no_fill_price",
+                intent_id=intent_id,
+                condition_id=intent.condition_id,
+                order_id=result.order_id,
+                hint="order may be resting on book, not yet filled",
+            )
+            return Fill(
+                intent_id=intent_id,
+                strategy=intent.strategy,
+                condition_id=intent.condition_id,
+                side=intent.side,
+                outcome=intent.outcome,
+                filled_price=0.0,
+                filled_size_usd=0.0,
+                fee_usd=0.0,
+                status=FillStatus.REJECTED,
+                filled_at=now,
+                error=f"no confirmed fill price (order_id={result.order_id})",
+            )
+
         filled_size = result.filled_size or intent.size_usd
 
         # Record fill in position tracker
@@ -174,20 +200,49 @@ class LiveExecutor:
             filled_at=now,
         )
 
+    # Maximum age (seconds) for a cached orderbook to be used in MTM.
+    # Stale prices allow position limits to be exceeded in volatile markets.
+    _MTM_CACHE_MAX_AGE_S = 30.0
+
+    def _mark_to_market(self, pos: Position) -> float:
+        """Estimate current USD value of a position using orderbook mid-price.
+
+        Only uses cached orderbook if it was fetched within
+        ``_MTM_CACHE_MAX_AGE_S`` seconds.  Falls back to
+        ``pos.last_price`` (entry price) if no fresh orderbook is available.
+        """
+        import time as _time
+
+        size = float(pos.size)
+        asset_id = pos.asset_id
+        if asset_id and hasattr(self._clob, "_ob_cache"):
+            cached = self._clob._ob_cache.get(asset_id)
+            if cached is not None:
+                ts, ob = cached
+                age = _time.monotonic() - ts
+                if age <= self._MTM_CACHE_MAX_AGE_S:
+                    mid = (ob.best_bid + ob.best_ask) / 2
+                    if mid > 0:
+                        return size * mid
+        # Fallback: last known price (from fill or trade)
+        return size * float(pos.last_price)
+
     def _check_limits(self, intent: TradeIntent) -> str | None:
         """Check position limits. Returns rejection reason or None if OK."""
-        # Check per-market limit
+        # Check per-market limit (mark-to-market when possible)
         pos = self._tracker.get_position(intent.condition_id)
         if pos is not None:
-            current_value = pos.size * pos.last_price
+            current_value = self._mark_to_market(pos)
             if current_value + intent.size_usd > self._max_position_usd:
                 return (
                     f"position limit: {current_value:.2f} + {intent.size_usd:.2f}"
                     f" > {self._max_position_usd:.2f}"
                 )
 
-        # Check total exposure
-        total = self._tracker.get_total_exposure()
+        # Check total exposure (mark-to-market each position)
+        total = sum(
+            self._mark_to_market(p) for p in self._tracker.get_all_positions()
+        )
         if total + intent.size_usd > self._max_total_exposure_usd:
             return (
                 f"exposure limit: {total:.2f} + {intent.size_usd:.2f}"

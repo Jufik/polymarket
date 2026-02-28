@@ -62,10 +62,68 @@ async def pnl_summary(request: Request) -> dict:
     live_positions: list[dict] = []
     resolved_positions: list[dict] = []
 
-    # Separate live vs resolved
+    # Collect unresolved condition_ids to batch-check CLOB API
+    unresolved_cids: set[str] = set()
+    all_entries: list[dict] = []
     for r in rows:
         entry = dict(r)
-        if r["resolved_at"] is not None:
+        all_entries.append(entry)
+        if r["resolved_at"] is None:
+            unresolved_cids.add(r["condition_id"])
+
+    # Batch-check CLOB API for resolution of markets PG doesn't know about
+    clob_resolutions: dict[str, str] = {}  # condition_id -> winner_outcome
+    if unresolved_cids:
+        sem = asyncio.Semaphore(_MAX_CONCURRENT)
+
+        async def _check_resolution(
+            client: httpx.AsyncClient, cid: str
+        ) -> tuple[str, str]:
+            async with sem:
+                try:
+                    resp = await client.get(f"{_CLOB_BASE}/markets/{cid}")
+                    resp.raise_for_status()
+                    mkt = resp.json()
+                    tokens = mkt.get("tokens") or []
+                    closed = mkt.get("closed", False)
+                    winners = [t for t in tokens if t.get("winner") is True]
+                    if closed and len(winners) == 1:
+                        wo = winners[0].get("outcome", "")
+                        return (cid, wo)
+                except Exception:
+                    pass
+                return (cid, "")
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            tasks = [_check_resolution(client, cid) for cid in unresolved_cids]
+            results = await asyncio.gather(*tasks)
+            clob_resolutions = {cid: wo for cid, wo in results if wo}
+
+        # Backfill PG for discovered resolutions
+        if clob_resolutions:
+            try:
+                async with pool.acquire() as conn:
+                    for cid, wo in clob_resolutions.items():
+                        await conn.execute(
+                            """UPDATE markets
+                               SET resolution_value = 1,
+                                   winner_outcome = $1,
+                                   resolved_at = NOW()
+                               WHERE condition_id = $2
+                                 AND resolved_at IS NULL""",
+                            wo, cid,
+                        )
+            except Exception:
+                log.debug("pnl.pg_backfill_failed")
+
+    # Separate live vs resolved (using PG + CLOB data)
+    for entry in all_entries:
+        cid = entry["condition_id"]
+        if entry["resolved_at"] is not None:
+            resolved_positions.append(entry)
+        elif cid in clob_resolutions:
+            entry["winner_outcome"] = clob_resolutions[cid]
+            entry["resolved_at"] = True  # sentinel
             resolved_positions.append(entry)
         else:
             live_positions.append(entry)

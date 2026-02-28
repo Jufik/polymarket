@@ -16,6 +16,17 @@ class PipelineState(StrEnum):
     SAFE_STOP = "safe_stop"  # All positions closed, pipeline can stop
 
 
+# Per-check grace periods (seconds).  Source liveness is the most urgent
+# because an ingestor crash means we're flying blind.
+DEFAULT_CHECK_GRACE_S: dict[str, float] = {
+    "source_liveness": 120.0,        # 2 min  — ingestor crash
+    "volume_reconciliation": 600.0,  # 10 min — could be quiet market
+    "dedup_sanity": 300.0,           # 5 min  — enrichment lag
+    "metadata_freshness": 900.0,     # 15 min — slow Gamma sync
+    "resolved_completeness": 600.0,  # 10 min — CH backlog
+}
+
+
 @dataclass
 class CheckResult:
     """Result of a single health check."""
@@ -25,13 +36,22 @@ class CheckResult:
 
 
 class ReadinessState:
-    """Tracks pipeline readiness based on health check results."""
+    """Tracks pipeline readiness based on health check results.
 
-    def __init__(self, degraded_grace_s: float = 300.0) -> None:
+    Supports per-check grace periods: the shortest grace period among
+    currently failing checks determines when the state transitions to RED.
+    """
+
+    def __init__(
+        self,
+        degraded_grace_s: float = 300.0,
+        check_grace_s: dict[str, float] | None = None,
+    ) -> None:
         self._state = PipelineState.CHECKING
         self._last_results: dict[str, CheckResult] = {}
         self._degraded_since: float | None = None
         self._degraded_grace_s = degraded_grace_s
+        self._check_grace_s = dict(check_grace_s) if check_grace_s else {}
 
     @property
     def current(self) -> PipelineState:
@@ -49,13 +69,27 @@ class ReadinessState:
     def degraded_since(self) -> float | None:
         return self._degraded_since
 
+    def _effective_grace(self) -> float:
+        """Return the shortest grace period among currently failing checks."""
+        failing_checks = [
+            name for name, r in self._last_results.items() if not r.ok
+        ]
+        if not failing_checks:
+            return self._degraded_grace_s
+
+        graces = [
+            self._check_grace_s.get(name, self._degraded_grace_s)
+            for name in failing_checks
+        ]
+        return min(graces)
+
     @property
     def time_until_red(self) -> float | None:
         """Seconds until state transitions to RED, or None if not degraded."""
         if self._degraded_since is None:
             return None
         elapsed = time.monotonic() - self._degraded_since
-        remaining = self._degraded_grace_s - elapsed
+        remaining = self._effective_grace() - elapsed
         return max(0.0, remaining)
 
     def update(self, results: dict[str, CheckResult]) -> None:
@@ -80,7 +114,7 @@ class ReadinessState:
                 self._degraded_since = time.monotonic()
 
             elapsed = time.monotonic() - self._degraded_since
-            if elapsed >= self._degraded_grace_s:
+            if elapsed >= self._effective_grace():
                 self._state = PipelineState.RED
             else:
                 self._state = PipelineState.DEGRADED
