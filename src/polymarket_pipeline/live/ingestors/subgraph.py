@@ -13,7 +13,11 @@ from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 
 from polymarket_pipeline.constants import EXCHANGE_ADDRS
-from polymarket_pipeline.live.normalizers.subgraph import SubgraphNormalizer
+from polymarket_pipeline.live.normalizers.decode.subgraph import decode_subgraph_event
+from polymarket_pipeline.live.normalizers.enrich import enrich
+from polymarket_pipeline.live.normalizers.token_map import TokenMap
+from polymarket_pipeline.live.normalizers.types import Rejection
+from polymarket_pipeline.live.normalizers.validate import validate
 from polymarket_pipeline.models import NormalizedTrade
 
 log = structlog.get_logger()
@@ -116,15 +120,25 @@ class SubgraphPoller:
         self._sink = sink
         self._pg_dsn = pg_dsn
         self._job_id = job_id
-        self._normalizer = SubgraphNormalizer(token_market_map=token_market_map or {})
+        self._token_map = TokenMap(token_market_map or {})
 
     def _normalize_batch(self, events: list[dict[str, Any]]) -> list[NormalizedTrade]:
-        """Normalize a batch of subgraph events, filtering taker dups."""
-        trades = []
+        """Normalize a batch of subgraph events via decode -> enrich -> validate."""
+        trades: list[NormalizedTrade] = []
         for event in events:
-            trade = self._normalizer.normalize(event)
-            if trade is not None:
-                trades.append(trade)
+            decoded = decode_subgraph_event(event)
+            if decoded is None:
+                continue
+
+            enriched = enrich(decoded, self._token_map)
+            if isinstance(enriched, Rejection):
+                continue
+
+            validated = validate(enriched)
+            if isinstance(validated, Rejection):
+                continue
+
+            trades.append(validated)
         return trades
 
     async def _publish_batch_redpanda(self, trades: list[NormalizedTrade]) -> None:
