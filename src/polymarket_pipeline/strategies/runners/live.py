@@ -465,6 +465,37 @@ class LiveRunner:
             realized_pnl=round(new_pos.realized_pnl, 4),
         )
 
+    def settle_voided_market(self, condition_id: str, payout_per_token: float = 0.5) -> None:
+        """50/50 resolution: each token redeems for payout_per_token ($0.50)."""
+        from dataclasses import replace
+
+        positions = self.ctx.get_all_positions()
+        pos = positions.get(condition_id)
+        if pos is None:
+            return
+
+        pnl_delta = 0.0
+        if pos.qty_yes > 0:
+            pnl_delta += (payout_per_token - pos.avg_entry_yes) * pos.qty_yes
+        if pos.qty_no > 0:
+            pnl_delta += (payout_per_token - pos.avg_entry_no) * pos.qty_no
+
+        new_pos = replace(
+            pos,
+            qty_yes=0.0,
+            qty_no=0.0,
+            cost_basis=0.0,
+            realized_pnl=pos.realized_pnl + pnl_delta,
+        )
+        self.ctx.set_position(condition_id, new_pos)
+
+        logger.info(
+            "settlement.voided",
+            condition_id=condition_id,
+            pnl_delta=round(pnl_delta, 4),
+            payout=payout_per_token,
+        )
+
     def request_refresh(self) -> None:
         """Signal the refresh loop to run immediately (non-blocking)."""
         self._refresh_event.set()
