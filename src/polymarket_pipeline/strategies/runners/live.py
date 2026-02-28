@@ -123,8 +123,8 @@ class LiveRunner:
         """
         cid = trade.condition_id
 
-        # Update yes_price in context (strategy reads this for max_price)
-        market = self.ctx._markets.get(cid)
+        # Use get_all_positions()-style access to avoid touching private dict
+        market = self.ctx._markets.get(cid)  # noqa: SLF001 — runner owns ctx
         if market is not None:
             self.ctx.set_market(
                 cid,
@@ -178,7 +178,7 @@ class LiveRunner:
         if asset_id and hasattr(self.ctx, "get_orderbook_by_asset"):
             ob = self.ctx.get_orderbook_by_asset(asset_id)
         if ob is None:
-            ob = self.ctx._orderbooks.get(intent.condition_id)  # type: ignore[attr-defined]
+            ob = self.ctx._orderbooks.get(intent.condition_id)  # noqa: SLF001 — runner owns ctx
 
         # Fallback: CLOB REST API /book (most markets aren't WS-subscribed)
         if ob is None and asset_id:
@@ -284,15 +284,24 @@ class LiveRunner:
 
         # 4. Strategies — read updated context
         for strategy, config in self.strategies:
-            t0 = time.monotonic()
-            intents = await strategy.on_trade(trade, self.ctx)
-            elapsed_ms = (time.monotonic() - t0) * 1000
-            if elapsed_ms > self.hot_path_warn_ms:
-                logger.warning(
-                    "strategy.slow_on_trade",
-                    strategy=strategy.name,
-                    elapsed_ms=round(elapsed_ms, 2),
+            if not config.enabled:
+                continue
+            try:
+                t0 = time.monotonic()
+                intents = await strategy.on_trade(trade, self.ctx)
+                elapsed_ms = (time.monotonic() - t0) * 1000
+                if elapsed_ms > self.hot_path_warn_ms:
+                    logger.warning(
+                        "strategy.slow_on_trade",
+                        strategy=strategy.name,
+                        elapsed_ms=round(elapsed_ms, 2),
+                    )
+            except Exception:
+                logger.exception(
+                    "strategy.on_trade_error", strategy=strategy.name,
+                    condition_id=trade.condition_id,
                 )
+                continue
 
             if intents:
                 for intent in intents:
@@ -404,6 +413,58 @@ class LiveRunner:
             prev_intents=prev_intents,
         )
 
+    def settle_resolved_market(self, condition_id: str, winner: str) -> None:
+        """Settle an open position when a market resolves.
+
+        For each outcome (YES/NO), if we hold tokens:
+        - If our outcome matches *winner*: each token pays out $1.
+        - If our outcome loses: tokens are worth $0.
+
+        The position is zeroed out and ``realized_pnl`` is updated.
+        """
+        from dataclasses import replace
+
+        from polymarket_pipeline.strategies.types import Position
+
+        positions = self.ctx.get_all_positions()
+        old_pos = positions.get(condition_id)
+        if old_pos is None:
+            return
+
+        # Compute realized PnL from resolution
+        pnl_delta = 0.0
+
+        if old_pos.qty_yes > 0:
+            if winner == "YES":
+                # YES tokens pay $1 each — profit = (1 - avg_entry) * qty
+                pnl_delta += (1.0 - old_pos.avg_entry_yes) * old_pos.qty_yes
+            else:
+                # YES tokens worth $0 — loss = avg_entry * qty
+                pnl_delta -= old_pos.avg_entry_yes * old_pos.qty_yes
+
+        if old_pos.qty_no > 0:
+            if winner == "NO":
+                pnl_delta += (1.0 - old_pos.avg_entry_no) * old_pos.qty_no
+            else:
+                pnl_delta -= old_pos.avg_entry_no * old_pos.qty_no
+
+        new_pos = replace(
+            old_pos,
+            qty_yes=0.0,
+            qty_no=0.0,
+            cost_basis=0.0,
+            realized_pnl=old_pos.realized_pnl + pnl_delta,
+        )
+        self.ctx.set_position(condition_id, new_pos)
+
+        logger.info(
+            "runner.settled",
+            condition_id=condition_id,
+            winner=winner,
+            pnl_delta=round(pnl_delta, 4),
+            realized_pnl=round(new_pos.realized_pnl, 4),
+        )
+
     def request_refresh(self) -> None:
         """Signal the refresh loop to run immediately (non-blocking)."""
         self._refresh_event.set()
@@ -436,7 +497,15 @@ class LiveRunner:
                 drops_stale=self._drops_stale,
             )
             for strategy, config in self.strategies:
-                intents = await strategy.on_timer(now, self.ctx)
+                if not config.enabled:
+                    continue
+                try:
+                    intents = await strategy.on_timer(now, self.ctx)
+                except Exception:
+                    logger.exception(
+                        "strategy.on_timer_error", strategy=strategy.name,
+                    )
+                    continue
                 if intents:
                     for intent in intents:
                         # Risk gate

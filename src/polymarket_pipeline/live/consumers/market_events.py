@@ -174,7 +174,10 @@ class ResolutionPoller:
                    LEFT JOIN events e ON m.event_id = e.id
                    WHERE si.disposition = 'filled'
                      AND m.resolved_at IS NULL
-                     AND (e.end_date IS NOT NULL AND e.end_date < NOW())"""
+                     AND (
+                       (e.end_date IS NOT NULL AND e.end_date < NOW())
+                       OR e.end_date IS NULL
+                     )"""
             )
 
         if not rows:

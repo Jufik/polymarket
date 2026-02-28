@@ -169,10 +169,49 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
     filled_price = row["filled_price"]
     filled_size_usd = row["filled_size_usd"]
 
+    # Resolution data from PG (may be NULL if poller hasn't caught up)
+    resolved_at = row["resolved_at"]
+    winner_outcome = row["winner_outcome"]
+
+    # If PG doesn't have resolution data, check CLOB API directly
+    if not resolved_at and condition_id:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{_CLOB_BASE}/markets/{condition_id}")
+                resp.raise_for_status()
+                mkt = resp.json()
+                tokens = mkt.get("tokens") or []
+                closed = mkt.get("closed", False)
+                winners = [t for t in tokens if t.get("winner") is True]
+                if closed and len(winners) == 1:
+                    winner_outcome = winners[0].get("outcome", "")
+                    if winner_outcome:
+                        resolved_at = True  # sentinel — we know it's resolved
+                        # Backfill PG so future requests don't need this call
+                        try:
+                            async with pool.acquire() as conn:
+                                await conn.execute(
+                                    """UPDATE markets
+                                       SET resolution_value = 1,
+                                           winner_outcome = $1,
+                                           resolved_at = NOW()
+                                       WHERE condition_id = $2
+                                         AND resolved_at IS NULL""",
+                                    winner_outcome,
+                                    condition_id,
+                                )
+                        except Exception:
+                            log.debug(
+                                "intent_detail.pg_backfill_failed",
+                                condition_id=condition_id,
+                            )
+        except Exception:
+            log.debug("intent_detail.clob_resolution_check_failed", condition_id=condition_id)
+
     if filled_price and filled_size_usd and filled_price > 0:
-        if row["resolved_at"] and row["winner_outcome"]:
+        if resolved_at and winner_outcome:
             # Resolved market — deterministic PnL
-            won = (outcome == row["winner_outcome"])
+            won = (outcome == winner_outcome)
             tokens = filled_size_usd / filled_price
             pnl_usd = (tokens * 1.0 - filled_size_usd) if won else -filled_size_usd
             pnl_pct = (pnl_usd / filled_size_usd) * 100 if filled_size_usd else 0

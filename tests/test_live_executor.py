@@ -50,7 +50,7 @@ class MockPositionTracker:
     def get_total_exposure(self) -> float:
         return self._total_exposure
 
-    async def record_fill(self, fill: FillRecord) -> Position:
+    async def record_fill(self, fill: FillRecord) -> Position | None:
         self.recorded_fills.append(fill)
         return Position(
             condition_id=fill.condition_id,
@@ -168,8 +168,19 @@ async def test_live_executor_rejects_over_position_limit() -> None:
 
 async def test_live_executor_rejects_over_total_exposure() -> None:
     """Total exposure at 490 USD, trying to add 20 USD with limit=500 -> REJECTED."""
+    # Provide a real position so mark-to-market computes total exposure
+    existing = Position(
+        condition_id="0xother",
+        asset_id="0xother",
+        side="BUY",
+        size=490.0,  # 490 tokens at last_price=1.0 → $490 exposure
+        avg_entry=0.80,
+        cost_basis=392.0,
+        unrealized_pnl=0.0,
+        last_price=1.0,
+    )
     clob = MockClobClient()
-    tracker = MockPositionTracker(total_exposure=490.0)
+    tracker = MockPositionTracker(positions=[existing], total_exposure=490.0)
     executor = LiveExecutor(
         clob,
         tracker,
