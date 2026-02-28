@@ -29,7 +29,7 @@ RTDS_URL = "wss://ws-live-data.polymarket.com"
 PING_INTERVAL = 5
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-_DEDUP_TTL_S = 300.0  # 5min TTL for dedup entries
+_DEDUP_TTL_S = 600.0  # 10 min — increased from 5min; late RTDS arrivals slip through at shorter TTL
 _QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 
 

@@ -152,6 +152,13 @@ async def fetch_clob_markets() -> ClobMarketsResult:
 
                 token_winners: dict[str, bool] = {}
                 for idx, t in enumerate(tokens):
+                    actual_outcome = t.get("outcome", "")
+                    if idx < 2:  # only validate first two (YES/NO pair)
+                        expected = "Yes" if idx == 0 else "No"
+                        if actual_outcome and actual_outcome != expected:
+                            log.warning("token_ordering.unexpected",
+                                        condition_id=condition_id, idx=idx,
+                                        expected=expected, actual=actual_outcome)
                     token_id = t.get("token_id", "")
                     if not token_id:
                         continue
@@ -181,8 +188,9 @@ async def fetch_clob_markets() -> ClobMarketsResult:
                 decoded = b64decode(next_cursor).decode()
                 if decoded == "-1":
                     break
-            except Exception:
-                pass
+            except Exception as e:
+                log.error("clob.cursor_decode_failed", cursor=next_cursor, error=str(e))
+                break  # stop pagination, return partial results
 
             cursor = next_cursor
             page_num += 1

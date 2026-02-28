@@ -163,7 +163,7 @@ class Market(BaseModel):
     updated_at: datetime | None
 
     @classmethod
-    def from_gamma(cls, raw: dict[str, Any], event_id: int | None = None) -> Market | None:
+    def from_gamma(cls, raw: dict[str, Any], event_id: int | None = None, resolution_value: int = 0) -> Market | None:
         """Parse a Gamma API market response. Returns None if essential fields missing."""
         condition_id = raw.get("conditionId", "")
         if not condition_id:
@@ -179,8 +179,12 @@ class Market(BaseModel):
         if len(tokens) < 2:
             return None
 
-        # Derive status
-        if raw.get("closed") is True:
+        # Status: prefer resolution_value (from CLOB) over Gamma's broken resolved field
+        if resolution_value == 1:
+            status = MarketStatus.RESOLVED
+        elif resolution_value == -1:
+            status = MarketStatus.CLOSED
+        elif raw.get("closed") is True:
             status = MarketStatus.RESOLVED if raw.get("resolved") else MarketStatus.CLOSED
         elif raw.get("active") is True:
             status = MarketStatus.ACTIVE
