@@ -18,6 +18,7 @@ class Position:
     cost_basis: float  # total USD invested
     unrealized_pnl: float  # based on last_price
     last_price: float
+    realized_pnl: float = 0.0  # cumulative realized from sells
     updated_at: datetime | None = None
 
 
