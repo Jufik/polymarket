@@ -14,7 +14,7 @@ from polymarket_pipeline.live.settings import Settings
 
 def _settings(**overrides: Any) -> Settings:
     defaults: dict[str, Any] = {
-        "alchemy_ws_url": "wss://dummy",
+        "rpc_ws_url": "wss://dummy",
         "pg_dsn": "postgresql://x@localhost/x",
     }
     defaults.update(overrides)

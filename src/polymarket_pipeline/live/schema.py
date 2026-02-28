@@ -213,6 +213,85 @@ FROM trades_raw
 WHERE taker IS NOT NULL AND taker != ''
 """
 
+# ======================================================================
+# Trader market positions (chained from trader_trade_agg)
+# Replaces ad-hoc _tmp_s1_positions / _tmp_s1_enriched notebooks.
+# ======================================================================
+
+TRADER_MARKET_POSITIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS trader_market_positions (
+    trader          String,
+    condition_id    LowCardinality(String),
+    net_yes         Float64,
+    net_no          Float64,
+    volume          Float64,
+    trade_count     UInt64,
+    yes_px_vol      Float64,
+    first_trade     SimpleAggregateFunction(min, DateTime64(3)),
+    last_trade      SimpleAggregateFunction(max, DateTime64(3))
+) ENGINE = SummingMergeTree(
+    (net_yes, net_no, volume, trade_count, yes_px_vol)
+)
+ORDER BY (trader, condition_id)
+"""
+
+TRADER_MARKET_POSITIONS_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS trader_market_positions_mv
+TO trader_market_positions AS
+SELECT
+    a.trader,
+    a.condition_id,
+    if(tm.outcome = 'YES', a.net_tokens, 0)                          AS net_yes,
+    if(tm.outcome = 'NO',  a.net_tokens, 0)                          AS net_no,
+    a.volume,
+    a.trade_count,
+    if(tm.outcome = 'YES', a.price_x_vol, a.volume - a.price_x_vol)  AS yes_px_vol,
+    a.first_trade,
+    a.last_trade
+FROM trader_trade_agg a
+INNER JOIN token_market_map tm ON a.asset_id = tm.asset_id
+"""
+
+TRADER_POSITIONS_RESOLVED_VIEW = """
+CREATE OR REPLACE VIEW trader_positions_resolved AS
+SELECT
+    p.trader,
+    CASE
+        WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN 'YES'
+        WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 'NO'
+        WHEN p.net_yes > 0.01 AND p.net_no > 0.01  THEN 'HEDGED'
+        ELSE 'CLOSED'
+    END AS position,
+    CASE
+        WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN wavg_yes
+        WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 1.0 - wavg_yes
+        WHEN p.net_yes >= p.net_no                  THEN wavg_yes
+        ELSE 1.0 - wavg_yes
+    END AS dir_entry,
+    CASE
+        WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN mr.yes_won
+        WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN NOT mr.yes_won
+        WHEN p.net_yes >= p.net_no                  THEN mr.yes_won
+        ELSE NOT mr.yes_won
+    END AS correct,
+    p.volume AS market_volume,
+    p.trade_count,
+    mr.resolved_at,
+    formatDateTime(mr.resolved_at, '%Y-%m') AS month
+FROM (
+    SELECT trader, condition_id, net_yes, net_no, volume, trade_count,
+           yes_px_vol / nullIf(volume, 0) AS wavg_yes
+    FROM trader_market_positions FINAL
+) p
+INNER JOIN (
+    SELECT condition_id, resolved_at,
+           coalesce(token_won, false) AS yes_won
+    FROM markets_resolved
+    WHERE outcome = 'YES'
+) mr ON p.condition_id = mr.condition_id
+WHERE NOT (p.net_yes <= 0.01 AND p.net_no <= 0.01)
+"""
+
 
 def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> None:
     """Create all Kafka engine tables and materialized views.
@@ -238,3 +317,8 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
     clickhouse.execute(TRADER_VOLUMES_TAKER_MV)  # type: ignore[attr-defined]
     clickhouse.execute(TRADER_TRADE_AGG_MAKER_MV)  # type: ignore[attr-defined]
     clickhouse.execute(TRADER_TRADE_AGG_TAKER_MV)  # type: ignore[attr-defined]
+
+    # Trader market positions (chained MV from trader_trade_agg)
+    clickhouse.execute(TRADER_MARKET_POSITIONS_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_MARKET_POSITIONS_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(TRADER_POSITIONS_RESOLVED_VIEW)  # type: ignore[attr-defined]

@@ -15,7 +15,6 @@ import structlog
 import typer
 
 from polymarket_pipeline.strategies.config import (
-    StrategyConfig,
     load_provider_configs,
     load_strategy_configs,
 )
@@ -38,20 +37,10 @@ _PROVIDER_REGISTRY: dict[str, type[Any]] = {}
 
 
 def _register_providers() -> None:
-    """Register known provider classes."""
-    from polymarket_pipeline.strategies_impl.market_size.providers import (
-        MarketSizeProvider,
-    )
-    from polymarket_pipeline.strategies_impl.will_no.providers import (
-        WillMarketProvider,
-    )
+    """Register known provider classes.
 
-    _PROVIDER_REGISTRY["will_markets"] = WillMarketProvider
-    _PROVIDER_REGISTRY["market_size"] = MarketSizeProvider
-
-    from polymarket_pipeline.strategies_impl.hr_pool.providers import HRPoolProvider
-
-    _PROVIDER_REGISTRY["hr_pool"] = HRPoolProvider
+    Add new provider registrations here when implementing strategies.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -61,54 +50,11 @@ def _register_providers() -> None:
 _STRATEGY_FACTORIES: dict[str, Any] = {}
 
 
-def _make_consensus_copy(config: StrategyConfig) -> Any:
-    from polymarket_pipeline.strategies_impl.consensus_copy.config import (
-        ConsensusCopyConfig,
-    )
-    from polymarket_pipeline.strategies_impl.consensus_copy.strategy import (
-        ConsensusCopyStrategy,
-    )
-
-    cc_cfg = ConsensusCopyConfig(**config.params)
-    return ConsensusCopyStrategy(config=cc_cfg)
-
-
-def _make_crypto_otm_no(config: StrategyConfig) -> Any:
-    from polymarket_pipeline.strategies_impl.crypto_otm_no.config import CryptoOTMNoConfig
-    from polymarket_pipeline.strategies_impl.crypto_otm_no.strategy import CryptoOTMNoStrategy
-
-    return CryptoOTMNoStrategy(config=CryptoOTMNoConfig(**config.params))
-
-
-def _make_will_no(config: StrategyConfig) -> Any:
-    from polymarket_pipeline.strategies_impl.will_no.config import WillNoConfig
-    from polymarket_pipeline.strategies_impl.will_no.strategy import WillNoStrategy
-
-    return WillNoStrategy(config=WillNoConfig(**config.params))
-
-
-def _make_proportional_copy(config: StrategyConfig) -> Any:
-    from polymarket_pipeline.strategies_impl.proportional_copy.config import (
-        ProportionalCopyConfig,
-    )
-    from polymarket_pipeline.strategies_impl.proportional_copy.strategy import (
-        ProportionalCopyStrategy,
-    )
-
-    return ProportionalCopyStrategy(config=ProportionalCopyConfig(**config.params))
-
-
-def _make_hr_pool(config: StrategyConfig) -> Any:
-    from polymarket_pipeline.strategies_impl.hr_pool.config import HRPoolConfig
-    from polymarket_pipeline.strategies_impl.hr_pool.strategy import HRPoolStrategy
-
-    return HRPoolStrategy(config=HRPoolConfig(**config.params))
-
-
 def _register_strategies() -> None:
-    """Register known strategy factories."""
-    _STRATEGY_FACTORIES["will_no"] = _make_will_no
-    _STRATEGY_FACTORIES["hr_pool"] = _make_hr_pool
+    """Register known strategy factories.
+
+    Add new strategy factories here when implementing strategies.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +81,6 @@ def _build_runner(
     """
     _register_strategies()
     _register_providers()
-
-    import polars as pl
 
     # Load configs
     strategy_configs = load_strategy_configs(config_path, enabled_only=True)
@@ -165,22 +109,7 @@ def _build_runner(
         if pname in _PROVIDER_REGISTRY:
             pcfg = provider_configs.get(pname)
             params = pcfg.params if pcfg else {}
-
-            if pname == "market_size":
-                from polymarket_pipeline.strategies_impl.market_size.config import (
-                    MarketSizeConfig,
-                )
-
-                provider = _PROVIDER_REGISTRY[pname](config=MarketSizeConfig(**params))
-            elif pname == "hr_pool":
-                from polymarket_pipeline.strategies_impl.hr_pool.config import (
-                    HRPoolConfig as _HRPoolConfig,
-                )
-
-                provider = _PROVIDER_REGISTRY[pname](config=_HRPoolConfig(**params))
-            else:
-                provider = _PROVIDER_REGISTRY[pname](**params)
-
+            provider = _PROVIDER_REGISTRY[pname](**params)
             providers.append(provider)
 
     # Create strategies
