@@ -594,3 +594,131 @@ async def test_volume_accumulator(
     # Second trade accumulates
     await runner._handle_trade(_trade(maker="0xbob", ts=now + 1))
     assert vol["0xcond"] == pytest.approx(120.0)
+
+
+# ---------------------------------------------------------------------------
+# Voided market settlement (C2)
+# ---------------------------------------------------------------------------
+
+from polymarket_pipeline.strategies.types import Position
+
+
+async def test_settle_voided_market_yes_position(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """settle_voided_market with YES position: pnl = (0.5 - 0.6) * 100 = -10."""
+    runner = LiveRunner(
+        strategies=[],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    # Seed a position: 100 YES tokens at avg entry 0.60
+    pos = Position(
+        condition_id="cid",
+        strategy="test",
+        qty_yes=100.0,
+        qty_no=0.0,
+        avg_entry_yes=0.60,
+        avg_entry_no=0.0,
+        cost_basis=60.0,
+        realized_pnl=0.0,
+    )
+    ctx.set_position("cid", pos)
+
+    runner.settle_voided_market("cid", 0.5)
+
+    updated = await ctx.get_position("cid")
+    assert updated is not None
+    assert updated.qty_yes == 0.0
+    assert updated.qty_no == 0.0
+    assert updated.cost_basis == 0.0
+    assert updated.realized_pnl == pytest.approx(-10.0)
+
+
+async def test_settle_voided_market_no_position(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """settle_voided_market with NO position: pnl = (0.5 - 0.3) * 200 = +40."""
+    runner = LiveRunner(
+        strategies=[],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    pos = Position(
+        condition_id="cid",
+        strategy="test",
+        qty_yes=0.0,
+        qty_no=200.0,
+        avg_entry_yes=0.0,
+        avg_entry_no=0.30,
+        cost_basis=60.0,
+        realized_pnl=5.0,
+    )
+    ctx.set_position("cid", pos)
+
+    runner.settle_voided_market("cid", 0.5)
+
+    updated = await ctx.get_position("cid")
+    assert updated is not None
+    assert updated.qty_yes == 0.0
+    assert updated.qty_no == 0.0
+    assert updated.cost_basis == 0.0
+    assert updated.realized_pnl == pytest.approx(45.0)  # 5.0 existing + 40.0 delta
+
+
+async def test_settle_voided_market_both_sides(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """settle_voided_market with both YES and NO tokens."""
+    runner = LiveRunner(
+        strategies=[],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    pos = Position(
+        condition_id="cid",
+        strategy="test",
+        qty_yes=50.0,
+        qty_no=50.0,
+        avg_entry_yes=0.70,
+        avg_entry_no=0.40,
+        cost_basis=55.0,
+        realized_pnl=0.0,
+    )
+    ctx.set_position("cid", pos)
+
+    runner.settle_voided_market("cid", 0.5)
+
+    updated = await ctx.get_position("cid")
+    assert updated is not None
+    assert updated.qty_yes == 0.0
+    assert updated.qty_no == 0.0
+    # YES pnl: (0.5 - 0.7) * 50 = -10.0
+    # NO pnl:  (0.5 - 0.4) * 50 = +5.0
+    # total: -5.0
+    assert updated.realized_pnl == pytest.approx(-5.0)
+
+
+async def test_settle_voided_market_no_position_noop(
+    ctx: InMemoryContext, gateway: ExecutionGateway
+) -> None:
+    """settle_voided_market with unknown condition_id is a no-op."""
+    runner = LiveRunner(
+        strategies=[],
+        providers=[],
+        gateway=gateway,
+        ctx=ctx,
+        backend=_BACKEND,
+    )
+
+    # Should not raise
+    runner.settle_voided_market("nonexistent", 0.5)

@@ -66,11 +66,18 @@ class MarketEventsConsumer:
 
         # Settle paper positions before refresh (frees budget + max_open slots)
         winner = payload.get("resolution", "")
-        if winner in ("YES", "NO") and hasattr(self._runner, "settle_resolved_market"):
-            self._runner.settle_resolved_market(condition_id, winner)
+        if winner in ("YES", "NO"):
+            resolution_value = 1
+            if hasattr(self._runner, "settle_resolved_market"):
+                self._runner.settle_resolved_market(condition_id, winner)
+        else:
+            # Voided / Unknown / 50-50 — each token redeems at $0.50
+            resolution_value = -1
+            if hasattr(self._runner, "settle_voided_market"):
+                self._runner.settle_voided_market(condition_id, 0.5)
 
         if self._pg_pool is not None:
-            await self._upsert_resolution(condition_id, payload)
+            await self._upsert_resolution(condition_id, payload, resolution_value)
 
         self._pending_resolutions += 1
         self._schedule_refresh()
@@ -80,7 +87,7 @@ class MarketEventsConsumer:
         log.info("market_events.new_market", condition_id=condition_id)
 
     async def _upsert_resolution(
-        self, condition_id: str, payload: dict[str, Any]
+        self, condition_id: str, payload: dict[str, Any], resolution_value: int = 1
     ) -> None:
         """Update the markets table in PostgreSQL with resolution data."""
         try:
@@ -88,11 +95,12 @@ class MarketEventsConsumer:
                 await conn.execute(
                     """
                     UPDATE markets
-                    SET resolution_value = 1,
-                        winner_outcome = $1,
+                    SET resolution_value = $1,
+                        winner_outcome = $2,
                         resolved_at = NOW()
-                    WHERE condition_id = $2
+                    WHERE condition_id = $3
                     """,
+                    resolution_value,
                     payload.get("resolution", ""),
                     condition_id,
                 )
@@ -200,7 +208,37 @@ class ResolutionPoller:
                     closed = data.get("closed", False)
                     winners = [t for t in tokens if t.get("winner") is True]
 
-                    if not closed or len(winners) != 1:
+                    if not closed:
+                        continue
+
+                    if len(winners) == 0:
+                        # Voided / Unknown / 50-50 — payout vector [1,1]
+                        async with self._pg_pool.acquire() as conn:
+                            await conn.execute(
+                                """UPDATE markets
+                                   SET resolution_value = -1,
+                                       winner_outcome = '',
+                                       resolved_at = NOW()
+                                   WHERE condition_id = $1
+                                     AND resolved_at IS NULL""",
+                                cid,
+                            )
+
+                        log.info(
+                            "resolution_poller.voided",
+                            condition_id=cid,
+                        )
+                        resolved_count += 1
+
+                        if (
+                            self._runner is not None
+                            and hasattr(self._runner, "settle_voided_market")
+                        ):
+                            self._runner.settle_voided_market(cid, 0.5)
+
+                        continue
+
+                    if len(winners) != 1:
                         continue
 
                     winner_outcome = winners[0].get("outcome", "")
