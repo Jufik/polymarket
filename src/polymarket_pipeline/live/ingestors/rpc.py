@@ -22,7 +22,12 @@ from polymarket_pipeline.constants import NEGRISK_UMA_ADAPTER, UMA_CTF_ADAPTER_V
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.live.normalizers.decode.resolution import decode_settled_price
-from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
+from polymarket_pipeline.live.normalizers.decode.rpc import decode_rpc_log
+from polymarket_pipeline.live.normalizers.enrich import enrich
+from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG
+from polymarket_pipeline.live.normalizers.token_map import TokenMap
+from polymarket_pipeline.live.normalizers.types import Rejection
+from polymarket_pipeline.live.normalizers.validate import validate
 
 log = structlog.get_logger()
 
@@ -61,7 +66,7 @@ class RPCIngestor(BaseIngestor):
     ) -> None:
         super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._ws_url = ws_url
-        self._normalizer = PolygonRPCNormalizer(token_market_map=token_market_map)
+        self._token_map = TokenMap(token_market_map or {})
         self._last_block: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
         self._drops_taker_dedup: int = 0
@@ -94,16 +99,26 @@ class RPCIngestor(BaseIngestor):
 
         # Use blockTimestamp from RPC (hex-encoded unix seconds).
         # Fall back to current time if not present.
-        block_ts = result.get("blockTimestamp")
-        if block_ts:
-            result["_timestamp"] = int(block_ts, 16)
+        block_ts_hex = result.get("blockTimestamp")
+        if block_ts_hex:
+            block_ts: float = float(int(block_ts_hex, 16))
         else:
-            result["_timestamp"] = int(time.time())
+            block_ts = float(int(time.time()))
 
-        trade = self._normalizer.normalize(result)
-        if trade is None:
-            self._drops_taker_dedup += 1
-            return  # taker duplicate dropped
+        # Decode -> Enrich -> Validate pipeline
+        decoded = decode_rpc_log(result, block_timestamp=block_ts)
+        if decoded is None:
+            return  # not an OrderFilled event
+
+        enriched = enrich(decoded, self._token_map)
+        if isinstance(enriched, Rejection):
+            if enriched.reason == "taker_dedup":
+                self._drops_taker_dedup += 1
+            return
+
+        trade = validate(enriched)
+        if isinstance(trade, Rejection):
+            return
 
         trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
