@@ -19,5 +19,9 @@ FEE_MODULE_ADDRS: frozenset[str] = frozenset(
     }
 )
 
+# UMA adapters for on-chain resolution detection
+UMA_CTF_ADAPTER_V3 = "0x157Ce2d672854c848c9b79C49a8Cc6cc89176a49"
+NEGRISK_UMA_ADAPTER = "0x2F5e3684cb1F318ec51b00Edba38d79Ac2c0aA9d"
+
 # USDC uses 6 decimals (1e6), NOT 1e18
 USDC_SCALE = Decimal("1000000")
