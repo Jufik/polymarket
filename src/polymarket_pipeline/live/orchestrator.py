@@ -231,15 +231,28 @@ async def periodic_token_map_refresh(
             log.exception("token_map_refresh.sync_error")
 
         try:
-            new_map = await _load_token_map_from_pg(settings.pg_dsn)
-            old_size = len(token_map)
-            token_map.clear()
-            token_map.update(new_map)
+            fresh = await _load_token_map_from_pg(settings.pg_dsn)
+            old_keys = set(token_map.keys())
+            new_keys = set(fresh.keys())
+
+            # Atomic-ish swap: update first (no empty-map window), then prune stale.
+            # Python dict.update is a single C-level call, effectively atomic under
+            # the GIL. Doing clear()+update() left a window where ingestors saw an
+            # empty dict — this approach eliminates that bug.
+            token_map.update(fresh)
+
+            # Remove entries no longer in PG (resolved/delisted markets).
+            stale_keys = old_keys - new_keys
+            for k in stale_keys:
+                token_map.pop(k, None)
+
+            added = new_keys - old_keys
             log.info(
                 "token_map_refresh.reloaded",
-                old_size=old_size,
+                old_size=len(old_keys),
                 new_size=len(token_map),
-                delta=len(token_map) - old_size,
+                added=len(added),
+                removed=len(stale_keys),
             )
         except Exception:
             log.exception("token_map_refresh.reload_error")
