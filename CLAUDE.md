@@ -187,7 +187,8 @@ src/polymarket_pipeline/
 │   ├── dedup.py         # TTL-based trade deduplication
 │   ├── ingestors/       # 5 sources + BaseIngestor ABC
 │   │   ├── base.py      # BaseIngestor: shared heartbeat, counters, circuit breaker
-│   │   ├── alchemy.py   # Polygon RPC logs (on-chain, ~3.7s latency)
+│   │   ├── rpc.py       # RPCIngestor: Polygon RPC logs + on-chain resolution detection
+│   │   ├── alchemy.py   # Backward-compat shim (re-exports RPCIngestor as AlchemyIngestor)
 │   │   ├── rtds.py      # RTDS WS pool with rotation + dedup
 │   │   ├── pending_block.py  # Multi-endpoint pending block poller (~1s early)
 │   │   ├── clob_orderbook.py # CLOB WS orderbook + market event forwarding

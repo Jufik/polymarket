@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from polymarket_pipeline.live.ingestors._publish import safe_publish
-from polymarket_pipeline.live.ingestors.alchemy import AlchemyIngestor
+from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
 from polymarket_pipeline.live.ingestors.mempool import MempoolIngestor
 from polymarket_pipeline.live.ingestors.pending_block import PendingBlockIngestor
 from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
@@ -50,16 +50,18 @@ async def create_ingestors(
         pool_size=settings.rtds_pool_size,
         rotation_interval_s=settings.rtds_rotation_interval_s,
     )
-    alchemy = AlchemyIngestor(
+    rpc = RPCIngestor(
         broker=broker,
-        ws_url=settings.alchemy_ws_url,
+        ws_url=settings.rpc_ws_url,
         topic="trades.raw",
         status_topic="pipeline.status",
         token_market_map=token_map,
+        markets_events_topic=settings.clob_markets_events_topic,
+        resolution_enabled=settings.resolution_rpc_enabled,
     )
 
     tasks.append(asyncio.create_task(rtds.run()))
-    tasks.append(asyncio.create_task(alchemy.run()))
+    tasks.append(asyncio.create_task(rpc.run()))
 
     if settings.mempool_enabled:
         mempool = MempoolIngestor(

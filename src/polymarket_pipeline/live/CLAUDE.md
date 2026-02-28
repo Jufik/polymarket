@@ -11,10 +11,10 @@ FastStream + Redpanda-based live ingestion pipeline.
 
 | Topic | Producer | Consumer | Schema |
 |-------|----------|----------|--------|
-| `trades.raw` | Ingestors (alchemy, rtds, pending_block) | ClickHouse Kafka engine, strategy runner | NormalizedTrade JSON |
+| `trades.raw` | Ingestors (rpc, rtds, pending_block) | ClickHouse Kafka engine, strategy runner | NormalizedTrade JSON |
 | `pending.signal` | PendingBlockIngestor | Strategies with `subscribe_pending=true` | NormalizedTrade JSON |
 | `orderbooks.raw` | CLOBOrderbookIngestor | ClickHouse Kafka engine, strategy runner | `{condition_id, asset_id, best_bid, best_ask, timestamp}` |
-| `markets.events` | CLOBOrderbookIngestor | MarketEventsConsumer (both app.py + strategy CLI) | `{type, condition_id, payload, timestamp}` |
+| `markets.events` | CLOBOrderbookIngestor, RPCIngestor (resolution) | MarketEventsConsumer (both app.py + strategy CLI) | `{type, condition_id, payload, timestamp}` |
 | `pipeline.status` | All ingestors (heartbeat) | QualityChecker | `{source, status, timestamp}` |
 
 ## Ingestors (ingestors/)
@@ -23,11 +23,14 @@ All extend `BaseIngestor` ABC (heartbeat, counters, circuit breaker).
 
 | Ingestor | Source | Latency | Identity |
 |----------|--------|---------|----------|
-| `AlchemyIngestor` | Polygon RPC logs | T+3.7s | maker + taker |
+| `RPCIngestor` | Polygon RPC logs + on-chain resolution | T+3.7s (trades), T+3s (resolution) | maker + taker |
 | `RTDSIngestor` | RTDS WS pool | T+4.2s | proxyWallet (taker/maker) |
 | `PendingBlockIngestor` | RPC pending block poll | T+0.2s | from/to only |
-| `CLOBOrderbookIngestor` | CLOB WS | T+0.0s | none (prices only) |
+| `CLOBOrderbookIngestor` | CLOB WS (120s stale timeout) | T+0.0s | none (prices only) |
 | `SubgraphIngestor` | Goldsky subgraph | recovery only | maker + taker |
+
+Note: `AlchemyIngestor` in `alchemy.py` is a backward-compat shim that re-exports `RPCIngestor`.
+The `source_name` remains `"alchemy"` for backward compatibility with stored data in CH/Kafka.
 
 ### CLOBOrderbookIngestor
 
@@ -60,7 +63,7 @@ Pydantic Settings with `PM_` env prefix. Key groups:
 | Group | Settings |
 |-------|----------|
 | Redpanda | `redpanda_url` |
-| Alchemy | `alchemy_ws_url` (required) |
+| RPC | `rpc_ws_url` (accepts legacy `PM_ALCHEMY_WS_URL`), `resolution_rpc_enabled` |
 | ClickHouse | `ch_host`, `ch_port`, `ch_database`, `ch_batch_size`, `ch_flush_interval_s` |
 | PostgreSQL | `pg_dsn` |
 | CLOB WS | `clob_orderbook_enabled`, `clob_orderbook_ws_url`, `clob_markets_events_topic` |

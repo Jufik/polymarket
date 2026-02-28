@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,8 +19,14 @@ class Settings(BaseSettings):
     redpanda_url: str = "localhost:19092"
 
     # Polygon RPC WebSocket (eth_subscribe logs for OrderFilled events)
-    # Free public endpoints — override via PM_ALCHEMY_WS_URL if you have a paid one
-    alchemy_ws_url: str = "wss://polygon-bor-rpc.publicnode.com"
+    # Free public endpoints — override via PM_RPC_WS_URL (or legacy PM_ALCHEMY_WS_URL)
+    rpc_ws_url: str = Field(
+        default="wss://polygon-bor-rpc.publicnode.com",
+        validation_alias=AliasChoices("PM_RPC_WS_URL", "PM_ALCHEMY_WS_URL"),
+    )
+
+    # On-chain resolution detection via UMA CTF Adapter QuestionResolved events
+    resolution_rpc_enabled: bool = True
 
     # Goldsky Subgraph (recovery)
     subgraph_url: str = (

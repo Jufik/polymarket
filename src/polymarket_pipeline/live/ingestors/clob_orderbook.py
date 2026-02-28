@@ -30,6 +30,7 @@ log = structlog.get_logger()
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 _MAX_ASSETS_PER_WS = 500
+_FIREHOSE_STALE_TIMEOUT = 120.0  # Force reconnect if firehose silent for 2 min
 
 
 class CLOBOrderbookIngestor(BaseIngestor):
@@ -191,7 +192,17 @@ class CLOBOrderbookIngestor(BaseIngestor):
                     }
                     await ws.send(json.dumps(payload))
                     log.info("clob_orderbook.firehose_connected")
-                    async for raw in ws:
+                    while True:
+                        try:
+                            raw = await asyncio.wait_for(
+                                ws.recv(), timeout=_FIREHOSE_STALE_TIMEOUT
+                            )
+                        except TimeoutError:
+                            log.warning(
+                                "clob_orderbook.firehose_stale",
+                                timeout_s=_FIREHOSE_STALE_TIMEOUT,
+                            )
+                            break
                         await self._handle_message(str(raw))
             except websockets.ConnectionClosed:
                 log.warning("clob_orderbook.firehose_disconnected", backoff=backoff)

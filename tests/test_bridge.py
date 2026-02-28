@@ -78,12 +78,11 @@ def test_bridge_returns_error_on_missing_function():
     assert result.returncode != 0
 
 
-def test_bridge_handles_list_strategies():
-    """Bridge can list strategy directories."""
+def test_bridge_handles_read_text_file():
+    """Bridge can call read_text_file helper."""
     result = _run_bridge(
         "polymarket_pipeline.cli.bridge",
-        "list_strategies",
-        {},
+        "read_text_file",
+        {"path": "nonexistent_file_xyz.txt"},
     )
-    assert isinstance(result, list)
-    assert "consistency_copy" in result
+    assert result is None
