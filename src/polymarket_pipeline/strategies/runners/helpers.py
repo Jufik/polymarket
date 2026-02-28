@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
+import structlog
+
 from polymarket_pipeline.strategies.types import Fill, Position
+
+_log = structlog.get_logger()
 
 if TYPE_CHECKING:
     from polymarket_pipeline.strategies.config import StrategyConfig
@@ -58,17 +62,29 @@ def apply_fill_to_position(old: Position | None, fill: Fill) -> Position:
     # SELL
     sold_qty = fill.filled_size_usd / fill.filled_price
     if fill.outcome == "YES":
+        old_qty = old.qty_yes
+        if sold_qty > old_qty:
+            _log.warning("position.oversell", condition_id=old.condition_id,
+                         sold=round(sold_qty, 4), held=round(old_qty, 4),
+                         outcome=fill.outcome)
+        new_qty = max(old_qty - sold_qty, 0.0)
         pnl_delta = (fill.filled_price - old.avg_entry_yes) * sold_qty - fill.fee_usd
         return replace(
             old,
-            qty_yes=old.qty_yes - sold_qty,
+            qty_yes=new_qty,
             realized_pnl=old.realized_pnl + pnl_delta,
         )
     # SELL NO
+    old_qty = old.qty_no
+    if sold_qty > old_qty:
+        _log.warning("position.oversell", condition_id=old.condition_id,
+                     sold=round(sold_qty, 4), held=round(old_qty, 4),
+                     outcome=fill.outcome)
+    new_qty = max(old_qty - sold_qty, 0.0)
     pnl_delta = (fill.filled_price - old.avg_entry_no) * sold_qty - fill.fee_usd
     return replace(
         old,
-        qty_no=old.qty_no - sold_qty,
+        qty_no=new_qty,
         realized_pnl=old.realized_pnl + pnl_delta,
     )
 
