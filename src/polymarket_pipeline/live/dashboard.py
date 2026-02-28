@@ -556,7 +556,7 @@ async def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> s
     <div class="value">{gap["rtds_first"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Alchemy First</div>
+    <div class="label">RPC First</div>
     <div class="value">{gap["alchemy_first"]}</div>
   </div>
   <div class="metric">
@@ -576,7 +576,7 @@ async def build_dashboard_html(checker: QualityChecker, refresh_s: int = 5) -> s
     <div class="value">{gap["rtds_only"]}</div>
   </div>
   <div class="metric">
-    <div class="label">Alchemy-only</div>
+    <div class="label">RPC-only</div>
     <div class="value">{gap["alchemy_only"]}</div>
   </div>
   <div class="metric">
