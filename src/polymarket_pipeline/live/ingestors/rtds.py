@@ -21,7 +21,11 @@ import websockets
 from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.base import BaseIngestor
-from polymarket_pipeline.normalizers.rtds import RTDSNormalizer
+from polymarket_pipeline.live.normalizers.decode.rtds import decode_rtds_payload
+from polymarket_pipeline.live.normalizers.enrich import enrich
+from polymarket_pipeline.live.normalizers.token_map import TokenMap
+from polymarket_pipeline.live.normalizers.types import Rejection
+from polymarket_pipeline.live.normalizers.validate import validate
 
 log = structlog.get_logger()
 
@@ -55,7 +59,10 @@ class RTDSIngestor(BaseIngestor):
         super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._pool_size = max(pool_size, 1)
         self._rotation_interval_s = rotation_interval_s
-        self._normalizer = RTDSNormalizer()
+        # Mutable dict built from RTDS payload conditionId — RTDS provides
+        # conditionId directly, so we self-populate the token_map.
+        # Task 12 will replace this with the shared externally-provided TokenMap.
+        self._token_map_dict: dict[str, tuple[str, str]] = {}
         self._dedup = TradeDedup(ttl_s=_DEDUP_TTL_S)
         self._last_trade_ts: float = 0.0
         self._connections_alive: int = 0
@@ -82,11 +89,31 @@ class RTDSIngestor(BaseIngestor):
         if msg.get("type") != "trades":
             return
 
-        try:
-            trade = self._normalizer.normalize(msg)
-        except ValueError as exc:
-            log.error("rtds.normalize_error", conn=conn_id, reason=str(exc))
+        payload = msg.get("payload")
+        if not payload:
             return
+
+        try:
+            # Decode -> Enrich -> Validate pipeline
+            decoded = decode_rtds_payload(payload)
+            if decoded is None:
+                return  # dust trade (size rounded to zero)
+
+            # RTDS provides conditionId directly — self-populate the token_map
+            # so the shared enrich stage can resolve asset_id -> condition_id.
+            condition_id = payload.get("conditionId", "")
+            if condition_id and decoded.asset_id not in self._token_map_dict:
+                outcome = payload.get("outcome", "")
+                self._token_map_dict[decoded.asset_id] = (condition_id, outcome)
+
+            token_map = TokenMap(self._token_map_dict)
+            enriched = enrich(decoded, token_map)
+            if isinstance(enriched, Rejection):
+                return
+
+            trade = validate(enriched)
+            if isinstance(trade, Rejection):
+                return
         except Exception:
             log.exception("rtds.normalize_error", conn=conn_id)
             return
