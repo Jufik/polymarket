@@ -18,8 +18,10 @@ from typing import Any
 import structlog
 import websockets
 
+from polymarket_pipeline.constants import NEGRISK_UMA_ADAPTER, UMA_CTF_ADAPTER_V3
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.base import BaseIngestor
+from polymarket_pipeline.live.normalizers.decode.resolution import decode_settled_price
 from polymarket_pipeline.live.normalizers.polygon_rpc import ORDER_FILLED_SIG, PolygonRPCNormalizer
 
 log = structlog.get_logger()
@@ -27,9 +29,6 @@ log = structlog.get_logger()
 # Both CTF Exchange contracts
 CTF_EXCHANGE = "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e"
 NEGRISK_EXCHANGE = "0xc5d563a36ae78145c45a50134d48a1215220f80a"
-
-# UMA CTF Adapter v3 — emits QuestionResolved(questionID, settledPrice)
-UMA_CTF_ADAPTER_V3 = "0x157Ce2d672854c848c9b79C49a8Cc6cc89176a49"
 
 # keccak256("QuestionResolved(bytes32,int256)")
 QUESTION_RESOLVED_SIG = "0x566c3fbd0982e206be981f8d7a42e3e436525258ecc0adc044023b81ab281d0e"
@@ -237,7 +236,7 @@ class RPCIngestor(BaseIngestor):
                             "params": [
                                 "logs",
                                 {
-                                    "address": [UMA_CTF_ADAPTER_V3],
+                                    "address": [UMA_CTF_ADAPTER_V3, NEGRISK_UMA_ADAPTER],
                                     "topics": [[QUESTION_RESOLVED_SIG]],
                                 },
                             ],
@@ -291,9 +290,8 @@ class RPCIngestor(BaseIngestor):
 
         # topic[0] = event sig, topic[1] = questionID, topic[2] = settledPrice
         condition_id = topics[1]  # 0x-prefixed 32-byte hex
-        settled_price_raw = int(topics[2], 16)
-        # settledPrice is int256 — 1e18 means YES, 0 means NO
-        winner = "YES" if settled_price_raw > 0 else "NO"
+        outcome, payout = decode_settled_price(topics[2])
+        winner = outcome.value  # "YES", "NO", or "VOIDED"
 
         payload = {
             "type": "market_resolved",
@@ -302,7 +300,7 @@ class RPCIngestor(BaseIngestor):
                 "event_type": "market_resolved",
                 "condition_id": condition_id,
                 "winner": winner,
-                "settled_price": settled_price_raw,
+                "settled_price": payout,
                 "source": "rpc_on_chain",
                 "tx_hash": result.get("transactionHash"),
                 "block_number": (
