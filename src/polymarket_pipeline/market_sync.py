@@ -163,12 +163,14 @@ async def fetch_clob_markets() -> ClobMarketsResult:
                 token_winners: dict[str, bool] = {}
                 for idx, t in enumerate(tokens):
                     actual_outcome = t.get("outcome", "")
-                    if idx < 2:  # only validate first two (YES/NO pair)
-                        expected = "Yes" if idx == 0 else "No"
-                        if actual_outcome and actual_outcome != expected:
-                            log.warning("token_ordering.unexpected",
-                                        condition_id=condition_id, idx=idx,
-                                        expected=expected, actual=actual_outcome)
+                    # Only validate ordering for Yes/No markets (not matchup markets
+                    # where outcomes are team names like "Rockies" / "Brewers")
+                    if idx == 0 and actual_outcome == "No":
+                        log.warning("token_ordering.yes_no_swapped",
+                                    condition_id=condition_id)
+                    elif idx == 1 and actual_outcome == "Yes":
+                        log.warning("token_ordering.yes_no_swapped",
+                                    condition_id=condition_id)
                     token_id = t.get("token_id", "")
                     if not token_id:
                         continue
