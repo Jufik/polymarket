@@ -224,13 +224,14 @@ CREATE TABLE IF NOT EXISTS trader_market_positions (
     condition_id    LowCardinality(String),
     net_yes         Float64,
     net_no          Float64,
+    net_usd         Float64,
     volume          Float64,
     trade_count     UInt64,
     yes_px_vol      Float64,
     first_trade     SimpleAggregateFunction(min, DateTime64(3)),
     last_trade      SimpleAggregateFunction(max, DateTime64(3))
 ) ENGINE = SummingMergeTree(
-    (net_yes, net_no, volume, trade_count, yes_px_vol)
+    (net_yes, net_no, net_usd, volume, trade_count, yes_px_vol)
 )
 ORDER BY (trader, condition_id)
 """
@@ -243,6 +244,7 @@ SELECT
     a.condition_id,
     if(tm.outcome = 'YES', a.net_tokens, 0)                          AS net_yes,
     if(tm.outcome = 'NO',  a.net_tokens, 0)                          AS net_no,
+    a.net_usd,
     a.volume,
     a.trade_count,
     if(tm.outcome = 'YES', a.price_x_vol, a.volume - a.price_x_vol)  AS yes_px_vol,
@@ -256,30 +258,27 @@ TRADER_POSITIONS_RESOLVED_VIEW = """
 CREATE OR REPLACE VIEW trader_positions_resolved AS
 SELECT
     p.trader,
+    p.condition_id,
     CASE
         WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN 'YES'
         WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 'NO'
         WHEN p.net_yes > 0.01 AND p.net_no > 0.01  THEN 'HEDGED'
         ELSE 'CLOSED'
     END AS position,
-    CASE
-        WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN wavg_yes
-        WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN 1.0 - wavg_yes
-        WHEN p.net_yes >= p.net_no                  THEN wavg_yes
-        ELSE 1.0 - wavg_yes
-    END AS dir_entry,
-    CASE
-        WHEN p.net_yes > 0.01 AND p.net_no <= 0.01 THEN mr.yes_won
-        WHEN p.net_no > 0.01 AND p.net_yes <= 0.01 THEN NOT mr.yes_won
-        WHEN p.net_yes >= p.net_no                  THEN mr.yes_won
-        ELSE NOT mr.yes_won
-    END AS correct,
+    wavg_yes AS avg_yes_price,
+    CASE WHEN mr.yes_won THEN p.net_yes ELSE p.net_no END AS payout,
+    (CASE WHEN mr.yes_won THEN p.net_yes ELSE p.net_no END) + p.net_usd AS realized_pnl,
+    (CASE WHEN mr.yes_won THEN p.net_yes ELSE p.net_no END) + p.net_usd > 0 AS correct,
+    p.net_usd,
+    p.net_yes,
+    p.net_no,
     p.volume AS market_volume,
     p.trade_count,
+    mr.yes_won,
     mr.resolved_at,
     formatDateTime(mr.resolved_at, '%Y-%m') AS month
 FROM (
-    SELECT trader, condition_id, net_yes, net_no, volume, trade_count,
+    SELECT trader, condition_id, net_yes, net_no, net_usd, volume, trade_count,
            yes_px_vol / nullIf(volume, 0) AS wavg_yes
     FROM trader_market_positions FINAL
 ) p

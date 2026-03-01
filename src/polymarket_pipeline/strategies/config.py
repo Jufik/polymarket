@@ -87,6 +87,19 @@ def load_strategy_configs(
     return strategies
 
 
+def load_promotion_thresholds(path: Path) -> dict[str, Any]:
+    """Load promotion thresholds from the ``[promotion]`` TOML section.
+
+    Returns a dict of threshold values that can be unpacked into
+    ``PromotionThresholds(**values)``.  If the section is missing,
+    returns an empty dict (all defaults apply).
+    """
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+
+    return dict(raw.get("promotion", {}))
+
+
 def load_provider_configs(
     path: Path,
     *,

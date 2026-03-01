@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from polymarket_pipeline.strategies.config import StrategyConfig
     from polymarket_pipeline.strategies.context.memory import InMemoryContext
     from polymarket_pipeline.strategies.execution.gateway import ExecutionGateway
+    from polymarket_pipeline.strategies.ledger.base import LedgerBackend
+    from polymarket_pipeline.strategies.ledger.types import LedgerRecord
     from polymarket_pipeline.strategies.protocol import Strategy
     from polymarket_pipeline.strategies.types import TradeIntent
 
@@ -34,6 +36,7 @@ class BacktestResult:
     total_fills: int = 0
     fills: list[Fill] = field(default_factory=list)
     rejected_intents: list[tuple[TradeIntent, str]] = field(default_factory=list)
+    ledger_records: list[LedgerRecord] = field(default_factory=list)
 
 
 class BacktestRunner:
@@ -62,6 +65,7 @@ class BacktestRunner:
         "_delay_s",
         "_gateway",
         "_last_trade_times",
+        "_ledger",
         "_pending_intents",
         "_strategy",
     )
@@ -74,6 +78,7 @@ class BacktestRunner:
         config: StrategyConfig | None = None,
         *,
         delay_s: float = 0.0,
+        ledger: LedgerBackend | None = None,
     ) -> None:
         self._strategy = strategy
         self._ctx = ctx
@@ -82,6 +87,7 @@ class BacktestRunner:
         self._delay_s = delay_s
         self._last_trade_times: dict[str, float] = {}
         self._pending_intents: list[tuple[float, TradeIntent]] = []
+        self._ledger = ledger
 
     async def run(self, trades: list[NormalizedTrade]) -> BacktestResult:
         """Replay *trades* in ``published_at`` order and collect results.
@@ -163,6 +169,14 @@ class BacktestRunner:
         fill = await self._gateway.submit(intent)
         result.total_fills += 1
         result.fills.append(fill)
+
+        # Ledger record
+        if self._ledger is not None:
+            from polymarket_pipeline.strategies.ledger.base import make_ledger_record
+
+            record = make_ledger_record(intent, fill)
+            await self._ledger.append(record)
+            result.ledger_records.append(record)
 
         # Position tracking
         old_pos = await self._ctx.get_position(fill.condition_id)

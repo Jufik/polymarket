@@ -524,3 +524,95 @@ def reset(
         typer.echo(f"  Kafka reset error: {e}")
 
     typer.echo("Done. Restart strategies: supervisorctl start strategies:*")
+
+
+# ---------------------------------------------------------------------------
+# promote command — check promotion gates
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def promote(
+    name: str = typer.Argument(..., help="Strategy name to check"),
+    to: str = typer.Option(..., "--to", help="Target mode (paper_dev, paper_prod, live)"),
+    config: Path = typer.Option(..., "--config", "-c", help="Path to strategy TOML config"),
+    ledger_dir: Path = typer.Option(
+        Path("research/output"), "--ledger-dir", help="Directory with ledger parquet files"
+    ),
+    force: bool = typer.Option(False, "--force", help="Override manual signoff gate"),
+) -> None:
+    """Check promotion gates for a strategy and print the report.
+
+    Does NOT auto-update the TOML config — prints the required change
+    if all gates pass.
+    """
+    from polymarket_pipeline.strategies.config import load_promotion_thresholds
+    from polymarket_pipeline.strategies.ledger.parquet import ParquetLedger
+    from polymarket_pipeline.strategies.promotion import (
+        PromotionChecker,
+        PromotionThresholds,
+    )
+    from polymarket_pipeline.strategies.types import ExecutionMode
+
+    # Load current strategy config
+    configs = load_strategy_configs(config)
+    if name not in configs:
+        typer.echo(f"Strategy '{name}' not found in {config}")
+        raise typer.Exit(1)
+
+    strategy_cfg = configs[name]
+    from_mode = strategy_cfg.mode
+
+    try:
+        to_mode = ExecutionMode(to)
+    except ValueError:
+        typer.echo(f"Invalid mode: {to}. Options: paper_dev, paper_prod, live")
+        raise typer.Exit(1)
+
+    # Load thresholds
+    raw_thresholds = load_promotion_thresholds(config)
+    thresholds = PromotionThresholds(**raw_thresholds) if raw_thresholds else PromotionThresholds()
+
+    # Load ledger
+    ledger_path = ledger_dir / f"ledger_{name}.parquet"
+    if not ledger_path.exists():
+        typer.echo(f"No ledger found at {ledger_path}")
+        typer.echo("Run a backtest first to generate ledger data.")
+        raise typer.Exit(1)
+
+    ledger = ParquetLedger(ledger_path)
+
+    # Check gates
+    async def _check() -> None:
+        try:
+            report = await PromotionChecker(ledger, thresholds).check(
+                name, from_mode, to_mode, force=force,
+            )
+        except ValueError as e:
+            typer.echo(f"Error: {e}")
+            raise typer.Exit(1)
+
+        # Print report
+        typer.echo(f"\n{'='*60}")
+        typer.echo(f"Promotion: {name}  {from_mode.value} → {to_mode.value}")
+        typer.echo(f"{'='*60}")
+        for gate in report.gates:
+            status = "PASS" if gate.passed else "FAIL"
+            typer.echo(f"  [{status}] {gate.gate_name}: {gate.actual} ({gate.required})")
+
+        typer.echo(f"{'─'*60}")
+        if report.all_passed:
+            typer.echo(f"All gates passed. Update your TOML config:")
+            typer.echo(f'  [strategy.{name}]')
+            typer.echo(f'  mode = "{to_mode.value}"')
+        else:
+            failed = [g for g in report.gates if not g.passed]
+            typer.echo(f"{len(failed)} gate(s) failed. Strategy not ready for promotion.")
+
+        if report.summary:
+            s = report.summary
+            typer.echo(f"\nSummary: {s.total_fills} fills, {s.win_count}W/{s.loss_count}L, "
+                       f"PnL=${s.total_pnl_net:,.2f}, Sharpe={s.sharpe:.2f}, "
+                       f"DD=${s.max_drawdown:,.2f}")
+
+    asyncio.run(_check())
