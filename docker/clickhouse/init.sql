@@ -36,7 +36,18 @@ CREATE TABLE IF NOT EXISTS polymarket.trades_raw (
 ENGINE = ReplacingMergeTree(_version)
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (condition_id, timestamp, trade_id)
-SETTINGS index_granularity = 8192;
+SETTINGS index_granularity = 8192, deduplicate_merge_projection_mode = 'rebuild';
+
+-- ---------------------------------------------------------------------------
+-- Compression codecs: ZSTD(3) for high-cardinality strings, Delta for block_number
+-- ---------------------------------------------------------------------------
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN trade_id String CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN asset_id String CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN tx_hash Nullable(String) CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN order_hash Nullable(String) CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN maker Nullable(String) CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN taker Nullable(String) CODEC(ZSTD(3));
+ALTER TABLE polymarket.trades_raw MODIFY COLUMN block_number Nullable(UInt64) CODEC(Delta, LZ4);
 
 -- Bloom filters for point lookups
 ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_maker maker TYPE bloom_filter(0.01) GRANULARITY 1;
@@ -49,6 +60,19 @@ ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_asset_id asset_id 
 
 -- Timestamp minmax for time-range partition pruning
 ALTER TABLE polymarket.trades_raw ADD INDEX IF NOT EXISTS idx_ts_minmax timestamp TYPE minmax GRANULARITY 8;
+
+-- ---------------------------------------------------------------------------
+-- Projections: alternative sort orders for non-PK access patterns
+-- ---------------------------------------------------------------------------
+ALTER TABLE polymarket.trades_raw
+  ADD PROJECTION IF NOT EXISTS proj_by_maker (
+    SELECT * ORDER BY maker, timestamp
+  );
+
+ALTER TABLE polymarket.trades_raw
+  ADD PROJECTION IF NOT EXISTS proj_by_source_time (
+    SELECT * ORDER BY source, timestamp
+  );
 
 -- Convenience view (add FINAL to specific queries when exact dedup is needed)
 -- e.g. SELECT * FROM polymarket.trades FINAL WHERE condition_id = '0x...'
