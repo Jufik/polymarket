@@ -56,8 +56,10 @@ uv run pm-load                    # Load compact parquet into ClickHouse
 uv run pm-build                   # Data build pipeline
 uv run pm-migrate                 # ClickHouse schema migrations
 uv run pm-api                     # Start FastAPI REST API
-uv run pm-strategy run --config configs/strategies_example.toml  # Run strategies against live Kafka
-uv run pm-strategy run --config configs/strategies_example.toml --only consensus_copy  # Single strategy
+uv run pm-strategy run --config configs/my_strategy.toml         # Run strategies against live Kafka
+uv run pm-strategy run --config configs/my_strategy.toml --only my_strat  # Single strategy
+uv run pm-strategy promote my_strat --to paper_dev --config configs/my_strategy.toml  # Check promotion gates
+uv run pm-strategy reset --log-dir logs/paper --yes              # Clear paper state
 
 # Data build pipeline (CLOB + Gamma metadata, compact trades, Polars derived tables)
 uv run python scripts/build_data.py                        # all steps
@@ -67,12 +69,12 @@ uv run python scripts/build_data.py --step derived         # Polars PnL + MVF
 uv run python scripts/build_data.py --step prices          # market price timeseries
 uv run python scripts/build_data.py --force-metadata       # re-fetch even if fresh
 
-# Market size classifier training (requires ClickHouse)
-uv run python scripts/train_market_size_classifier.py [--window 6] [--tune --n-trials 50]
-uv run python scripts/validate_market_size_classifier.py [--model models/market_size_xgb.joblib]
-
-# Backtester sweep (archived to research/)
-uv run python -m research.strategies.consistency_copy.backtester
+# Research backtest harness (see research/harness.py)
+# Quick usage in Python:
+#   from research.harness import load_compact_trades, run_backtest, print_summary
+#   trades = load_compact_trades(max_files=10)
+#   result, summary = asyncio.run(run_backtest(MyStrategy(), trades, config))
+#   print_summary(summary, "my_strategy")
 ```
 
 ## Architecture
@@ -171,12 +173,14 @@ src/polymarket_pipeline/
 ├── strategies/          # Strategy framework (protocols + types)
 │   ├── protocol.py      # Strategy, FeatureProvider, Executor, FeatureBackend protocols
 │   ├── types.py         # TradeIntent, Position, Fill, OrderbookSnapshot, ExecutionMode
-│   ├── config.py        # StrategyConfig + ProviderConfig (TOML loading)
+│   ├── config.py        # StrategyConfig + ProviderConfig + PromotionThresholds (TOML)
 │   ├── registry.py      # Strategy discovery/registration
+│   ├── promotion.py     # PromotionChecker: vectorized→paper→live gate enforcement
 │   ├── context/         # InMemoryContext for strategy state
-│   ├── execution/       # ExecutionGateway (budget, quality gate), PaperExecutor
+│   ├── execution/       # ExecutionGateway, PaperExecutor, RealisticFillSimulator, calibrate
 │   ├── features/        # FeatureBackend: PolarsBackend (offline), ClickHouseBackend (live)
-│   └── runners/         # LiveRunner (event-driven + refresh loop), BacktestRunner + helpers
+│   ├── ledger/          # Strategy outcome ledger (LedgerRecord, ParquetLedger, analytics)
+│   └── runners/         # LiveRunner (event-driven), BacktestRunner (+ optional ledger)
 ├── live/                # Live sync pipeline (FastStream + Redpanda)
 │   ├── app.py           # FastStream app + market events subscriber + ASGI health
 │   ├── orchestrator.py  # Ingestor lifecycle + recovery + quality loops
@@ -203,23 +207,19 @@ src/polymarket_pipeline/
 │   └── dashboard.py     # HTML dashboard (async, quality metrics)
 ├── api/                 # FastAPI REST API
 │   └── app.py           # pm-api entry point
-├── strategies_impl/     # Concrete strategy implementations
-│   ├── consensus_copy/  # S3: Consistency-filtered skilled trader copy
-│   ├── proportional_copy/ # S1: Graded longshot-YES specialist copy
-│   ├── crypto_otm_no/   # S2b: OTM crypto checkpoint NO buyer
-│   ├── will_no/         # S2a: Binary "Will X?" NO buyer
-│   └── market_size/     # XGBoost volume classifier (shared provider)
-└── exploration/         # ML experimentation: tree-based stages, Claude agent, MLflow
+└── strategies_impl/     # Concrete strategy implementations (empty — ready for new)
 
-research/                # Archived exploration (not production)
-├── insights/            # Strategy research findings (24 copy, overpriceNo, etc.)
-├── scripts/             # One-off analysis scripts
-└── strategies/          # Backtester, sweep results, configs
+research/                # Research sandbox (imports from pipeline, never imported BY it)
+├── harness.py           # Backtest entry point: load trades → calibrate → run → ledger → analytics
+├── conftest.py          # Shared pytest fixtures (permissive_config, sample_trades)
+├── strategies/          # Draft strategy modules (same protocol, not registered in CLI)
+│   └── example.py       # Template strategy: buy YES below threshold
+└── output/              # Ledger parquet output (gitignored content)
 ```
 
 ### Strategy Framework
 
-Four strategies share a common protocol-based framework. Configuration lives in TOML (`configs/strategies_example.toml`).
+Protocol-based, async framework. No strategy implementations are registered — the framework is ready for new strategies. Configuration lives in TOML files under `configs/`.
 
 ```
 TOML Config ─────> StrategyConfig + ProviderConfig
@@ -234,24 +234,36 @@ LiveRunner ─────── on_trade()      compute() / refresh()
 ExecutionGateway   TradeIntent      InMemoryContext
     │                                    │
     ▼                                    ▼
-PaperExecutor / ClobClient          features dict
+Executor (Paper/Live/Realistic)     features dict
     │
     ▼
-  Fill
+  Fill ──> LedgerRecord ──> ParquetLedger ──> LedgerSummary
 ```
 
-**Strategies (4 active):**
+**Execution Modes (with promotion gates):**
 
-| Name | TOML Key | Direction | Signal Source |
-|------|----------|-----------|---------------|
-| S1 Proportional Copy | `proportional_copy` | Copy pool | GradedPoolProvider (longshot YES filter) |
-| S2a Will NO | `will_no` | BUY NO | WillMarketProvider (regex filter) |
-| S2b Crypto OTM NO | `crypto_otm_no` | BUY NO | CryptoMarketProvider (asset + pattern) |
-| S3 Consensus Copy | `consensus_copy` | Configurable | SkilledTradersProvider (consistency filter) |
+```
+vectorized ──> paper_dev ──> paper_prod ──> live
+  (backtest)    (loose)       (strict)      (real $)
+```
 
-**Feature Providers (5):** `pool_traders`, `skilled_traders`, `crypto_markets`, `will_markets`, `market_size`
+Promotion enforced via `pm-strategy promote` — checks min trades, Sharpe, PnL, drawdown, runtime.
 
-**Execution Modes:** `vectorized` (backtest), `replay`, `paper_dev`, `paper_prod`, `live`
+**Executors (3):**
+
+| Executor | Mode | Price Source | Slippage |
+|----------|------|-------------|----------|
+| `SimulatedExecutor` | vectorized/replay | `max_price` or 0.50 | None |
+| `RealisticFillSimulator` | vectorized/replay | `max_price` (slippage as fee) | Calibrated from trades |
+| `PaperExecutor` | paper_dev/prod | WS orderbook → CLOB REST | None |
+
+**RealisticFillSimulator**: Fills at `max_price` (same as SimulatedExecutor) but adds calibrated slippage cost to `fee_usd`. Spreads estimated from trade-to-trade price changes via `calibrate_spreads()` (median abs change or Roll estimator). Impact = `size_usd / estimated_liquidity`.
+
+**Strategy Outcome Ledger** (`strategies/ledger/`):
+- `LedgerRecord`: frozen dataclass — signal→fill→resolution→PnL lifecycle per intent
+- `ParquetLedger`: buffer in memory, flush to parquet for backtests
+- `compute_summary()`: hit_rate, edge, Sharpe, max_drawdown, profit_factor
+- `BacktestRunner` writes ledger records automatically when `ledger=` is provided
 
 **Key patterns:**
 - Strategies implement `Strategy` protocol (event-driven) and/or `VectorizedStrategy` (batch)
