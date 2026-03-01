@@ -1,4 +1,14 @@
 <clickhouse>
     <max_server_memory_usage>0</max_server_memory_usage>
-    <max_server_memory_usage_to_ram_ratio>0.95</max_server_memory_usage_to_ram_ratio>
+    <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
+
+    <!-- Mark cache: index granule marks, heavily read. Default 5GB → 10GB -->
+    <mark_cache_size>10737418240</mark_cache_size>
+
+    <!-- Uncompressed block cache: hot columns stay decompressed. Default 0 → 8GB -->
+    <uncompressed_cache_size>8589934592</uncompressed_cache_size>
+
+    <!-- Compiled expression cache: repeated analytical queries -->
+    <compiled_expression_cache_size>536870912</compiled_expression_cache_size>
+    <compiled_expression_cache_elements_size>20000</compiled_expression_cache_elements_size>
 </clickhouse>
