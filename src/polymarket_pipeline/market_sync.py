@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from base64 import b64decode
 from dataclasses import dataclass, field
 from typing import Any
@@ -105,8 +106,17 @@ async def fetch_clob_markets() -> ClobMarketsResult:
             if cursor is not None:
                 params["next_cursor"] = cursor
 
-            resp = await client.get(f"{CLOB_API_BASE}/markets", params=params)
-            resp.raise_for_status()
+            # Retry transient errors (502/503/504) up to 3 times
+            for attempt in range(4):
+                resp = await client.get(f"{CLOB_API_BASE}/markets", params=params)
+                if resp.status_code in (502, 503, 504) and attempt < 3:
+                    wait = 2 ** attempt
+                    log.warning("clob.transient_error", status=resp.status_code,
+                                page=page_num, attempt=attempt + 1, retry_in=wait)
+                    await asyncio.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                break
             body = resp.json()
 
             data = body.get("data", [])
