@@ -1,0 +1,13 @@
+<clickhouse>
+    <merge_tree>
+        <number_of_free_entries_in_pool_to_execute_mutation>4</number_of_free_entries_in_pool_to_execute_mutation>
+    </merge_tree>
+
+    <!-- Background pool sizes (defaults: pool=16, schedule=128) -->
+    <background_pool_size>24</background_pool_size>
+    <background_schedule_pool_size>16</background_schedule_pool_size>
+    <background_merges_mutations_concurrency_ratio>4</background_merges_mutations_concurrency_ratio>
+
+    <!-- Max parts across all partitions before inserts stall (default 100000) -->
+    <max_parts_in_total>100000</max_parts_in_total>
+</clickhouse>

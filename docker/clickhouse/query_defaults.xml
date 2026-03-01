@@ -22,6 +22,24 @@
             <!-- Prefer PREWHERE for WHERE pushdown into storage layer -->
             <optimize_move_to_prewhere>1</optimize_move_to_prewhere>
 
+            <!-- Use all available threads per query -->
+            <max_threads>24</max_threads>
+
+            <!-- Enable compiled expressions for repeated queries -->
+            <compile_expressions>1</compile_expressions>
+
+            <!-- Read uncompressed blocks from cache -->
+            <use_uncompressed_cache>1</use_uncompressed_cache>
+
+            <!-- Larger read buffer for NVMe sequential scans -->
+            <max_read_buffer_size>1048576</max_read_buffer_size>
+
+            <!-- Parallel FINAL: dedup each partition independently, enables multi-threaded FINAL -->
+            <do_not_merge_across_partitions_select_final>1</do_not_merge_across_partitions_select_final>
+
+            <!-- Split FINAL work into multiple threads within each partition -->
+            <max_final_threads>24</max_final_threads>
+
             <!-- Enable MaterializedPostgreSQL CDC replication -->
             <allow_experimental_database_materialized_postgresql>1</allow_experimental_database_materialized_postgresql>
         </default>
