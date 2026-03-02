@@ -190,7 +190,7 @@ SELECT
     m.question,
     e.slug AS event_slug,
     ms.primary_category
-FROM trades_raw FINAL AS t
+FROM (SELECT * FROM trades_raw FINAL) AS t
 LEFT JOIN markets AS m ON t.condition_id = m.condition_id
 LEFT JOIN events AS e ON m.event_id = e.id
 LEFT JOIN market_susceptibility AS ms ON t.condition_id = ms.condition_id
