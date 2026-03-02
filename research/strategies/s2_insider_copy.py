@@ -87,3 +87,38 @@ def classify_market_susceptibility(
 def is_susceptible(tier: Susceptibility) -> bool:
     """Return True if tier is HIGH or MEDIUM (eligible for insider analysis)."""
     return tier != "LOW"
+
+
+# --------------------------------------------------------------------------- #
+# Stage 2, F1: Bayesian hit rate
+# --------------------------------------------------------------------------- #
+
+# Direction-aware priors (from population base rates)
+YES_PRIOR_ALPHA = 3.81   # 38.1% YES base rate
+YES_PRIOR_BETA = 6.19
+NO_PRIOR_ALPHA = 6.19    # 61.9% NO base rate
+NO_PRIOR_BETA = 3.81
+
+
+def bayesian_hit_rate(
+    wins: int,
+    total: int,
+    prior_alpha: float = YES_PRIOR_ALPHA,
+    prior_beta: float = YES_PRIOR_BETA,
+) -> float:
+    """Beta-Binomial posterior mean: (alpha + wins) / (alpha + beta + total)."""
+    return (prior_alpha + wins) / (prior_alpha + prior_beta + total)
+
+
+def compute_effective_hr(
+    yes_wins: int,
+    yes_total: int,
+    no_wins: int,
+    no_total: int,
+) -> tuple[float, Literal["YES", "NO"]]:
+    """Return (best_hr, best_direction) using direction-aware priors."""
+    yes_hr = bayesian_hit_rate(yes_wins, yes_total, YES_PRIOR_ALPHA, YES_PRIOR_BETA)
+    no_hr = bayesian_hit_rate(no_wins, no_total, NO_PRIOR_ALPHA, NO_PRIOR_BETA)
+    if yes_hr >= no_hr:
+        return yes_hr, "YES"
+    return no_hr, "NO"
