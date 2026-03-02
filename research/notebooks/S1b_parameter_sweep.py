@@ -151,41 +151,41 @@ def overall_summary(mo, valid, pl):
 @app.cell
 def heatmap_pnl(mo, valid, pl):
     """Heatmap: min_hr x min_pos -> PnL/position."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
     import numpy as np
 
-    cross = valid.group_by(["min_hr", "min_pos"]).agg(
+    _cross = valid.group_by(["min_hr", "min_pos"]).agg(
         pl.col("oos_positions").sum().alias("total_pos"),
         pl.col("oos_total_pnl").sum().alias("total_pnl"),
     ).with_columns(
         (pl.col("total_pnl") / pl.col("total_pos")).alias("pnl_per_pos"),
     ).sort(["min_hr", "min_pos"])
 
-    hr_vals = sorted(cross["min_hr"].unique().to_list())
-    pos_vals = sorted(cross["min_pos"].unique().to_list())
+    _hr_vals = sorted(_cross["min_hr"].unique().to_list())
+    _pos_vals = sorted(_cross["min_pos"].unique().to_list())
 
-    z = []
-    for mp in pos_vals:
-        row = []
-        for mh in hr_vals:
-            val = cross.filter(
-                (pl.col("min_hr") == mh) & (pl.col("min_pos") == mp)
+    _z = []
+    for _mp in _pos_vals:
+        _row = []
+        for _mh in _hr_vals:
+            _val = _cross.filter(
+                (pl.col("min_hr") == _mh) & (pl.col("min_pos") == _mp)
             )["pnl_per_pos"]
-            row.append(float(val[0]) if len(val) > 0 else 0)
-        z.append(row)
+            _row.append(float(_val[0]) if len(_val) > 0 else 0)
+        _z.append(_row)
 
-    fig = go.Figure(data=go.Heatmap(
-        z=z,
-        x=[f"{h:.2f}" for h in hr_vals],
-        y=[str(p) for p in pos_vals],
+    _fig = _go.Figure(data=_go.Heatmap(
+        z=_z,
+        x=[f"{h:.2f}" for h in _hr_vals],
+        y=[str(p) for p in _pos_vals],
         colorscale="RdYlGn",
         zmid=0,
-        text=[[f"${v:.1f}" for v in row] for row in z],
+        text=[[f"${v:.1f}" for v in _row] for _row in _z],
         texttemplate="%{text}",
         textfont={"size": 14},
         colorbar=dict(title="PnL/Pos ($)"),
     ))
-    fig.update_layout(
+    _fig.update_layout(
         title="OOS PnL per Position: min_hit_rate x min_positions<br>"
               "<sub>Aggregated across all lookback windows and test months</sub>",
         xaxis_title="Min Hit Rate Threshold",
@@ -198,7 +198,7 @@ def heatmap_pnl(mo, valid, pl):
         f"""
     ## Heatmap: PnL/Position by HR Threshold x Min Positions
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **Key takeaway**: The profitable regime is in the **bottom-right corner** --
     high HR threshold (>= 0.75) combined with strict position minimum (>= 20).
@@ -209,13 +209,13 @@ def heatmap_pnl(mo, valid, pl):
     - The "sweet spot" balancing edge vs volume: min_hr=0.75, min_pos=20 -> $34.99/pos
     """
     )
-    return cross,
+    return
 
 
 @app.cell
 def heatmap_lookback_hr(mo, valid, pl):
     """Heatmap: lookback x min_hr -> PnL/position (at min_pos=20)."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
     cross2 = valid.filter(pl.col("min_pos") == 20).group_by(["lookback", "min_hr"]).agg(
         pl.col("oos_positions").sum().alias("total_pos"),
@@ -225,31 +225,31 @@ def heatmap_lookback_hr(mo, valid, pl):
         (pl.col("total_pnl") / pl.col("total_pos")).alias("pnl_per_pos"),
     ).sort(["lookback", "min_hr"])
 
-    lb_vals = sorted(cross2["lookback"].unique().to_list())
-    hr_vals = sorted(cross2["min_hr"].unique().to_list())
+    _lb_vals = sorted(cross2["lookback"].unique().to_list())
+    _hr_vals = sorted(cross2["min_hr"].unique().to_list())
 
-    z = []
-    for lb in lb_vals:
-        row = []
-        for mh in hr_vals:
-            val = cross2.filter(
-                (pl.col("lookback") == lb) & (pl.col("min_hr") == mh)
+    _z = []
+    for _lb in _lb_vals:
+        _row = []
+        for _mh in _hr_vals:
+            _val = cross2.filter(
+                (pl.col("lookback") == _lb) & (pl.col("min_hr") == _mh)
             )["pnl_per_pos"]
-            row.append(float(val[0]) if len(val) > 0 else 0)
-        z.append(row)
+            _row.append(float(_val[0]) if len(_val) > 0 else 0)
+        _z.append(_row)
 
-    fig = go.Figure(data=go.Heatmap(
-        z=z,
-        x=[f"{h:.2f}" for h in hr_vals],
-        y=[f"{lb}mo" for lb in lb_vals],
+    _fig = _go.Figure(data=_go.Heatmap(
+        z=_z,
+        x=[f"{h:.2f}" for h in _hr_vals],
+        y=[f"{lb}mo" for lb in _lb_vals],
         colorscale="RdYlGn",
         zmid=0,
-        text=[[f"${v:.1f}" for v in row] for row in z],
+        text=[[f"${v:.1f}" for v in _row] for _row in _z],
         texttemplate="%{text}",
         textfont={"size": 14},
         colorbar=dict(title="PnL/Pos ($)"),
     ))
-    fig.update_layout(
+    _fig.update_layout(
         title="OOS PnL per Position: Lookback x Min Hit Rate (min_pos=20)<br>"
               "<sub>Isolating the effect of lookback window length</sub>",
         xaxis_title="Min Hit Rate Threshold",
@@ -262,7 +262,7 @@ def heatmap_lookback_hr(mo, valid, pl):
         f"""
     ## Heatmap: Lookback x HR Threshold (min_pos=20)
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **Finding**: Longer lookbacks amplify the edge at high HR thresholds.
 
@@ -278,39 +278,39 @@ def heatmap_lookback_hr(mo, valid, pl):
 @app.cell
 def heatmap_oos_hr(mo, valid, pl):
     """Heatmap: min_hr x min_pos -> OOS Hit Rate."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
-    cross = valid.group_by(["min_hr", "min_pos"]).agg(
+    _cross = valid.group_by(["min_hr", "min_pos"]).agg(
         pl.col("oos_positions").sum().alias("total_pos"),
         pl.col("oos_wins").sum().alias("total_wins"),
     ).with_columns(
         (pl.col("total_wins") / pl.col("total_pos")).alias("oos_hr"),
     ).sort(["min_hr", "min_pos"])
 
-    hr_vals = sorted(cross["min_hr"].unique().to_list())
-    pos_vals = sorted(cross["min_pos"].unique().to_list())
+    _hr_vals = sorted(_cross["min_hr"].unique().to_list())
+    _pos_vals = sorted(_cross["min_pos"].unique().to_list())
 
-    z = []
-    for mp in pos_vals:
-        row = []
-        for mh in hr_vals:
-            val = cross.filter(
-                (pl.col("min_hr") == mh) & (pl.col("min_pos") == mp)
+    _z = []
+    for _mp in _pos_vals:
+        _row = []
+        for _mh in _hr_vals:
+            _val = _cross.filter(
+                (pl.col("min_hr") == _mh) & (pl.col("min_pos") == _mp)
             )["oos_hr"]
-            row.append(float(val[0]) if len(val) > 0 else 0)
-        z.append(row)
+            _row.append(float(_val[0]) if len(_val) > 0 else 0)
+        _z.append(_row)
 
-    fig = go.Figure(data=go.Heatmap(
-        z=z,
-        x=[f"{h:.2f}" for h in hr_vals],
-        y=[str(p) for p in pos_vals],
+    _fig = _go.Figure(data=_go.Heatmap(
+        z=_z,
+        x=[f"{h:.2f}" for h in _hr_vals],
+        y=[str(p) for p in _pos_vals],
         colorscale="Blues",
-        text=[[f"{v:.1%}" for v in row] for row in z],
+        text=[[f"{v:.1%}" for v in _row] for _row in _z],
         texttemplate="%{text}",
         textfont={"size": 14},
         colorbar=dict(title="OOS HR"),
     ))
-    fig.update_layout(
+    _fig.update_layout(
         title="OOS Hit Rate: min_hit_rate x min_positions<br>"
               "<sub>Base rate = 40.2% YES-won. All values above base rate = signal.</sub>",
         xaxis_title="Min Hit Rate Threshold",
@@ -323,7 +323,7 @@ def heatmap_oos_hr(mo, valid, pl):
         f"""
     ## Heatmap: OOS Hit Rate
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **Key insight**: OOS HR increases with both min_hr and min_pos, confirming
     that higher training thresholds DO predict higher future hit rates -- but with
@@ -342,59 +342,59 @@ def heatmap_oos_hr(mo, valid, pl):
 @app.cell
 def time_series_best(mo, valid, pl):
     """Time series of OOS PnL for top parameter combinations."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
-    configs = [
+    _configs = [
         {"lookback": 12, "min_hr": 0.80, "min_pos": 20, "label": "LB=12, HR>=0.80, pos>=20"},
         {"lookback": 9, "min_hr": 0.75, "min_pos": 50, "label": "LB=9, HR>=0.75, pos>=50"},
         {"lookback": 6, "min_hr": 0.80, "min_pos": 20, "label": "LB=6, HR>=0.80, pos>=20"},
         {"lookback": 9, "min_hr": 0.70, "min_pos": 50, "label": "LB=9, HR>=0.70, pos>=50"},
     ]
 
-    fig = go.Figure()
+    _fig = _go.Figure()
     summary_rows = []
 
-    for cfg in configs:
-        ts = valid.filter(
-            (pl.col("lookback") == cfg["lookback"])
-            & (pl.col("min_hr") == cfg["min_hr"])
-            & (pl.col("min_pos") == cfg["min_pos"])
+    for _cfg in _configs:
+        _ts = valid.filter(
+            (pl.col("lookback") == _cfg["lookback"])
+            & (pl.col("min_hr") == _cfg["min_hr"])
+            & (pl.col("min_pos") == _cfg["min_pos"])
         ).sort("test_month")
 
-        if len(ts) == 0:
+        if len(_ts) == 0:
             continue
 
         # Cumulative PnL
-        cum_pnl = ts["oos_total_pnl"].cum_sum().to_list()
-        months = ts["test_month"].to_list()
+        cum_pnl = _ts["oos_total_pnl"].cum_sum().to_list()
+        months = _ts["test_month"].to_list()
 
-        fig.add_trace(go.Scatter(
+        _fig.add_trace(_go.Scatter(
             x=months, y=cum_pnl,
             mode="lines+markers",
-            name=cfg["label"],
+            name=_cfg["label"],
             hovertemplate=(
                 "Month: %{x}<br>Cumulative PnL: $%{y:,.0f}<extra></extra>"
             ),
         ))
 
         # Stats
-        pnl_series = ts["oos_total_pnl"]
-        n_months = len(ts)
+        pnl_series = _ts["oos_total_pnl"]
+        n_months = len(_ts)
         profitable = int((pnl_series > 0).sum())
         mean_pnl = float(pnl_series.mean())
         std_pnl = float(pnl_series.std()) if n_months > 1 else 1.0
         sharpe_monthly = mean_pnl / std_pnl if std_pnl > 0 else 0
-        total_pnl = float(pnl_series.sum())
-        total_pos = int(ts["oos_positions"].sum())
-        avg_traders = float(ts["n_traders"].mean())
+        _total_pnl = float(pnl_series.sum())
+        _total_pos = int(_ts["oos_positions"].sum())
+        avg_traders = float(_ts["n_traders"].mean())
 
         summary_rows.append(
-            f"| {cfg['label']} | {n_months} | {profitable}/{n_months} | "
+            f"| {_cfg['label']} | {n_months} | {profitable}/{n_months} | "
             f"${mean_pnl:,.0f} | {sharpe_monthly:.2f} | "
-            f"${total_pnl:,.0f} | {total_pos:,} | {avg_traders:.0f} |"
+            f"${_total_pnl:,.0f} | {_total_pos:,} | {avg_traders:.0f} |"
         )
 
-    fig.update_layout(
+    _fig.update_layout(
         title="Cumulative OOS PnL by Month -- Top Parameter Combinations",
         xaxis_title="Test Month",
         yaxis_title="Cumulative PnL ($)",
@@ -415,7 +415,7 @@ def time_series_best(mo, valid, pl):
         f"""
     ## Cumulative OOS PnL -- Best Parameter Combinations
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     {table_header}
     {table_body}
@@ -436,36 +436,36 @@ def time_series_best(mo, valid, pl):
 @app.cell
 def monthly_oos_hr_ts(mo, valid, pl):
     """Time series of OOS Hit Rate for best configs."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
-    configs = [
+    _configs = [
         {"lookback": 12, "min_hr": 0.80, "min_pos": 20, "label": "LB=12, HR>=0.80, pos>=20"},
         {"lookback": 9, "min_hr": 0.75, "min_pos": 50, "label": "LB=9, HR>=0.75, pos>=50"},
     ]
 
-    fig = go.Figure()
+    _fig = _go.Figure()
 
-    for cfg in configs:
-        ts = valid.filter(
-            (pl.col("lookback") == cfg["lookback"])
-            & (pl.col("min_hr") == cfg["min_hr"])
-            & (pl.col("min_pos") == cfg["min_pos"])
+    for _cfg in _configs:
+        _ts = valid.filter(
+            (pl.col("lookback") == _cfg["lookback"])
+            & (pl.col("min_hr") == _cfg["min_hr"])
+            & (pl.col("min_pos") == _cfg["min_pos"])
         ).sort("test_month")
 
-        fig.add_trace(go.Scatter(
-            x=ts["test_month"].to_list(),
-            y=ts["oos_hr"].to_list(),
+        _fig.add_trace(_go.Scatter(
+            x=_ts["test_month"].to_list(),
+            y=_ts["oos_hr"].to_list(),
             mode="lines+markers",
-            name=cfg["label"],
+            name=_cfg["label"],
         ))
 
     # Base rate line
-    fig.add_hline(y=0.402, line_dash="dash", line_color="red",
+    _fig.add_hline(y=0.402, line_dash="dash", line_color="red",
                   annotation_text="Base rate (40.2%)")
-    fig.add_hline(y=0.50, line_dash="dot", line_color="gray",
+    _fig.add_hline(y=0.50, line_dash="dot", line_color="gray",
                   annotation_text="Coin flip (50%)")
 
-    fig.update_layout(
+    _fig.update_layout(
         title="OOS Hit Rate by Month -- Best Configs vs Base Rate",
         xaxis_title="Test Month",
         yaxis_title="OOS Hit Rate",
@@ -480,7 +480,7 @@ def monthly_oos_hr_ts(mo, valid, pl):
         f"""
     ## OOS Hit Rate Stability Over Time
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **Stability**: OOS HR stays above 50% in nearly every month for both configs.
     Only Feb-2025 dips below 55% (a notoriously choppy market month).
@@ -495,10 +495,10 @@ def monthly_oos_hr_ts(mo, valid, pl):
 @app.cell
 def pool_vs_edge(mo, valid, pl):
     """Trader pool size vs edge tradeoff."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
     # Aggregate per (min_hr, min_pos) across all lookbacks and months
-    cross = valid.group_by(["min_hr", "min_pos"]).agg(
+    _cross = valid.group_by(["min_hr", "min_pos"]).agg(
         pl.col("oos_positions").sum().alias("total_pos"),
         pl.col("oos_wins").sum().alias("total_wins"),
         pl.col("oos_total_pnl").sum().alias("total_pnl"),
@@ -509,22 +509,22 @@ def pool_vs_edge(mo, valid, pl):
     ).sort(["min_hr", "min_pos"])
 
     # Filter to min_pos >= 20 (the exploitable regime)
-    exploitable = cross.filter(pl.col("min_pos") >= 20)
+    exploitable = _cross.filter(pl.col("min_pos") >= 20)
 
-    fig = go.Figure()
+    _fig = _go.Figure()
 
-    for mp in [20, 50]:
-        sub = exploitable.filter(pl.col("min_pos") == mp).sort("min_hr")
-        fig.add_trace(go.Scatter(
-            x=sub["avg_traders"].to_list(),
-            y=sub["pnl_per_pos"].to_list(),
+    for _mp in [20, 50]:
+        _sub = exploitable.filter(pl.col("min_pos") == _mp).sort("min_hr")
+        _fig.add_trace(_go.Scatter(
+            x=_sub["avg_traders"].to_list(),
+            y=_sub["pnl_per_pos"].to_list(),
             mode="lines+markers+text",
-            name=f"min_pos={mp}",
-            text=[f"HR>={h:.0%}" for h in sub["min_hr"].to_list()],
+            name=f"min_pos={_mp}",
+            text=[f"HR>={h:.0%}" for h in _sub["min_hr"].to_list()],
             textposition="top center",
-            marker=dict(size=sub["total_pos"].to_list(),
+            marker=dict(size=_sub["total_pos"].to_list(),
                         sizemode="area",
-                        sizeref=max(sub["total_pos"].to_list()) / 1000,
+                        sizeref=max(_sub["total_pos"].to_list()) / 1000,
                         sizemin=5),
             hovertemplate=(
                 "Avg traders: %{x:.0f}<br>"
@@ -533,7 +533,7 @@ def pool_vs_edge(mo, valid, pl):
             ),
         ))
 
-    fig.update_layout(
+    _fig.update_layout(
         title="Trader Pool Size vs Edge (PnL/Position)<br>"
               "<sub>Bubble size = total OOS positions. Only min_pos >= 20 shown.</sub>",
         xaxis_title="Average Number of Qualifying Traders",
@@ -547,7 +547,7 @@ def pool_vs_edge(mo, valid, pl):
         f"""
     ## Pool Size vs Edge Tradeoff
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **The fundamental tradeoff**: Stricter thresholds yield higher edge per position
     but shrink the trader pool, reducing total volume and diversification.
@@ -568,7 +568,7 @@ def pool_vs_edge(mo, valid, pl):
 @app.cell
 def decay_analysis(mo, valid, pl):
     """Analyze hit rate decay (training HR -> OOS HR)."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
     # Per (min_hr, min_pos), compute mean decay
     decay = valid.filter(pl.col("decay").is_not_null()).group_by(
@@ -579,19 +579,19 @@ def decay_analysis(mo, valid, pl):
         pl.col("oos_hr").mean().alias("mean_oos_hr"),
     ).sort(["min_hr", "min_pos"])
 
-    fig = go.Figure()
+    _fig = _go.Figure()
 
-    for mp in [10, 20, 50]:
-        sub = decay.filter(pl.col("min_pos") == mp).sort("min_hr")
-        fig.add_trace(go.Bar(
-            x=[f"{h:.2f}" for h in sub["min_hr"].to_list()],
-            y=sub["mean_decay"].to_list(),
-            name=f"min_pos={mp}",
-            text=[f"{d:+.1%}" for d in sub["mean_decay"].to_list()],
+    for _mp in [10, 20, 50]:
+        _sub = decay.filter(pl.col("min_pos") == _mp).sort("min_hr")
+        _fig.add_trace(_go.Bar(
+            x=[f"{h:.2f}" for h in _sub["min_hr"].to_list()],
+            y=_sub["mean_decay"].to_list(),
+            name=f"min_pos={_mp}",
+            text=[f"{d:+.1%}" for d in _sub["mean_decay"].to_list()],
             textposition="outside",
         ))
 
-    fig.update_layout(
+    _fig.update_layout(
         title="Hit Rate Decay: Training HR - OOS HR<br>"
               "<sub>Negative = regression to mean (expected). More negative = more overfitting.</sub>",
         xaxis_title="Min Hit Rate Threshold",
@@ -604,25 +604,25 @@ def decay_analysis(mo, valid, pl):
 
     # Build decay table
     decay_tbl = decay.filter(pl.col("min_pos") == 20).sort("min_hr")
-    rows = []
-    for r in decay_tbl.iter_rows(named=True):
-        rows.append(
-            f"| {r['min_hr']:.2f} | {r['mean_train_hr']:.4f} | "
-            f"{r['mean_oos_hr']:.4f} | {r['mean_decay']:+.4f} | "
-            f"{abs(r['mean_decay']) / r['mean_train_hr']:.1%} |"
+    _rows = []
+    for _r in decay_tbl.iter_rows(named=True):
+        _rows.append(
+            f"| {_r['min_hr']:.2f} | {_r['mean_train_hr']:.4f} | "
+            f"{_r['mean_oos_hr']:.4f} | {_r['mean_decay']:+.4f} | "
+            f"{abs(_r['mean_decay']) / _r['mean_train_hr']:.1%} |"
         )
 
     mo.md(
         f"""
     ## Hit Rate Decay Analysis
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     ### Decay Table (min_pos=20)
 
     | min_hr | Train HR | OOS HR | Decay | Relative Decay |
     |---:|---:|---:|---:|---:|
-    {"".join(rows)}
+    {"".join(_rows)}
 
     **Interpretation**:
     - Decay is always negative (expected -- regression to mean)
@@ -656,25 +656,25 @@ def top_combos(mo, valid, pl):
     # Top 15 by PnL/position
     top15 = summary.sort("pnl_per_pos", descending=True).head(15)
 
-    rows = []
-    for r in top15.iter_rows(named=True):
-        rows.append(
-            f"| {r['lookback']} | {r['min_hr']:.2f} | {r['min_pos']} | "
-            f"{r['avg_traders']:.0f} | {r['total_oos_pos']:,} | "
-            f"{r['overall_oos_hr']:.4f} | {r['mean_train_hr']:.4f} | "
-            f"{r['mean_decay']:+.3f} | ${r['pnl_per_pos']:.2f} | "
-            f"${r['total_oos_pnl']:,.0f} |"
+    _rows = []
+    for _r in top15.iter_rows(named=True):
+        _rows.append(
+            f"| {_r['lookback']} | {_r['min_hr']:.2f} | {_r['min_pos']} | "
+            f"{_r['avg_traders']:.0f} | {_r['total_oos_pos']:,} | "
+            f"{_r['overall_oos_hr']:.4f} | {_r['mean_train_hr']:.4f} | "
+            f"{_r['mean_decay']:+.3f} | ${_r['pnl_per_pos']:.2f} | "
+            f"${_r['total_oos_pnl']:,.0f} |"
         )
 
     # Also find the highest total PnL combos
     top_total = summary.sort("total_oos_pnl", descending=True).head(10)
-    rows2 = []
-    for r in top_total.iter_rows(named=True):
-        rows2.append(
-            f"| {r['lookback']} | {r['min_hr']:.2f} | {r['min_pos']} | "
-            f"{r['avg_traders']:.0f} | {r['total_oos_pos']:,} | "
-            f"{r['overall_oos_hr']:.4f} | ${r['pnl_per_pos']:.2f} | "
-            f"${r['total_oos_pnl']:,.0f} |"
+    _rows2 = []
+    for _r in top_total.iter_rows(named=True):
+        _rows2.append(
+            f"| {_r['lookback']} | {_r['min_hr']:.2f} | {_r['min_pos']} | "
+            f"{_r['avg_traders']:.0f} | {_r['total_oos_pos']:,} | "
+            f"{_r['overall_oos_hr']:.4f} | ${_r['pnl_per_pos']:.2f} | "
+            f"${_r['total_oos_pnl']:,.0f} |"
         )
 
     mo.md(
@@ -685,13 +685,13 @@ def top_combos(mo, valid, pl):
 
     | LB | min_hr | min_pos | Traders | OOS Pos | OOS HR | Train HR | Decay | PnL/Pos | Total PnL |
     |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-    {"".join(rows)}
+    {"".join(_rows)}
 
     ### By Total PnL (absolute profitability)
 
     | LB | min_hr | min_pos | Traders | OOS Pos | OOS HR | PnL/Pos | Total PnL |
     |---:|---:|---:|---:|---:|---:|---:|---:|
-    {"".join(rows2)}
+    {"".join(_rows2)}
 
     **Observation**: The highest-PnL combos by total dollars tend to use *lower* HR thresholds
     (0.50-0.55) because they capture many more positions. But per-position edge is weaker.
@@ -704,7 +704,7 @@ def top_combos(mo, valid, pl):
 @app.cell
 def high_hr_regime(mo, valid, pl):
     """Deep dive into HR >= 0.75 regime (user's primary interest)."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
     high = valid.filter(pl.col("min_hr") >= 0.75)
 
@@ -728,18 +728,18 @@ def high_hr_regime(mo, valid, pl):
         (pl.col("oos_wins") / pl.col("oos_pos")).alias("oos_hr"),
     ).sort(["min_hr", "test_month"])
 
-    fig = go.Figure()
-    for mh in [0.75, 0.80]:
-        sub = by_month_hr.filter(pl.col("min_hr") == mh)
-        cum = sub["oos_pnl"].cum_sum().to_list()
-        fig.add_trace(go.Scatter(
-            x=sub["test_month"].to_list(),
+    _fig = _go.Figure()
+    for _mh in [0.75, 0.80]:
+        _sub = by_month_hr.filter(pl.col("min_hr") == _mh)
+        cum = _sub["oos_pnl"].cum_sum().to_list()
+        _fig.add_trace(_go.Scatter(
+            x=_sub["test_month"].to_list(),
             y=cum,
             mode="lines+markers",
-            name=f"HR >= {mh:.0%}",
+            name=f"HR >= {_mh:.0%}",
         ))
 
-    fig.update_layout(
+    _fig.update_layout(
         title="High HR Regime: Cumulative OOS PnL<br>"
               "<sub>Aggregated across all lookback windows and min_pos settings</sub>",
         xaxis_title="Test Month",
@@ -771,7 +771,7 @@ def high_hr_regime(mo, valid, pl):
         f"""
     ## Deep Dive: HR >= 0.75 Regime
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     ### Monthly PnL Statistics (aggregated across all lookbacks and min_pos)
 
@@ -791,59 +791,59 @@ def high_hr_regime(mo, valid, pl):
 @app.cell
 def robustness_check(mo, valid, pl):
     """Robustness: check that edge survives perturbation."""
-    import plotly.graph_objects as go
+    import plotly.graph_objects as _go
 
     # For the recommended config (LB=9, HR>=0.75, min_pos=20),
     # show sensitivity to each parameter +/- one step
     base = {"lookback": 9, "min_hr": 0.75, "min_pos": 20}
 
     # Vary lookback
-    lb_sensitivity = []
-    for lb in [3, 6, 9, 12]:
-        sub = valid.filter(
-            (pl.col("lookback") == lb)
+    _lb_sensitivity = []
+    for _lb in [3, 6, 9, 12]:
+        _sub = valid.filter(
+            (pl.col("lookback") == _lb)
             & (pl.col("min_hr") == base["min_hr"])
             & (pl.col("min_pos") == base["min_pos"])
         )
-        if len(sub) > 0:
-            total_pnl = float(sub["oos_total_pnl"].sum())
-            total_pos = int(sub["oos_positions"].sum())
-            lb_sensitivity.append({
-                "param": f"LB={lb}", "pnl_per_pos": total_pnl / total_pos if total_pos > 0 else 0
+        if len(_sub) > 0:
+            _total_pnl = float(_sub["oos_total_pnl"].sum())
+            _total_pos = int(_sub["oos_positions"].sum())
+            _lb_sensitivity.append({
+                "param": f"LB={_lb}", "pnl_per_pos": _total_pnl / _total_pos if _total_pos > 0 else 0
             })
 
     # Vary min_hr
-    hr_sensitivity = []
-    for mh in [0.65, 0.70, 0.75, 0.80]:
-        sub = valid.filter(
+    _hr_sensitivity = []
+    for _mh in [0.65, 0.70, 0.75, 0.80]:
+        _sub = valid.filter(
             (pl.col("lookback") == base["lookback"])
-            & (pl.col("min_hr") == mh)
+            & (pl.col("min_hr") == _mh)
             & (pl.col("min_pos") == base["min_pos"])
         )
-        if len(sub) > 0:
-            total_pnl = float(sub["oos_total_pnl"].sum())
-            total_pos = int(sub["oos_positions"].sum())
-            hr_sensitivity.append({
-                "param": f"HR>={mh:.0%}", "pnl_per_pos": total_pnl / total_pos if total_pos > 0 else 0
+        if len(_sub) > 0:
+            _total_pnl = float(_sub["oos_total_pnl"].sum())
+            _total_pos = int(_sub["oos_positions"].sum())
+            _hr_sensitivity.append({
+                "param": f"HR>={_mh:.0%}", "pnl_per_pos": _total_pnl / _total_pos if _total_pos > 0 else 0
             })
 
     # Vary min_pos
-    pos_sensitivity = []
-    for mp in [10, 20, 50]:
-        sub = valid.filter(
+    _pos_sensitivity = []
+    for _mp in [10, 20, 50]:
+        _sub = valid.filter(
             (pl.col("lookback") == base["lookback"])
             & (pl.col("min_hr") == base["min_hr"])
-            & (pl.col("min_pos") == mp)
+            & (pl.col("min_pos") == _mp)
         )
-        if len(sub) > 0:
-            total_pnl = float(sub["oos_total_pnl"].sum())
-            total_pos = int(sub["oos_positions"].sum())
-            pos_sensitivity.append({
-                "param": f"pos>={mp}", "pnl_per_pos": total_pnl / total_pos if total_pos > 0 else 0
+        if len(_sub) > 0:
+            _total_pnl = float(_sub["oos_total_pnl"].sum())
+            _total_pos = int(_sub["oos_positions"].sum())
+            _pos_sensitivity.append({
+                "param": f"pos>={_mp}", "pnl_per_pos": _total_pnl / _total_pos if _total_pos > 0 else 0
             })
 
     from plotly.subplots import make_subplots
-    fig = make_subplots(rows=1, cols=3, subplot_titles=[
+    _fig = make_subplots(rows=1, cols=3, subplot_titles=[
         "Vary Lookback", "Vary min_hr", "Vary min_pos"
     ])
 
@@ -851,12 +851,12 @@ def robustness_check(mo, valid, pl):
     highlight_color = "rgba(219, 64, 82, 0.7)"
 
     for i, (data, base_val) in enumerate([
-        (lb_sensitivity, "LB=9"),
-        (hr_sensitivity, "HR>=75%"),
-        (pos_sensitivity, "pos>=20"),
+        (_lb_sensitivity, "LB=9"),
+        (_hr_sensitivity, "HR>=75%"),
+        (_pos_sensitivity, "pos>=20"),
     ], 1):
         colors = [highlight_color if d["param"] == base_val else base_color for d in data]
-        fig.add_trace(go.Bar(
+        _fig.add_trace(_go.Bar(
             x=[d["param"] for d in data],
             y=[d["pnl_per_pos"] for d in data],
             marker_color=colors,
@@ -865,19 +865,19 @@ def robustness_check(mo, valid, pl):
             showlegend=False,
         ), row=1, col=i)
 
-    fig.update_layout(
+    _fig.update_layout(
         title="Parameter Sensitivity: PnL/Position around base config (LB=9, HR>=0.75, pos>=20)<br>"
               "<sub>Red bar = base config. Edge is robust to +/- 1 step in each dimension.</sub>",
         height=400,
         width=1100,
     )
-    fig.update_yaxes(title_text="PnL/Pos ($)", row=1, col=1)
+    _fig.update_yaxes(title_text="PnL/Pos ($)", row=1, col=1)
 
     mo.md(
         f"""
     ## Robustness Check: Parameter Sensitivity
 
-    {mo.as_html(fig)}
+    {mo.as_html(_fig)}
 
     **The edge is robust to parameter perturbation**:
 
