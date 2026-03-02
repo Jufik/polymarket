@@ -118,6 +118,11 @@ class InsiderCopyStrategy:
         self.name = name
         self._entries: dict[str, dict[str, Any]] = {}
         self._signals: dict[str, dict[str, Any]] = {}
+        self._debug_counters: dict[str, int] = {
+            "total": 0, "not_buy": 0, "price_gate": 0, "no_pool": 0,
+            "not_insider": 0, "low_consensus": 0, "dup_position": 0, "emitted": 0,
+        }
+        self._debug_last_log: float = 0.0
 
     async def on_trade(
         self,
@@ -160,21 +165,44 @@ class InsiderCopyStrategy:
                     ]
             return None
 
+        # --- Debug: periodic summary every 60s ---
+        import time as _time
+        self._debug_counters["total"] += 1
+        now_mono = _time.monotonic()
+        if now_mono - self._debug_last_log > 60.0:
+            self._debug_last_log = now_mono
+            logger.warning(
+                "strategy.debug_filter_stats",
+                strategy=self.name,
+                min_consensus=self._cfg.min_consensus,
+                max_entry_price=self._cfg.max_entry_price,
+                signals_tracked=len(self._signals),
+                top_consensus=max(
+                    (s.get("consensus_count", 0) for s in self._signals.values()),
+                    default=0,
+                ),
+                **self._debug_counters,
+            )
+
         # --- Entry logic: only BUY trades from insiders ---
         if trade.side != "BUY":
+            self._debug_counters["not_buy"] += 1
             return None
 
         # Entry price gate (MANDATORY for positive Kelly expectation)
         if price >= self._cfg.max_entry_price:
+            self._debug_counters["price_gate"] += 1
             return None
 
         # Look up insider pool from provider features
         pool = await self._get_pool(ctx)
         if not pool:
+            self._debug_counters["no_pool"] += 1
             return None
 
         maker = (trade.maker or "").lower()
         if maker not in pool:
+            self._debug_counters["not_insider"] += 1
             return None
 
         # Update inline consensus (unique traders per market)
@@ -197,14 +225,25 @@ class InsiderCopyStrategy:
         consensus = effective.get("consensus_count", 0)
 
         if consensus < self._cfg.min_consensus:
+            self._debug_counters["low_consensus"] += 1
             return None
 
         # No duplicate positions
         pos = await ctx.get_position(cid)
         if pos and (pos.qty_yes > 0 or pos.qty_no > 0):
+            self._debug_counters["dup_position"] += 1
             return None
 
         outcome = effective.get("direction", direction)
+        self._debug_counters["emitted"] += 1
+        logger.warning(
+            "strategy.INTENT_EMITTED",
+            strategy=self.name,
+            condition_id=cid,
+            consensus=consensus,
+            price=price,
+            outcome=outcome,
+        )
 
         # Record entry for stop-loss / take-profit tracking
         self._entries[cid] = {
