@@ -276,10 +276,13 @@ SELECT
     p.trade_count,
     mr.yes_won,
     mr.resolved_at,
-    formatDateTime(mr.resolved_at, '%Y-%m') AS month
+    formatDateTime(mr.resolved_at, '%Y-%m') AS month,
+    p.first_trade,
+    p.last_trade
 FROM (
     SELECT trader, condition_id, net_yes, net_no, net_usd, volume, trade_count,
-           yes_px_vol / nullIf(volume, 0) AS wavg_yes
+           yes_px_vol / nullIf(volume, 0) AS wavg_yes,
+           first_trade, last_trade
     FROM trader_market_positions FINAL
 ) p
 INNER JOIN (
