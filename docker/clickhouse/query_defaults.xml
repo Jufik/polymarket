@@ -42,6 +42,9 @@
 
             <!-- Enable MaterializedPostgreSQL CDC replication -->
             <allow_experimental_database_materialized_postgresql>1</allow_experimental_database_materialized_postgresql>
+
+            <!-- Enable refreshable materialized views for automated PG→local sync -->
+            <allow_experimental_refreshable_materialized_view>1</allow_experimental_refreshable_materialized_view>
         </default>
     </profiles>
 </clickhouse>

@@ -86,15 +86,41 @@ class TradeSink(Protocol):
 
 
 class ClickHouseDirectSink:
-    """Inserts trades directly into ClickHouse (bypass Redpanda)."""
+    """Inserts trades into ClickHouse via a staging table for bulk ingest.
+
+    Small batches go to a bare MergeTree staging table (no projections/MVs),
+    then flush_staging() moves them into trades_raw in one bulk INSERT.
+    This avoids per-batch projection overhead while keeping projections live.
+    """
+
+    FLUSH_EVERY: int = 50  # flush staging every N batches
 
     def __init__(self, ch_host: str, ch_port: int, ch_database: str) -> None:
         from polymarket_pipeline.sinks.clickhouse import ClickHouseSink
 
         self._sink = ClickHouseSink(host=ch_host, port=ch_port, database=ch_database)
+        self._sink.create_staging()
+        self._batch_count = 0
+        self._staged_rows = 0
 
     def write(self, trades: list[NormalizedTrade]) -> None:
-        self._sink.insert_trades(trades)
+        self._sink.insert_staging(trades)
+        self._batch_count += 1
+        self._staged_rows += len(trades)
+        if self._batch_count % self.FLUSH_EVERY == 0:
+            flushed = self._sink.flush_staging()
+            log.info(
+                "staging.flush",
+                rows=flushed,
+                batch_num=self._batch_count,
+            )
+
+    def flush(self) -> None:
+        """Flush any remaining staged rows and drop the staging table."""
+        if self._staged_rows > 0:
+            flushed = self._sink.flush_staging()
+            log.info("staging.final_flush", rows=flushed)
+        self._sink.drop_staging()
 
 
 class SubgraphPoller:

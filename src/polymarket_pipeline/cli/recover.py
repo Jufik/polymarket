@@ -183,6 +183,7 @@ async def run_recovery(
             job_id=job_id,
         )
         total = await poller.recover(from_timestamp=start_ts)
+        ch_sink.flush()
 
     log.info("recovery.complete", job_id=job_id, trades_recovered=total)
 
