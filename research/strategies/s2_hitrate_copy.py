@@ -278,6 +278,7 @@ class S2HitRateCopy:
         yes_base_rate: float | None = None,
         no_base_rate: float | None = None,
         use_bayesian_hr: bool = False,
+        as_of_date: str | None = None,
     ) -> str:
         """Build CH SQL for qualified traders with direction-aware excess HR.
 
@@ -286,9 +287,18 @@ class S2HitRateCopy:
 
         Category exclusion uses tag-based joins (markets -> events -> event_tags -> tags)
         because markets.category is 99.3% NULL.
+
+        Parameters
+        ----------
+        as_of_date:
+            If provided, use this date (YYYY-MM-DD) instead of now() for
+            the recency window. Required for walk-forward backtesting.
         """
         yes_br = yes_base_rate if yes_base_rate is not None else YES_BASE_RATE
         no_br = no_base_rate if no_base_rate is not None else NO_BASE_RATE
+
+        # Walk-forward: use as_of_date or now()
+        date_expr = f"toDate('{as_of_date}')" if as_of_date else "toDate(now())"
 
         dir_filter = ""
         if direction == "YES":
@@ -346,7 +356,8 @@ class S2HitRateCopy:
             FROM (
                 SELECT * FROM trader_positions_resolved
                 WHERE position IN ('YES', 'NO')
-                  AND toDate(resolved_at) >= toDate(now()) - INTERVAL {recency_months} MONTH
+                  AND toDate(resolved_at) >= {date_expr} - INTERVAL {recency_months} MONTH
+                  AND toDate(resolved_at) < {date_expr}
                   {dir_filter}
                   {price_filter}
             ) AS p

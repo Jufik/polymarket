@@ -143,8 +143,17 @@ def make_s2_config(
 async def get_qualified_traders(
     backend: ClickHouseBackend,
     s2_cfg: S2Config,
+    as_of_date: str | None = None,
 ) -> set[str]:
-    """Query qualified traders using S2HitRateCopy.qualified_traders_query."""
+    """Query qualified traders using S2HitRateCopy.qualified_traders_query.
+
+    Parameters
+    ----------
+    as_of_date:
+        YYYY-MM-DD date for walk-forward. Training window is
+        [as_of_date - recency_months, as_of_date).
+        If None, uses now() (NOT walk-forward safe).
+    """
     query = S2HitRateCopy.qualified_traders_query(
         min_positions=s2_cfg.min_positions,
         min_excess_hr=s2_cfg.min_excess_hr,
@@ -153,6 +162,7 @@ async def get_qualified_traders(
         max_entry_price=s2_cfg.max_entry_price,
         exclude_tags=s2_cfg.exclude_tags,
         use_bayesian_hr=s2_cfg.use_bayesian_hr,
+        as_of_date=as_of_date,
     )
     df = await backend._execute(query)
     if len(df) == 0:
@@ -295,49 +305,56 @@ async def main() -> None:
     all_results: list[RunResult] = []
 
     # ---------------------------------------------------------------
-    # Phase 1: Base config across 3 periods
+    # Phase 1: Base config across 3 periods (WALK-FORWARD)
     # ---------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("  PHASE 1: BASE CONFIG")
+    print("  PHASE 1: BASE CONFIG (walk-forward)")
     print("  scale=3, BOTH directions, max_hold=168h, signal<0.85")
     print("  seed_threshold = scale_threshold (no early seeds)")
+    print("  Walk-forward: train on [period - 6mo, period) for EACH period")
     print("=" * 70)
 
     base_cfg = make_s2_config()
-    base_traders = await get_qualified_traders(backend, base_cfg)
-    print(f"  Global qualified trader pool: {len(base_traders)}")
 
+    # Walk-forward: compute qualified traders separately for each period
     for period in PERIODS:
-        r = await run_single_period(backend, period, base_cfg, "base", base_traders)
+        # as_of_date = first day of test month (train window ends here)
+        as_of_date = f"{period}-01"
+        period_traders = await get_qualified_traders(backend, base_cfg, as_of_date=as_of_date)
+        print(f"\n  {period}: {len(period_traders)} qualified traders (as_of={as_of_date})")
+        r = await run_single_period(backend, period, base_cfg, "base", period_traders)
         all_results.append(r)
 
     # ---------------------------------------------------------------
-    # Phase 2: Parameter variants (each creates fresh backend)
+    # Phase 2: Parameter variants (walk-forward per period)
     # ---------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("  PHASE 2: PARAMETER VARIANTS")
+    print("  PHASE 2: PARAMETER VARIANTS (walk-forward)")
     print("=" * 70)
 
     # Variant 1: stricter consensus (scale_threshold=4)
     cfg_s4 = make_s2_config(scale_threshold=4)
     for period in PERIODS:
-        r = await run_single_period(backend, period, cfg_s4, "scale4", base_traders)
+        as_of_date = f"{period}-01"
+        period_traders = await get_qualified_traders(backend, cfg_s4, as_of_date=as_of_date)
+        r = await run_single_period(backend, period, cfg_s4, "scale4", period_traders)
         all_results.append(r)
 
     # Variant 2: shorter hold (72h)
     cfg_h72 = make_s2_config(max_hold_hours=72.0)
     for period in PERIODS:
-        r = await run_single_period(backend, period, cfg_h72, "hold72h", base_traders)
+        as_of_date = f"{period}-01"
+        period_traders = await get_qualified_traders(backend, cfg_h72, as_of_date=as_of_date)
+        r = await run_single_period(backend, period, cfg_h72, "hold72h", period_traders)
         all_results.append(r)
 
     # Variant 3: YES-only (needs separate trader pool)
     try:
-        await backend.close()
-        backend = ClickHouseBackend(host=CH_HOST, port=CH_PORT, database=CH_DB)
         cfg_yes = make_s2_config(direction="YES")
-        yes_traders = await get_qualified_traders(backend, cfg_yes)
-        print(f"\n  YES-only trader pool: {len(yes_traders)}")
         for period in PERIODS:
+            as_of_date = f"{period}-01"
+            yes_traders = await get_qualified_traders(backend, cfg_yes, as_of_date=as_of_date)
+            print(f"\n  YES-only {period}: {len(yes_traders)} traders")
             r = await run_single_period(backend, period, cfg_yes, "yes_only", yes_traders)
             all_results.append(r)
     except Exception as e:

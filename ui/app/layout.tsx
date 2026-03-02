@@ -31,6 +31,12 @@ function NavBar() {
       >
         PnL
       </Link>
+      <Link
+        href="/insiders"
+        className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+      >
+        Insiders
+      </Link>
     </nav>
   );
 }
