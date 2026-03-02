@@ -1,29 +1,87 @@
 # configs/s2_insider_copy.toml
-# Insider Copy Strategy — research configuration
+# S2 Insider Copy — Paper Trading (two-pool deployment)
+#
+# Two strategy instances share one provider:
+#   s2_insider_fast  → esports, hold to resolution (fast capital recycling)
+#   s2_insider_slow  → politics+culture+finance, take-profit at 3%/day
+#
+# Run: uv run pm-strategy run --config configs/s2_insider_copy.toml --log-dir logs/paper
+#
+# =========================================================================
+# VIABLE CONFIGURATIONS (from tick-by-tick validation)
+# =========================================================================
+#
+# MAX COMPOUNDING (recommended):
+#   min_consensus = 3, max_entry_price = 0.65, size_usd = quarter-Kelly
+#   Expected: 57% HR, +$1.57 per $1 risked, compounding score 12.37
+#
+# HIGHER CONSENSUS (more selective):
+#   min_consensus = 5, max_entry_price = 0.65
+#   Expected: 59% HR, +$1.81 per $1 risked, compounding score 12.14
+#
+# WARNING: Configs WITHOUT max_entry_price < 0.65 have NEGATIVE Kelly.
+#          The entry price filter is MANDATORY for positive expectation.
+# =========================================================================
 
-[strategy.s2_insider_copy]
+# ---------------------------------------------------------------------------
+# Fast pool: esports — hold to resolution, fast recycling
+# ---------------------------------------------------------------------------
+[strategy.s2_insider_fast]
 enabled = true
-mode = "replay"
-capital_usd = 1000
+mode = "paper_dev"
+capital_usd = 300
 max_position_usd = 100
-max_open_positions = 20
+max_open_positions = 10
 cooldown_s = 0
-features = ["insider_provider"]
+features = ["insider_copy_provider"]
 
-[strategy.s2_insider_copy.params]
-min_consensus = 1
+[strategy.s2_insider_fast.params]
+min_consensus = 3
 size_usd = 50
 stop_loss_pct = 0.50
+max_entry_price = 0.65
+categories = ["esports"]
+take_profit_daily_pct = 0.0       # hold to resolution
+min_days_to_take_profit = 0
 
-[provider.insider_provider]
+# ---------------------------------------------------------------------------
+# Slow pool: politics + culture + finance — active take-profit
+# ---------------------------------------------------------------------------
+[strategy.s2_insider_slow]
 enabled = true
-refresh_interval_s = 0
+mode = "paper_dev"
+capital_usd = 700
+max_position_usd = 100
+max_open_positions = 8
+cooldown_s = 0
+features = ["insider_copy_provider"]
 
-[provider.insider_provider.params]
+[strategy.s2_insider_slow.params]
+min_consensus = 3
+size_usd = 50
+stop_loss_pct = 0.50
+max_entry_price = 0.65
+categories = ["politics", "culture", "finance"]
+take_profit_daily_pct = 0.03      # exit at 3%/day return
+min_days_to_take_profit = 7       # only after 7+ days held
+
+# ---------------------------------------------------------------------------
+# Shared provider: insider pool from ClickHouse
+# ---------------------------------------------------------------------------
+[provider.insider_copy_provider]
+enabled = true
+refresh_interval_s = 3600         # hourly pool refresh
+
+[provider.insider_copy_provider.params]
+lookback_months = 12
 min_positions = 3
-min_bayesian_hr = 0.55
-lookback_months = 6
+min_bayesian_hr = 0.75            # strict tier
+min_high_pct = 0.20               # at least 20% HIGH-susceptibility markets
+max_hr = 0.99                     # exclude bots buying at $0.99+
 
+# ---------------------------------------------------------------------------
+# Promotion gates (for pm-strategy promote)
+# ---------------------------------------------------------------------------
 [promotion]
 min_trades = 50
 min_sharpe = 0.3

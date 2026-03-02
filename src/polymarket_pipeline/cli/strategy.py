@@ -41,9 +41,11 @@ def _register_providers() -> None:
 
     Add new provider registrations here when implementing strategies.
     """
-    from polymarket_pipeline.strategies_impl.s1_hitrate_copy import S1HitRateProvider
+    from polymarket_pipeline.strategies_impl.s2_hitrate_copy.provider import S2Provider
+    from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import InsiderCopyProvider
 
-    _PROVIDER_REGISTRY["s1_hitrate"] = S1HitRateProvider
+    _PROVIDER_REGISTRY["s2_provider"] = S2Provider
+    _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
 
 
 # ---------------------------------------------------------------------------
@@ -58,11 +60,14 @@ def _register_strategies() -> None:
 
     Add new strategy factories here when implementing strategies.
     """
-    from polymarket_pipeline.strategies_impl.s1_hitrate_copy import S1HitRateCopyStrategy
-
-    _STRATEGY_FACTORIES["s1_hitrate_copy"] = lambda cfg: S1HitRateCopyStrategy(
-        **cfg.params,
+    from polymarket_pipeline.strategies_impl.s2_hitrate_copy.strategy import create_s2_strategy
+    from polymarket_pipeline.strategies_impl.s2_insider_copy.strategy import (
+        create_insider_copy_strategy,
     )
+
+    _STRATEGY_FACTORIES["s2_hitrate_copy"] = create_s2_strategy
+    _STRATEGY_FACTORIES["s2_insider_fast"] = create_insider_copy_strategy
+    _STRATEGY_FACTORIES["s2_insider_slow"] = create_insider_copy_strategy
 
 
 # ---------------------------------------------------------------------------

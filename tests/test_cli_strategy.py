@@ -46,8 +46,8 @@ base_bet_usd = 50
         _build_runner(config_file)
 
 
-def test_registries_start_empty() -> None:
-    """Registries should be empty after cleanup — no strategies registered."""
+def test_registries_have_s2() -> None:
+    """S2 hit-rate copy strategy and provider should be registered."""
     from polymarket_pipeline.cli.strategy import (
         _PROVIDER_REGISTRY,
         _STRATEGY_FACTORIES,
@@ -57,5 +57,5 @@ def test_registries_start_empty() -> None:
 
     _register_strategies()
     _register_providers()
-    assert len(_STRATEGY_FACTORIES) == 0
-    assert len(_PROVIDER_REGISTRY) == 0
+    assert "s2_hitrate_copy" in _STRATEGY_FACTORIES
+    assert "s2_provider" in _PROVIDER_REGISTRY
