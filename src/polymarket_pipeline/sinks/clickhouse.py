@@ -117,3 +117,81 @@ class ClickHouseSink:
     def execute(self, sql: str) -> None:
         """Execute a statement (no return value)."""
         self._client.command(sql)
+
+    # ------------------------------------------------------------------
+    # Staging support for bulk ingest (bypasses projections per-batch)
+    # ------------------------------------------------------------------
+
+    _STAGING_TABLE = "_staging_trades"
+
+    _STAGING_DDL = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        trade_id        String,
+        condition_id    String,
+        asset_id        String,
+        side            String,
+        price           Float64,
+        size            Float64,
+        amount_usd      Float64,
+        fee_usd         Float64,
+        maker           Nullable(String),
+        taker           Nullable(String),
+        timestamp       DateTime64(3, 'UTC'),
+        source          String,
+        tx_hash         Nullable(String),
+        order_hash      Nullable(String),
+        block_number    Nullable(UInt64),
+        is_backfill     UInt8,
+        _version        UInt16
+    ) ENGINE = MergeTree()
+    ORDER BY (condition_id, timestamp, trade_id)
+    PARTITION BY toYYYYMM(timestamp)
+    """
+
+    _STAGING_COLUMNS = [
+        "trade_id", "condition_id", "asset_id", "side", "price", "size",
+        "amount_usd", "fee_usd", "maker", "taker", "timestamp", "source",
+        "tx_hash", "order_hash", "block_number", "is_backfill", "_version",
+    ]
+
+    def create_staging(self) -> None:
+        """Create a bare staging table (no projections, no MVs)."""
+        self._client.command(self._STAGING_DDL.format(table=self._STAGING_TABLE))
+
+    def insert_staging(self, trades: list[NormalizedTrade]) -> None:
+        """Insert trades into the staging table (fast, no projection overhead)."""
+        if not trades:
+            return
+        rows = [
+            [
+                t.trade_id, t.condition_id, t.asset_id, t.side.value,
+                float(t.price), float(t.size), float(t.amount_usd), float(t.fee_usd),
+                t.maker, t.taker, t.timestamp, t.source.value,
+                t.tx_hash, t.order_hash, t.block_number, t.is_backfill, t.version,
+            ]
+            for t in trades
+        ]
+        self._client.insert(self._STAGING_TABLE, rows, column_names=self._STAGING_COLUMNS)
+
+    def flush_staging(self) -> int:
+        """Move all staged rows into trades_raw in one bulk INSERT, then truncate.
+
+        Returns the number of rows flushed.
+        """
+        count_result = self._client.query(
+            f"SELECT count() AS n FROM {self._STAGING_TABLE}"
+        )
+        count = count_result.result_rows[0][0] if count_result.result_rows else 0
+        if count == 0:
+            return 0
+        self._client.command(
+            f"INSERT INTO trades_raw"
+            f" SELECT *, 0 AS published_at, now64(3, 'UTC') AS ingested_at"
+            f" FROM {self._STAGING_TABLE}"
+        )
+        self._client.command(f"TRUNCATE TABLE {self._STAGING_TABLE}")
+        return count
+
+    def drop_staging(self) -> None:
+        """Drop the staging table."""
+        self._client.command(f"DROP TABLE IF EXISTS {self._STAGING_TABLE}")
