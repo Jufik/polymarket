@@ -282,3 +282,99 @@ export interface IntentMetadata {
   };
   rationale?: Record<string, unknown>;
 }
+
+// --- Insiders ---
+
+export interface InsiderTrader {
+  trader: string;
+  effective_hr: number;
+  best_direction: string;
+  hr_excess: number;
+  high_pct: number;
+  total_positions: number;
+  yes_wins: number;
+  yes_total: number;
+  no_wins: number;
+  no_total: number;
+  total_pnl: number;
+  avg_volume: number;
+  in_live_pool: boolean;
+}
+
+export interface InsiderPoolResponse {
+  traders: InsiderTrader[];
+  total: number;
+  params: {
+    lookback_months: number;
+    min_positions: number;
+    min_hr: number;
+    max_hr: number;
+    min_high_pct: number;
+  };
+  error?: string;
+}
+
+export interface SignalIntent {
+  strategy: string;
+  side: string;
+  outcome: string;
+  size_usd: number;
+  disposition: string;
+  filled_price: number | null;
+  reason: string;
+  captured_at: string | null;
+}
+
+export interface InsiderSignal {
+  condition_id: string;
+  question: string | null;
+  event_slug: string | null;
+  polymarket_url: string | null;
+  consensus_count: number;
+  insider_addresses: string[];
+  trade_count: number;
+  total_usd: number;
+  max_price: number;
+  first_trade: string;
+  last_trade: string;
+  intents: SignalIntent[];
+  triggered: boolean;
+}
+
+export interface InsiderSignalsResponse {
+  signals: InsiderSignal[];
+  total: number;
+  pool_size: number;
+  lookback_hours: number;
+  error?: string;
+}
+
+export interface InsiderOverview {
+  pool_size: number;
+  pool_refreshed_at: string | null;
+  total_intents: number;
+  filled_intents: number;
+  active_signals: number;
+}
+
+export async function fetchInsiderPool(): Promise<InsiderPoolResponse> {
+  const res = await fetch(`${API_BASE}/api/insiders/pool`, { cache: "no-store" });
+  return res.json();
+}
+
+export async function fetchInsiderSignals(
+  hours = 48
+): Promise<InsiderSignalsResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/insiders/signals?hours=${hours}`,
+    { cache: "no-store" }
+  );
+  return res.json();
+}
+
+export async function fetchInsiderOverview(): Promise<InsiderOverview> {
+  const res = await fetch(`${API_BASE}/api/insiders/overview`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
