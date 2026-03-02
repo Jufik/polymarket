@@ -122,3 +122,104 @@ def compute_effective_hr(
     if yes_hr >= no_hr:
         return yes_hr, "YES"
     return no_hr, "NO"
+
+
+# --------------------------------------------------------------------------- #
+# Stage 2: Composite insider scoring
+# --------------------------------------------------------------------------- #
+
+import polars as pl
+
+
+def _percentile_rank(series: pl.Series) -> pl.Series:
+    """Rank values as percentile (0-1). Higher = better."""
+    return series.rank() / series.len()
+
+
+def _z_score(series: pl.Series) -> pl.Series:
+    """Standard z-score normalization."""
+    mean = series.mean()
+    std = series.std()
+    if std is None or std == 0:
+        return pl.Series([0.0] * series.len())
+    return (series - mean) / std
+
+
+def compute_insider_scores(
+    trader_stats: pl.DataFrame,
+    *,
+    weights: dict[str, float] | None = None,
+) -> pl.DataFrame:
+    """Compute 6-feature composite insider score for each trader.
+
+    Input DataFrame must have columns:
+        trader, yes_wins, yes_total, no_wins, no_total,
+        avg_position_usd, markets_per_month, avg_timing_edge, high_market_ratio
+
+    Returns DataFrame with all input columns + f1..f6 features + insider_score.
+    """
+    w = weights or {
+        "f1": 1 / 6, "f2": 1 / 6, "f3": 1 / 6,
+        "f4": 1 / 6, "f5": 1 / 6, "f6": 1 / 6,
+    }
+
+    # F1: Bayesian hit rate excess (over direction base rate)
+    f1_values = []
+    f1_directions = []
+    for row in trader_stats.iter_rows(named=True):
+        hr, direction = compute_effective_hr(
+            row["yes_wins"], row["yes_total"],
+            row["no_wins"], row["no_total"],
+        )
+        base = 0.381 if direction == "YES" else 0.619
+        f1_values.append(hr - base)
+        f1_directions.append(direction)
+
+    result = trader_stats.with_columns(
+        pl.Series("f1_bayesian_hr", f1_values),
+        pl.Series("best_direction", f1_directions),
+    )
+
+    # F2: Conviction (percentile rank of avg bet size)
+    result = result.with_columns(
+        _percentile_rank(result["avg_position_usd"]).alias("f2_conviction"),
+    )
+
+    # F3: Selectivity (inverse of markets_per_month, percentile ranked)
+    selectivity_raw = 1.0 / result["markets_per_month"].clip(lower_bound=0.01)
+    result = result.with_columns(
+        _percentile_rank(selectivity_raw).alias("f3_selectivity"),
+    )
+
+    # F4: Anomaly score (Mahalanobis-like: z-score distance in feature space)
+    z_markets = _z_score(result["markets_per_month"]) * -1  # fewer = more insider
+    z_bet = _z_score(result["avg_position_usd"])  # larger = more insider
+    z_hr = _z_score(result["f1_bayesian_hr"])  # higher = more insider
+    anomaly_raw = (z_markets + z_bet + z_hr) / 3.0
+    result = result.with_columns(
+        _percentile_rank(anomaly_raw).alias("f4_anomaly"),
+    )
+
+    # F5: Timing edge (percentile rank)
+    result = result.with_columns(
+        _percentile_rank(result["avg_timing_edge"]).alias("f5_timing"),
+    )
+
+    # F6: Susceptibility concentration (already 0-1, use directly)
+    result = result.with_columns(
+        result["high_market_ratio"].alias("f6_susceptibility"),
+    )
+
+    # Composite score (weighted sum of percentile-ranked features)
+    result = result.with_columns(
+        (
+            w["f1"] * _percentile_rank(result["f1_bayesian_hr"])
+            + w["f2"] * result["f2_conviction"]
+            + w["f3"] * result["f3_selectivity"]
+            + w["f4"] * result["f4_anomaly"]
+            + w["f5"] * result["f5_timing"]
+            + w["f6"] * result["f6_susceptibility"]
+        ).alias("insider_score"),
+    )
+
+    return result

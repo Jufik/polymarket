@@ -126,3 +126,56 @@ class TestBayesianHitRate:
             no_wins=9, no_total=10,
         )
         assert direction == "NO"
+
+
+import polars as pl
+
+
+class TestInsiderScorer:
+    """Test composite insider scoring from trader stats DataFrame."""
+
+    def _make_trader_stats(self) -> pl.DataFrame:
+        """Create sample trader stats for testing."""
+        return pl.DataFrame({
+            "trader": ["alice", "bob", "charlie", "dave"],
+            # F1 inputs: directional positions
+            "yes_wins": [8, 2, 15, 5],
+            "yes_total": [10, 5, 20, 10],
+            "no_wins": [2, 7, 3, 1],
+            "no_total": [3, 10, 5, 2],
+            # F2: avg bet size (USD)
+            "avg_position_usd": [5000.0, 200.0, 1000.0, 50.0],
+            # F3: markets per month
+            "markets_per_month": [1.5, 20.0, 5.0, 2.0],
+            # F5: timing edge (avg price delta after entry)
+            "avg_timing_edge": [0.15, 0.02, 0.08, -0.05],
+            # F6: high susceptibility ratio
+            "high_market_ratio": [0.8, 0.3, 0.6, 0.1],
+        })
+
+    def test_score_returns_all_traders(self) -> None:
+        from research.strategies.s2_insider_copy import compute_insider_scores
+
+        df = self._make_trader_stats()
+        result = compute_insider_scores(df)
+        assert len(result) == 4
+        assert "insider_score" in result.columns
+
+    def test_alice_scores_highest(self) -> None:
+        from research.strategies.s2_insider_copy import compute_insider_scores
+
+        df = self._make_trader_stats()
+        result = compute_insider_scores(df)
+        scores = dict(zip(result["trader"].to_list(), result["insider_score"].to_list()))
+        # Alice: high HR, big bets, selective, good timing, high susceptibility
+        assert scores["alice"] > scores["bob"]
+        assert scores["alice"] > scores["dave"]
+
+    def test_score_has_feature_columns(self) -> None:
+        from research.strategies.s2_insider_copy import compute_insider_scores
+
+        df = self._make_trader_stats()
+        result = compute_insider_scores(df)
+        for col in ["f1_bayesian_hr", "f2_conviction", "f3_selectivity",
+                     "f4_anomaly", "f5_timing", "f6_susceptibility"]:
+            assert col in result.columns, f"Missing column: {col}"
