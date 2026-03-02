@@ -38,3 +38,6 @@ scripts/_cache/
 
 # Rust build artifacts
 crates/*/target/
+
+# Large binaries
+clickhouse
