@@ -13,6 +13,7 @@ models/*.joblib
 order_filled_compact/
 docker-drives
 data/
+!research/knowledge/data
 scripts/_cache/
 # Tools
 .mypy_cache/

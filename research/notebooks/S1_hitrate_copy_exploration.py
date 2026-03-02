@@ -12,7 +12,35 @@
 import marimo
 
 __generated_with = "0.20.2"
-app = marimo.App(width="full", app_title="S1: High Hit-Rate Trader Copy-Trading Exploration")
+app = marimo.App(
+    width="full",
+    app_title="S1: High Hit-Rate Trader Copy-Trading Exploration",
+)
+
+with app.setup:
+    import clickhouse_connect
+    import polars as pl
+    import numpy as np
+
+    CH_HOST = "192.168.0.148"
+    CH_PORT = 18123
+    CH_DB = "polymarket"
+
+    client = clickhouse_connect.get_client(
+        host=CH_HOST, port=CH_PORT, database=CH_DB
+    )
+
+    def ch_query(sql: str) -> pl.DataFrame:
+        """Execute ClickHouse query and return as Polars DataFrame."""
+        r = client.query(sql)
+        if not r.result_rows:
+            return pl.DataFrame()
+        return pl.DataFrame(
+            {col: [row[i] for row in r.result_rows] for i, col in enumerate(r.column_names)}
+        )
+
+    # Also load local parquet extracts for fast iteration
+    DERIVED = "data/derived"
 
 
 @app.cell
@@ -48,36 +76,7 @@ def title():
 
 
 @app.cell
-def setup():
-    import clickhouse_connect
-    import polars as pl
-    import numpy as np
-
-    CH_HOST = "192.168.0.148"
-    CH_PORT = 18123
-    CH_DB = "polymarket"
-
-    client = clickhouse_connect.get_client(
-        host=CH_HOST, port=CH_PORT, database=CH_DB
-    )
-
-    def ch_query(sql: str) -> pl.DataFrame:
-        """Execute ClickHouse query and return as Polars DataFrame."""
-        r = client.query(sql)
-        if not r.result_rows:
-            return pl.DataFrame()
-        return pl.DataFrame(
-            {col: [row[i] for row in r.result_rows] for i, col in enumerate(r.column_names)}
-        )
-
-    # Also load local parquet extracts for fast iteration
-    DERIVED = "data/derived"
-
-    return CH_DB, CH_HOST, CH_PORT, DERIVED, ch_query, client, np, pl
-
-
-@app.cell
-def data_overview(ch_query, mo):
+def data_overview(mo):
     mo.md("## 1. Data Inventory")
 
     overview = ch_query("""
@@ -92,11 +91,11 @@ def data_overview(ch_query, mo):
     """)
 
     mo.ui.table(overview)
-    return (overview,)
+    return
 
 
 @app.cell
-def base_rates(ch_query, mo):
+def base_rates(mo):
     mo.md(
         """
     ## 2. Resolution Base Rates
@@ -127,11 +126,11 @@ def base_rates(ch_query, mo):
     - **Total resolved markets**: {base['total_markets'][0]:,}
     """
     )
-    return (base,)
+    return
 
 
 @app.cell
-def position_profile(ch_query, mo):
+def position_profile(mo):
     mo.md(
         """
     ## 3. Position Type Profile
@@ -167,11 +166,11 @@ def position_profile(ch_query, mo):
       directional traders. This is the "adversarial baseline" any copy strategy must beat.
     """
     )
-    return (pos_profile,)
+    return
 
 
 @app.cell
-def crypto_gambling_filter(ch_query, mo):
+def crypto_gambling_filter(mo):
     mo.md(
         """
     ## 4. Market Category Classification
@@ -230,11 +229,11 @@ def crypto_gambling_filter(ch_query, mo):
     These are noise markets where skill signal is minimal.
     """
     )
-    return (gambling,)
+    return
 
 
 @app.cell
-def safe_bet_analysis(ch_query, mo, pl):
+def safe_bet_analysis(mo):
     mo.md(
         """
     ## 5. Safe Bet Price Threshold Analysis
@@ -247,9 +246,9 @@ def safe_bet_analysis(ch_query, mo, pl):
     """
     )
 
-    rows = []
+    _rows = []
     for thresh in [1.00, 0.95, 0.90, 0.85, 0.80, 0.70, 0.60, 0.50]:
-        r = ch_query(f"""
+        _r = ch_query(f"""
         SELECT
             count() as cnt,
             sum(toUInt32(correct)) as wins,
@@ -263,16 +262,16 @@ def safe_bet_analysis(ch_query, mo, pl):
                    ELSE 1.0 - p.avg_yes_price END < {thresh}
           AND NOT (m.question LIKE '%Up or Down%')
         """)
-        rows.append({
+        _rows.append({
             "threshold": thresh,
-            "positions": r["cnt"][0],
-            "wins": r["wins"][0],
-            "hit_rate": float(r["hr"][0]),
-            "avg_pnl": float(r["avg_pnl"][0]),
-            "total_pnl": float(r["total_pnl"][0]),
+            "positions": _r["cnt"][0],
+            "wins": _r["wins"][0],
+            "hit_rate": float(_r["hr"][0]),
+            "avg_pnl": float(_r["avg_pnl"][0]),
+            "total_pnl": float(_r["total_pnl"][0]),
         })
 
-    safe_bet_df = pl.DataFrame(rows)
+    safe_bet_df = pl.DataFrame(_rows)
     mo.ui.table(safe_bet_df)
 
     mo.md(
@@ -286,11 +285,11 @@ def safe_bet_analysis(ch_query, mo, pl):
     **Decision**: Use **0.90** as safe-bet cutoff.
     """
     )
-    return (safe_bet_df,)
+    return
 
 
 @app.cell
-def address_dedup(ch_query, mo):
+def address_dedup(mo):
     mo.md(
         """
     ## 6. Address Case Duplication
@@ -317,11 +316,11 @@ def address_dedup(ch_query, mo):
     All queries use `lower(trader)` for grouping.
     """
     )
-    return (addr_check,)
+    return
 
 
 @app.cell
-def trader_distribution(DERIVED, mo, pl):
+def trader_distribution(mo):
     import plotly.express as px
 
     mo.md(
@@ -348,7 +347,7 @@ def trader_distribution(DERIVED, mo, pl):
 
     # Position count histogram (log scale)
     df_plot = df.filter(pl.col("n_positions") >= 3)
-    fig = px.histogram(
+    _fig = px.histogram(
         df_plot.to_pandas(),
         x="n_positions",
         nbins=100,
@@ -356,13 +355,12 @@ def trader_distribution(DERIVED, mo, pl):
         labels={"n_positions": "# Resolved Positions"},
         log_y=True,
     )
-    mo.ui.plotly(fig)
-
+    mo.ui.plotly(_fig)
     return df, px
 
 
 @app.cell
-def hit_rate_distribution(df, mo, pl, px):
+def hit_rate_distribution(df, mo, px):
     mo.md(
         """
     ## 8. Hit Rate Distribution
@@ -394,12 +392,11 @@ def hit_rate_distribution(df, mo, pl, px):
     )
     fig_hist.add_vline(x=0.50, line_dash="dash", annotation_text="50% baseline")
     mo.ui.plotly(fig_hist)
-
     return (hr_df,)
 
 
 @app.cell
-def hr_bucket_analysis(hr_df, mo, pl, px):
+def hr_bucket_analysis(hr_df, mo, px):
     mo.md(
         """
     ### 8a. Hit Rate Buckets vs PnL
@@ -452,12 +449,11 @@ def hr_bucket_analysis(hr_df, mo, pl, px):
     - The 1.0 bucket (126 traders, 100% HR): +$401K avg PnL -- extremely concentrated
     """
     )
-
-    return (bucket_stats, hr_binned)
+    return
 
 
 @app.cell
-def mvf_analysis(DERIVED, mo, pl, px):
+def mvf_analysis(mo):
     mo.md(
         """
     ## 9. Maker Volume Fraction (MVF) vs Hit Rate
@@ -513,12 +509,11 @@ def mvf_analysis(DERIVED, mo, pl, px):
     information, since their default behavior is market-making.
     """
     )
-
-    return (joined, mvf_buckets)
+    return
 
 
 @app.cell
-def walk_forward_core(ch_query, mo, pl, px):
+def walk_forward_core(mo):
     mo.md(
         """
     ## 10. Walk-Forward Stability Test (Key Result)
@@ -593,14 +588,14 @@ def walk_forward_core(ch_query, mo, pl, px):
     # Bar chart: train HR vs test HR
     wf_pd = wf.to_pandas()
     import plotly.graph_objects as go
-    fig = go.Figure()
-    fig.add_trace(go.Bar(name="Train HR", x=wf_pd["train_decile"], y=wf_pd["train_hr"],
+    _fig = go.Figure()
+    _fig.add_trace(go.Bar(name="Train HR", x=wf_pd["train_decile"], y=wf_pd["train_hr"],
                          marker_color="steelblue"))
-    fig.add_trace(go.Bar(name="Test HR", x=wf_pd["train_decile"], y=wf_pd["test_hr"],
+    _fig.add_trace(go.Bar(name="Test HR", x=wf_pd["train_decile"], y=wf_pd["test_hr"],
                          marker_color="coral"))
-    fig.update_layout(title="Walk-Forward: Train HR vs Out-of-Sample Test HR",
+    _fig.update_layout(title="Walk-Forward: Train HR vs Out-of-Sample Test HR",
                       barmode="group", yaxis_title="Hit Rate", xaxis_title="Training Decile")
-    mo.ui.plotly(fig)
+    mo.ui.plotly(_fig)
 
     mo.md(
         """
@@ -622,12 +617,11 @@ def walk_forward_core(ch_query, mo, pl, px):
     Even after regression to the mean, top-decile traders maintain OOS HR > 50%.
     """
     )
-
-    return (wf,)
+    return
 
 
 @app.cell
-def quarterly_stability(ch_query, mo, pl, px):
+def quarterly_stability(mo):
     mo.md(
         """
     ## 11. Quarterly Walk-Forward Stability
@@ -637,7 +631,7 @@ def quarterly_stability(ch_query, mo, pl, px):
     """
     )
 
-    rows = []
+    _rows = []
     quarters = [
         ('2024-07-01', '2024-10-01', '2025-01-01', 'Q3-24->Q4'),
         ('2024-10-01', '2025-01-01', '2025-04-01', 'Q4-24->Q1'),
@@ -648,7 +642,7 @@ def quarterly_stability(ch_query, mo, pl, px):
     ]
 
     for train_start, train_end, test_end, label in quarters:
-        r = ch_query(f"""
+        _r = ch_query(f"""
         WITH
         p1 AS (
             SELECT lower(p.trader) as trader,
@@ -684,23 +678,23 @@ def quarterly_stability(ch_query, mo, pl, px):
             round(sum(CASE WHEN p1.hr >= 0.50 THEN p2.pnl ELSE 0 END), 2) as top_pnl
         FROM p1 INNER JOIN p2 ON p1.trader = p2.trader
         """)
-        row = r.to_dicts()[0] if len(r) > 0 else {}
-        top_train = float(row.get('top_train') or 0)
-        top_test = float(row.get('top_test') or 0)
-        bot_train = float(row.get('bot_train') or 0)
-        bot_test = float(row.get('bot_test') or 0)
-        rows.append({
+        _row = _r.to_dicts()[0] if len(_r) > 0 else {}
+        top_train = float(_row.get('top_train') or 0)
+        top_test = float(_row.get('top_test') or 0)
+        bot_train = float(_row.get('bot_train') or 0)
+        bot_test = float(_row.get('bot_test') or 0)
+        _rows.append({
             "period": label,
-            "traders": row.get('traders', 0),
+            "traders": _row.get('traders', 0),
             "top_train_hr": top_train,
             "top_test_hr": top_test,
             "top_decay": round(top_test - top_train, 4),
             "bot_train_hr": bot_train,
             "bot_test_hr": bot_test,
-            "top_oos_pnl": float(row.get('top_pnl') or 0),
+            "top_oos_pnl": float(_row.get('top_pnl') or 0),
         })
 
-    qdf = pl.DataFrame(rows)
+    qdf = pl.DataFrame(_rows)
     mo.ui.table(qdf)
 
     mo.md(
@@ -712,12 +706,11 @@ def quarterly_stability(ch_query, mo, pl, px):
     - The decay magnitude is ~5-10pp -- substantial but still leaves a tradeable spread
     """
     )
-
-    return (qdf,)
+    return
 
 
 @app.cell
-def position_size_analysis(ch_query, mo):
+def position_size_analysis(mo):
     mo.md(
         """
     ## 12. Position Size vs Hit Rate
@@ -767,13 +760,12 @@ def position_size_analysis(ch_query, mo):
     The house always wins on average -- strategy must select skilled subsets.
     """
     )
-    return (size_df,)
+    return
 
 
 @app.cell
 def feature_brainstorm(mo):
-    mo.md(
-        """
+    mo.md("""
     ## 13. Feature Brainstorm
 
     ### Tier 1: Core Signal (must have)
@@ -809,15 +801,13 @@ def feature_brainstorm(mo):
     |---------|-------------|-----|
     | **market_overlap** | Cosine similarity with other top traders | Crowding |
     | **consensus_agreement** | Fraction agreeing with majority | Contrarian signal |
-    """
-    )
+    """)
     return
 
 
 @app.cell
 def strategy_design(mo):
-    mo.md(
-        """
+    mo.md("""
     ## 14. Walk-Forward Strategy Design
 
     ### Signal Construction (no lookahead)
@@ -850,15 +840,13 @@ def strategy_design(mo):
     - EV per trade after RealisticFillSimulator slippage
     - Sharpe ratio, max drawdown, profit factor
     - Min 1,000 OOS trades for statistical power
-    """
-    )
+    """)
     return
 
 
 @app.cell
 def summary(mo):
-    mo.md(
-        """
+    mo.md("""
     ## 15. Summary and Key Conclusions
 
     ### Validated findings on 434M trades, 32M resolved positions, 3+ years:
@@ -905,8 +893,7 @@ def summary(mo):
     3. Statistical significance tests (binomial, bootstrap CI)
     4. Parameter sweep across min_positions, min_hr, retrain_freq
     5. Explore combining hit_rate with avg_edge and MVF as multi-feature signal
-    """
-    )
+    """)
     return
 
 

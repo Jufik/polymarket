@@ -41,6 +41,9 @@ def _register_providers() -> None:
 
     Add new provider registrations here when implementing strategies.
     """
+    from polymarket_pipeline.strategies_impl.s1_hitrate_copy import S1HitRateProvider
+
+    _PROVIDER_REGISTRY["s1_hitrate"] = S1HitRateProvider
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +58,11 @@ def _register_strategies() -> None:
 
     Add new strategy factories here when implementing strategies.
     """
+    from polymarket_pipeline.strategies_impl.s1_hitrate_copy import S1HitRateCopyStrategy
+
+    _STRATEGY_FACTORIES["s1_hitrate_copy"] = lambda cfg: S1HitRateCopyStrategy(
+        **cfg.params,
+    )
 
 
 # ---------------------------------------------------------------------------

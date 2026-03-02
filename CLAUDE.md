@@ -210,6 +210,12 @@ src/polymarket_pipeline/
 └── strategies_impl/     # Concrete strategy implementations (empty — ready for new)
 
 research/                # Research sandbox (imports from pipeline, never imported BY it)
+├── knowledge/           # Structured research knowledge base (see knowledge/README.md)
+│   ├── data/            # Data characteristics, base rates, distributions
+│   ├── signals/         # Alpha signals and features
+│   ├── pitfalls/        # Known biases, simulation gaps, critical bugs
+│   ├── execution/       # Position lifecycle, slippage, capital
+│   └── queries/         # Reusable CH SQL snippets (.sql files)
 ├── harness.py           # Backtest entry point: load trades → calibrate → run → ledger → analytics
 ├── conftest.py          # Shared pytest fixtures (permissive_config, sample_trades)
 ├── strategies/          # Draft strategy modules (same protocol, not registered in CLI)
@@ -305,3 +311,52 @@ CLOB WS `market_resolved` → `markets.events` topic → `MarketEventsConsumer` 
 | MLflow 2.19.0 | 5050 | Experiment tracking |
 | Redpanda | 19092 (Kafka), 18082 (proxy) | Event streaming (live pipeline) |
 | Redpanda Console | 18080 | Redpanda web UI |
+
+### Research Workflow
+
+Quantitative research is orchestrated via the `quant-research` skill with a 5-phase workflow.
+Knowledge is captured in `research/knowledge/`. Ideas are tracked in `research/ideas.md`.
+
+```
+LOAD KNOWLEDGE ──→ DISCOVER (vectorized) ──→ MANUAL GATE ──→ VALIDATE (tick-by-tick) ──→ CAPTURE & SCORE
+  parallel agents     CH SQL sweeps            user reviews       ReplayRunner replay       knowledge entries
+  parse admonitions   marimo notebook           decides next       realistic fills           compounding score
+  surface CRITICAL    UPPER BOUNDS only         validate/refine    compare with vectorized   idea backlog update
+```
+
+**Skills** (in `.claude/skills/`):
+- `quant-research` — main orchestrator, multi-track coordination, manual gate
+- `research-track` — vectorized discovery agent, creates marimo notebooks
+- `research-validate` — tick-by-tick validation agent, ReplayRunner + RealisticFillSimulator
+- `research-knowledge` — knowledge loading, admonition parsing, enrichment
+
+**Knowledge admonitions** (GitHub-flavored `> [!CRITICAL]` / `> [!WARNING]` / `> [!TIP]`):
+- Parsed from `research/knowledge/` entries at session start
+- CRITICAL: must be addressed or results are invalid
+- WARNING: results will be biased if ignored
+
+**Key pitfalls** (load before any research):
+- Vectorized backtests are 20-40pp optimistic vs tick-by-tick (`pitfalls/vectorized_vs_tick.md`)
+- SELL trades are exits, not directional signals (`pitfalls/sell_is_exit.md`)
+- Consensus must count unique traders, not trade events (`pitfalls/consensus_dedup.md`)
+- Resolution uses asset_id (boolean), never string matching (`data/resolution_mechanics.md`)
+
+**After research**: if a query result surprised you, capture it in `research/knowledge/`.
+
+**Compounding score**: `excess_hr × avg_edge_usd / median_hold_days` — higher = faster capital recycling.
+
+**Simulation layers**:
+
+| Layer | Speed | Accuracy | Use For |
+|-------|-------|----------|---------|
+| Vectorized (CH SQL) | ~5s/sweep | Low (upper bound) | Signal discovery, parameter sweep |
+| ReplayRunner (tick-by-tick) | ~2min/month | High | Validation, PnL estimation |
+| Paper trading (live) | Real-time | Highest | Pre-deployment confirmation |
+
+**ReplayRunner** (`strategies/runners/replay.py`):
+- Asset_id-based resolution via `MarketResolution(winning_asset_ids=frozenset)`
+- Tick-by-tick settlement frees capital mid-replay
+- Provider hot-path: `on_trade()` → feature update → strategy decision per tick
+- Pre-filter trades by qualified makers in CH (11x speedup)
+
+**Remote ClickHouse**: `192.168.0.148:18123`, database `polymarket` (full dataset 2022-2026)
