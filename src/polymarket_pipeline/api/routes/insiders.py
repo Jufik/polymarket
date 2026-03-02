@@ -1,8 +1,10 @@
 """Insider strategy monitoring endpoints.
 
-Provides two views:
+Provides:
     GET /insiders/pool    — full insider pool with scoring breakdown from CH
     GET /insiders/signals — active consensus signals + matched intents from PG
+    GET /insiders/health  — per-pool 7d rolling stats (fills, HR, PnL, candidates)
+    GET /insiders/overview — quick stats for dashboard header
 """
 
 from __future__ import annotations
@@ -16,6 +18,45 @@ from fastapi import APIRouter, Request
 
 router = APIRouter(tags=["insiders"])
 log = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Pool configuration: category → (pool_name, consensus_threshold, capital_usd)
+# Must match configs/s2_insider_copy.toml
+# ---------------------------------------------------------------------------
+_POOL_CONFIG: dict[str, dict] = {
+    "sports": {"pool": "s2_insider_sports", "consensus": 4, "capital_usd": 400},
+    "politics": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 400},
+    "other": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 400},
+    "culture": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
+    "weather": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
+    "finance": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
+}
+# Categories explicitly excluded from strategy
+_EXCLUDED_CATEGORIES = frozenset({"crypto", "esports"})
+
+# Reverse map: pool_name → {categories, consensus, capital_usd}
+_POOLS: dict[str, dict] = {}
+for _cat, _cfg in _POOL_CONFIG.items():
+    _pname = _cfg["pool"]
+    if _pname not in _POOLS:
+        _POOLS[_pname] = {
+            "categories": [],
+            "consensus": _cfg["consensus"],
+            "capital_usd": _cfg["capital_usd"],
+        }
+    _POOLS[_pname]["categories"].append(_cat)
+
+
+def _category_to_pool(category: str | None) -> tuple[str | None, int]:
+    """Map a primary_category to (pool_name, consensus_threshold). Returns (None, 0) if excluded."""
+    if not category or category in _EXCLUDED_CATEGORIES:
+        return None, 0
+    cfg = _POOL_CONFIG.get(category)
+    if cfg:
+        return cfg["pool"], cfg["consensus"]
+    # Unmapped categories go to politics pool with default consensus
+    return "s2_insider_politics", 3
+
 
 # ---------------------------------------------------------------------------
 # Cached pool: heavy query runs at most once per TTL, shared across endpoints
@@ -147,10 +188,12 @@ SELECT
     t.amount_usd,
     t.timestamp,
     m.question,
-    e.slug AS event_slug
+    e.slug AS event_slug,
+    ms.primary_category
 FROM trades_raw FINAL AS t
 LEFT JOIN markets AS m ON t.condition_id = m.condition_id
 LEFT JOIN events AS e ON m.event_id = e.id
+LEFT JOIN market_susceptibility AS ms ON t.condition_id = ms.condition_id
 WHERE lower(t.maker) IN ({addr_list})
   AND t.side = 'BUY'
   AND t.timestamp >= now() - INTERVAL {hours} HOUR
@@ -258,11 +301,16 @@ async def insider_signals(
     for r in trade_rows:
         cid = r["condition_id"]
         maker = r["maker"]
+        category = r.get("primary_category") or "other"
         if cid not in markets:
+            pool_name, cons_threshold = _category_to_pool(category)
             markets[cid] = {
                 "condition_id": cid,
                 "question": r.get("question"),
                 "event_slug": r.get("event_slug"),
+                "category": category,
+                "pool": pool_name,
+                "consensus_threshold": cons_threshold,
                 "insiders": set(),
                 "trades": [],
                 "first_trade": r["timestamp"],
@@ -327,6 +375,8 @@ async def insider_signals(
     for cid, m in sorted(
         markets.items(), key=lambda x: len(x[1]["insiders"]), reverse=True
     ):
+        consensus = len(m["insiders"])
+        threshold = m["consensus_threshold"]
         signals.append({
             "condition_id": cid,
             "question": m["question"],
@@ -336,7 +386,11 @@ async def insider_signals(
                 if m["event_slug"]
                 else None
             ),
-            "consensus_count": len(m["insiders"]),
+            "category": m["category"],
+            "pool": m["pool"],
+            "consensus_count": consensus,
+            "consensus_threshold": threshold,
+            "consensus_met": threshold > 0 and consensus >= threshold,
             "insider_addresses": [
                 a[:8] + "..." + a[-6:] for a in sorted(m["insiders"])
             ],
@@ -400,3 +454,127 @@ async def insider_overview(request: Request) -> dict:
         log.exception("insiders.overview_intents_failed")
 
     return overview
+
+
+@router.get("/insiders/health")
+async def insider_health(request: Request) -> dict:
+    """Per-pool 7-day rolling health stats.
+
+    Returns fills, resolved, wins, HR, PnL, capital utilization, fill rate,
+    and candidate count for each strategy pool. Single PG query + reuses
+    cached signals data for candidates.
+    """
+    pools_out: list[dict] = []
+
+    # Step 1: Per-strategy 7d aggregates from PG (single query)
+    strategy_stats: dict[str, dict] = {}
+    try:
+        pg = request.app.state.pool
+        async with pg.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT
+                       si.strategy,
+                       count(*) FILTER (WHERE si.disposition = 'filled')
+                           AS fills_7d,
+                       count(*) FILTER (
+                           WHERE si.disposition = 'filled'
+                             AND m.winner_outcome IS NOT NULL
+                       ) AS resolved_7d,
+                       count(*) FILTER (
+                           WHERE si.disposition = 'filled'
+                             AND m.winner_outcome IS NOT NULL
+                             AND m.winner_outcome = si.outcome
+                       ) AS wins_7d,
+                       count(*) FILTER (WHERE si.disposition = 'risk_rejected')
+                           AS risk_rejected_7d,
+                       count(*) FILTER (WHERE si.disposition = 'rejected')
+                           AS rejected_7d,
+                       coalesce(sum(si.filled_size_usd) FILTER (
+                           WHERE si.disposition = 'filled'), 0)
+                           AS invested_7d,
+                       coalesce(sum(si.fee_usd) FILTER (
+                           WHERE si.disposition = 'filled'), 0)
+                           AS fees_7d,
+                       count(DISTINCT si.condition_id) FILTER (
+                           WHERE si.disposition = 'filled'
+                             AND m.winner_outcome IS NULL
+                       ) AS open_positions
+                   FROM strategy_intents si
+                   LEFT JOIN markets m ON si.condition_id = m.condition_id
+                   WHERE si.strategy LIKE 's2_insider%'
+                     AND si.captured_at >= now() - INTERVAL '7 days'
+                   GROUP BY si.strategy"""
+            )
+            for r in rows:
+                strategy_stats[r["strategy"]] = dict(r)
+    except Exception:
+        log.exception("insiders.health_pg_failed")
+
+    # Step 2: Count candidates per pool from recent signals (reuse signals logic)
+    candidates_per_pool: dict[str, int] = {}
+    try:
+        pool_rows = await _get_cached_pool(request)
+        addresses = [r["trader"] for r in pool_rows]
+        if addresses:
+            addr_list = ",".join(f"'{a}'" for a in addresses)
+            sql = _RECENT_INSIDER_TRADES_SQL.format(addr_list=addr_list, hours=48)
+            trade_rows = await _ch_query(request, sql)
+
+            # Build per-market consensus, count candidates per pool
+            market_consensus: dict[str, dict] = {}
+            for r in trade_rows:
+                cid = r["condition_id"]
+                category = r.get("primary_category") or "other"
+                if cid not in market_consensus:
+                    pool_name, cons_threshold = _category_to_pool(category)
+                    market_consensus[cid] = {
+                        "pool": pool_name,
+                        "threshold": cons_threshold,
+                        "insiders": set(),
+                    }
+                market_consensus[cid]["insiders"].add(r["maker"])
+
+            for mc in market_consensus.values():
+                pn = mc["pool"]
+                if pn and len(mc["insiders"]) < mc["threshold"]:
+                    candidates_per_pool[pn] = candidates_per_pool.get(pn, 0) + 1
+    except Exception:
+        log.exception("insiders.health_candidates_failed")
+
+    # Step 3: Assemble per-pool output
+    for pool_name, pool_cfg in _POOLS.items():
+        stats = strategy_stats.get(pool_name, {})
+        fills = int(stats.get("fills_7d", 0))
+        resolved = int(stats.get("resolved_7d", 0))
+        wins = int(stats.get("wins_7d", 0))
+        risk_rej = int(stats.get("risk_rejected_7d", 0))
+        rejected = int(stats.get("rejected_7d", 0))
+        invested = float(stats.get("invested_7d", 0))
+        fees = float(stats.get("fees_7d", 0))
+        open_pos = int(stats.get("open_positions", 0))
+        total_intents = fills + risk_rej + rejected
+
+        pools_out.append({
+            "pool": pool_name,
+            "categories": pool_cfg["categories"],
+            "consensus_threshold": pool_cfg["consensus"],
+            "capital_usd": pool_cfg["capital_usd"],
+            "fills_7d": fills,
+            "resolved_7d": resolved,
+            "wins_7d": wins,
+            "hr_7d": round(wins / resolved, 3) if resolved > 0 else None,
+            "pnl_7d": round(invested - fees, 2),
+            "invested_7d": round(invested, 2),
+            "open_positions": open_pos,
+            "capital_pct": round(
+                (open_pos * 50) / pool_cfg["capital_usd"], 3
+            ) if pool_cfg["capital_usd"] > 0 else 0,
+            "fill_rate": round(
+                fills / total_intents, 3
+            ) if total_intents > 0 else None,
+            "risk_rejected_7d": risk_rej,
+            "rejected_7d": rejected,
+            "candidates": candidates_per_pool.get(pool_name, 0),
+        })
+
+    return {"pools": pools_out}

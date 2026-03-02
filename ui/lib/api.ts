@@ -330,7 +330,11 @@ export interface InsiderSignal {
   question: string | null;
   event_slug: string | null;
   polymarket_url: string | null;
+  category: string;
+  pool: string | null;
   consensus_count: number;
+  consensus_threshold: number;
+  consensus_met: boolean;
   insider_addresses: string[];
   trade_count: number;
   total_usd: number;
@@ -374,6 +378,38 @@ export async function fetchInsiderSignals(
 
 export async function fetchInsiderOverview(): Promise<InsiderOverview> {
   const res = await fetch(`${API_BASE}/api/insiders/overview`, {
+    cache: "no-store",
+  });
+  return res.json();
+}
+
+// --- Pool Health ---
+
+export interface PoolHealth {
+  pool: string;
+  categories: string[];
+  consensus_threshold: number;
+  capital_usd: number;
+  fills_7d: number;
+  resolved_7d: number;
+  wins_7d: number;
+  hr_7d: number | null;
+  pnl_7d: number;
+  invested_7d: number;
+  open_positions: number;
+  capital_pct: number;
+  fill_rate: number | null;
+  risk_rejected_7d: number;
+  rejected_7d: number;
+  candidates: number;
+}
+
+export interface PoolHealthResponse {
+  pools: PoolHealth[];
+}
+
+export async function fetchPoolHealth(): Promise<PoolHealthResponse> {
+  const res = await fetch(`${API_BASE}/api/insiders/health`, {
     cache: "no-store",
   });
   return res.json();

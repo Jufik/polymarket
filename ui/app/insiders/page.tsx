@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import {
   fetchInsiderPool,
   fetchInsiderSignals,
-  fetchInsiderOverview,
+  fetchPoolHealth,
   InsiderTrader,
   InsiderSignal,
-  InsiderOverview,
+  PoolHealth,
 } from "@/lib/api";
 
-type Tab = "pool" | "signals";
+type Tab = "signals" | "candidates" | "pool";
 type SortKey =
   | "effective_hr"
   | "hr_excess"
@@ -54,18 +54,56 @@ function dispositionBadge(d: string) {
   );
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  sports: "bg-blue-900/50 text-blue-300 border-blue-700/50",
+  politics: "bg-purple-900/50 text-purple-300 border-purple-700/50",
+  other: "bg-purple-900/50 text-purple-300 border-purple-700/50",
+  culture: "bg-amber-900/50 text-amber-300 border-amber-700/50",
+  finance: "bg-emerald-900/50 text-emerald-300 border-emerald-700/50",
+  weather: "bg-cyan-900/50 text-cyan-300 border-cyan-700/50",
+  crypto: "bg-red-900/50 text-red-300 border-red-700/50",
+  esports: "bg-red-900/50 text-red-300 border-red-700/50",
+};
+
+function categoryBadge(category: string) {
+  const cls = CATEGORY_COLORS[category] || "bg-gray-800 text-gray-400 border-gray-700/50";
+  return (
+    <span className={`inline-block px-1.5 py-0.5 text-xs rounded border font-medium ${cls}`}>
+      {category}
+    </span>
+  );
+}
+
+const POOL_DISPLAY: Record<string, { label: string; color: string; border: string }> = {
+  s2_insider_sports: {
+    label: "Sports",
+    color: "text-blue-400",
+    border: "border-blue-500/30",
+  },
+  s2_insider_politics: {
+    label: "Politics",
+    color: "text-purple-400",
+    border: "border-purple-500/30",
+  },
+  s2_insider_misc: {
+    label: "Misc",
+    color: "text-amber-400",
+    border: "border-amber-500/30",
+  },
+};
+
 /* ======================================================================== */
-/* Overview Stats Cards                                                      */
+/* Pool Health Cards                                                         */
 /* ======================================================================== */
 
-function OverviewCards({ data }: { data: InsiderOverview | null }) {
-  if (!data) {
+function PoolHealthCards({ pools }: { pools: PoolHealth[] | null }) {
+  if (!pools) {
     return (
       <div className="flex gap-4 mb-8">
-        {[...Array(5)].map((_, i) => (
+        {[...Array(3)].map((_, i) => (
           <div
             key={i}
-            className="bg-gray-900 rounded-lg p-4 flex-1 animate-pulse h-20"
+            className="bg-gray-900 rounded-lg p-4 flex-1 animate-pulse h-28"
           />
         ))}
       </div>
@@ -74,44 +112,86 @@ function OverviewCards({ data }: { data: InsiderOverview | null }) {
 
   return (
     <div className="flex gap-4 mb-8">
-      <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-        <div className="text-sm text-gray-400">Pool Size</div>
-        <div className="text-2xl font-mono font-bold text-blue-400">
-          {data.pool_size}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">qualified insiders</div>
-      </div>
-      <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-        <div className="text-sm text-gray-400">Active Signals</div>
-        <div className="text-2xl font-mono font-bold text-purple-400">
-          {data.active_signals}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">markets (48h)</div>
-      </div>
-      <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-        <div className="text-sm text-gray-400">Total Intents</div>
-        <div className="text-2xl font-mono font-bold text-gray-200">
-          {data.total_intents}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">all time</div>
-      </div>
-      <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-        <div className="text-sm text-gray-400">Filled</div>
-        <div className="text-2xl font-mono font-bold text-green-400">
-          {data.filled_intents}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {data.total_intents > 0
-            ? `${((data.filled_intents / data.total_intents) * 100).toFixed(0)}% fill rate`
-            : "no intents yet"}
-        </div>
-      </div>
-      <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-        <div className="text-sm text-gray-400">Pool Refreshed</div>
-        <div className="text-lg font-mono text-gray-300">
-          {timeAgo(data.pool_refreshed_at)}
-        </div>
-      </div>
+      {pools.map((p) => {
+        const display = POOL_DISPLAY[p.pool] || {
+          label: p.pool,
+          color: "text-gray-400",
+          border: "border-gray-700/50",
+        };
+        // Health indicator: green if fills > 0, yellow if no fills, red if HR < 40%
+        let healthDot = "text-yellow-400"; // no data
+        if (p.fills_7d > 0) {
+          healthDot =
+            p.hr_7d !== null && p.hr_7d < 0.4
+              ? "text-red-400"
+              : "text-green-400";
+        }
+
+        return (
+          <div
+            key={p.pool}
+            className={`bg-gray-900 rounded-lg p-4 flex-1 border ${display.border}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-lg ${healthDot}`}>{"\u25CF"}</span>
+              <span className={`text-sm font-semibold ${display.color}`}>
+                {display.label}
+              </span>
+              <span className="text-xs text-gray-500 ml-auto">
+                c{"\u2265"}{p.consensus_threshold}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="text-gray-400">
+                Fills (7d)
+              </div>
+              <div className="font-mono text-gray-200 text-right">
+                {p.fills_7d}
+              </div>
+
+              <div className="text-gray-400">
+                HR (7d)
+              </div>
+              <div className={`font-mono text-right ${p.hr_7d !== null ? (p.hr_7d >= 0.5 ? "text-green-400" : "text-red-400") : "text-gray-500"}`}>
+                {p.hr_7d !== null
+                  ? `${(p.hr_7d * 100).toFixed(0)}% (${p.wins_7d}/${p.resolved_7d})`
+                  : "-"}
+              </div>
+
+              <div className="text-gray-400">
+                PnL (7d)
+              </div>
+              <div className={`font-mono text-right ${pnlColor(p.pnl_7d)}`}>
+                {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(0)}
+              </div>
+
+              <div className="text-gray-400">
+                Capital
+              </div>
+              <div className="font-mono text-right text-gray-200">
+                {(p.capital_pct * 100).toFixed(0)}% ({p.open_positions} pos)
+              </div>
+
+              <div className="text-gray-400">
+                Fill Rate
+              </div>
+              <div className="font-mono text-right text-gray-200">
+                {p.fill_rate !== null
+                  ? `${(p.fill_rate * 100).toFixed(0)}%`
+                  : "-"}
+              </div>
+
+              <div className="text-gray-400">
+                Candidates
+              </div>
+              <div className="font-mono text-right text-purple-400">
+                {p.candidates}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -266,11 +346,21 @@ function PoolTable({ traders }: { traders: InsiderTrader[] }) {
 }
 
 /* ======================================================================== */
-/* Signals Table                                                             */
+/* Signals Table (enhanced with category + consensus progress)               */
 /* ======================================================================== */
 
-function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
+function SignalsTable({
+  signals,
+  showExcluded = true,
+}: {
+  signals: InsiderSignal[];
+  showExcluded?: boolean;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const filtered = showExcluded
+    ? signals
+    : signals.filter((s) => s.pool !== null);
 
   return (
     <div className="overflow-x-auto">
@@ -278,17 +368,18 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
         <thead>
           <tr className="bg-gray-800/50 text-gray-400">
             <th className="p-3 text-left">Market</th>
-            <th className="p-3 text-right">Consensus</th>
+            <th className="p-3 text-center">Category</th>
+            <th className="p-3 text-center">Pool</th>
+            <th className="p-3 text-center">Consensus</th>
             <th className="p-3 text-right">Trades</th>
             <th className="p-3 text-right">Total USD</th>
-            <th className="p-3 text-right">Max Price</th>
             <th className="p-3 text-left">Last Trade</th>
             <th className="p-3 text-center">Triggered</th>
             <th className="p-3 text-left">Intents</th>
           </tr>
         </thead>
         <tbody>
-          {signals.map((s) => (
+          {filtered.map((s) => (
             <>
               <tr
                 key={s.condition_id}
@@ -301,7 +392,7 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
                   )
                 }
               >
-                <td className="p-3 text-xs max-w-[300px]">
+                <td className="p-3 text-xs max-w-[280px]">
                   {s.polymarket_url ? (
                     <a
                       href={s.polymarket_url}
@@ -318,27 +409,42 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
                     </span>
                   )}
                 </td>
-                <td className="p-3 text-right">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded font-mono font-bold text-sm ${
-                      s.consensus_count >= 3
-                        ? "bg-purple-900/50 text-purple-300"
-                        : s.consensus_count >= 2
-                          ? "bg-blue-900/50 text-blue-300"
-                          : "bg-gray-800 text-gray-400"
-                    }`}
-                  >
-                    {s.consensus_count}
-                  </span>
+                <td className="p-3 text-center">
+                  {categoryBadge(s.category)}
+                </td>
+                <td className="p-3 text-center text-xs">
+                  {s.pool ? (
+                    <span className={POOL_DISPLAY[s.pool]?.color || "text-gray-400"}>
+                      {POOL_DISPLAY[s.pool]?.label || s.pool}
+                    </span>
+                  ) : (
+                    <span className="text-red-400/60">excluded</span>
+                  )}
+                </td>
+                <td className="p-3 text-center">
+                  {s.consensus_threshold > 0 ? (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-sm ${
+                        s.consensus_met
+                          ? "bg-green-900/50 text-green-300"
+                          : s.consensus_count >= s.consensus_threshold - 1
+                            ? "bg-yellow-900/50 text-yellow-300"
+                            : "bg-gray-800 text-gray-400"
+                      }`}
+                    >
+                      {s.consensus_count}/{s.consensus_threshold}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 font-mono text-sm">
+                      {s.consensus_count}
+                    </span>
+                  )}
                 </td>
                 <td className="p-3 text-right font-mono text-gray-300">
                   {s.trade_count}
                 </td>
                 <td className="p-3 text-right font-mono text-gray-200">
                   ${s.total_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </td>
-                <td className="p-3 text-right font-mono text-gray-300">
-                  ${s.max_price.toFixed(2)}
                 </td>
                 <td className="p-3 text-xs text-gray-400">
                   {timeAgo(s.last_trade)}
@@ -367,7 +473,7 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
               {/* Expanded detail row */}
               {expanded === s.condition_id && (
                 <tr key={`${s.condition_id}-detail`}>
-                  <td colSpan={8} className="p-0">
+                  <td colSpan={9} className="p-0">
                     <div className="bg-gray-900/80 border-y border-gray-700 px-6 py-4">
                       {/* Insider addresses */}
                       <div className="mb-3">
@@ -456,10 +562,10 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
               )}
             </>
           ))}
-          {signals.length === 0 && (
+          {filtered.length === 0 && (
             <tr>
-              <td colSpan={8} className="p-8 text-center text-gray-500">
-                No insider signals in the last 48 hours.
+              <td colSpan={9} className="p-8 text-center text-gray-500">
+                No signals found.
               </td>
             </tr>
           )}
@@ -475,16 +581,24 @@ function SignalsTable({ signals }: { signals: InsiderSignal[] }) {
 
 export default function InsidersPage() {
   const [tab, setTab] = useState<Tab>("signals");
-  const [overview, setOverview] = useState<InsiderOverview | null>(null);
+  const [poolHealthData, setPoolHealthData] = useState<PoolHealth[] | null>(null);
   const [traders, setTraders] = useState<InsiderTrader[]>([]);
   const [signals, setSignals] = useState<InsiderSignal[]>([]);
   const [poolLoading, setPoolLoading] = useState(true);
   const [signalsLoading, setSignalsLoading] = useState(true);
 
+  const candidates = signals.filter(
+    (s) => s.pool !== null && !s.consensus_met
+  );
+  const triggeredSignals = signals.filter(
+    (s) => s.consensus_met || s.triggered
+  );
+
   const refresh = async () => {
+    // Always fetch pool health + signals
     try {
-      const ov = await fetchInsiderOverview();
-      setOverview(ov);
+      const h = await fetchPoolHealth();
+      setPoolHealthData(h.pools);
     } catch {
       /* ignore */
     }
@@ -520,13 +634,14 @@ export default function InsidersPage() {
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Insider Strategy</h1>
 
-        <OverviewCards data={overview} />
+        <PoolHealthCards pools={poolHealthData} />
 
         {/* Tab bar */}
         <div className="flex gap-1 mb-4 border-b border-gray-800">
           {(
             [
-              ["signals", "Live Signals"],
+              ["signals", `Live Signals (${triggeredSignals.length})`],
+              ["candidates", `Candidates (${candidates.length})`],
               ["pool", "Insider Pool"],
             ] as const
           ).map(([key, label]) => (
@@ -550,7 +665,7 @@ export default function InsidersPage() {
             <>
               <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-300">
-                  Markets with Insider Activity ({signals.length})
+                  Markets with Consensus Met ({triggeredSignals.length})
                 </span>
                 <span className="text-xs text-gray-500">Last 48 hours</span>
               </div>
@@ -559,7 +674,37 @@ export default function InsidersPage() {
                   Loading signals...
                 </div>
               ) : (
-                <SignalsTable signals={signals} />
+                <SignalsTable
+                  signals={triggeredSignals}
+                  showExcluded={false}
+                />
+              )}
+            </>
+          )}
+
+          {tab === "candidates" && (
+            <>
+              <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-300">
+                  Building Consensus ({candidates.length})
+                </span>
+                <span className="text-xs text-gray-500">
+                  Markets entering the pool — below threshold
+                </span>
+              </div>
+              {signalsLoading ? (
+                <div className="p-8 text-center text-gray-500 animate-pulse">
+                  Loading candidates...
+                </div>
+              ) : (
+                <SignalsTable
+                  signals={[...candidates].sort(
+                    (a, b) =>
+                      b.consensus_count / Math.max(b.consensus_threshold, 1) -
+                      a.consensus_count / Math.max(a.consensus_threshold, 1)
+                  )}
+                  showExcluded={false}
+                />
               )}
             </>
           )}
