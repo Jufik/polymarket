@@ -121,12 +121,29 @@ class ReplayRunner:
             (r.resolved_at, cid) for cid, r in self._resolutions.items()
         )
 
-    async def run(self, trades: list[NormalizedTrade]) -> BacktestResult:
-        """Replay trades in timestamp order with tick-by-tick resolution."""
+    async def run(
+        self,
+        trades: list[NormalizedTrade],
+        *,
+        timer_interval_s: float = 3600.0,
+    ) -> BacktestResult:
+        """Replay trades in timestamp order with tick-by-tick resolution.
+
+        Parameters
+        ----------
+        timer_interval_s:
+            How often to call ``strategy.on_timer()`` (simulated seconds).
+            Default 3600 (every hour). Set to 0 to disable timer callbacks.
+        """
         result = BacktestResult()
         sorted_trades = sorted(trades, key=lambda t: t.published_at)
         res_idx = 0
         n_res = len(self._res_timeline)
+        next_timer = (
+            (sorted_trades[0].published_at + timer_interval_s)
+            if sorted_trades and timer_interval_s > 0
+            else float("inf")
+        )
 
         for trade in sorted_trades:
             now = trade.published_at
@@ -139,6 +156,17 @@ class ReplayRunner:
                     break
                 self._settle_market(res_cid)
                 res_idx += 1
+
+            # ── 1b. Fire on_timer() at regular intervals ────────────────
+            while now >= next_timer:
+                timer_intents = await self._strategy.on_timer(
+                    next_timer, self._ctx
+                )
+                if timer_intents:
+                    for intent in timer_intents:
+                        result.total_intents += 1
+                        await self._execute_intent(intent, next_timer, result)
+                next_timer += timer_interval_s
 
             # ── 2. Provider hot path ────────────────────────────────────
             for provider in self._providers:

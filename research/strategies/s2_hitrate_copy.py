@@ -252,7 +252,7 @@ class S2HitRateCopy:
             )
         """
 
-    # Tag labels used for category exclusion (tag-based, not m.category which is 99% NULL)
+    # Tag labels used for tag exclusion (not m.category which is 99% NULL)
     _SPORTS_TAGS = (
         "Sports", "Games", "Basketball", "Soccer", "Esports", "NBA", "NCAA",
         "Tennis", "NFL", "NCAA Basketball", "Cricket", "NHL", "CFB", "Hockey",
@@ -262,10 +262,39 @@ class S2HitRateCopy:
     )
     _WEATHER_TAGS = ("Weather", "Science")
 
-    _CATEGORY_TAG_MAP: dict[str, tuple[str, ...]] = {
+    _TAG_GROUP_MAP: dict[str, tuple[str, ...]] = {
         "Sports": _SPORTS_TAGS,
         "Weather": _WEATHER_TAGS,
     }
+
+    # Default CH table name for pre-materialized excluded condition_ids
+    _EXCLUDED_TABLE = "_tmp_excluded_tags"
+
+    @staticmethod
+    def materialize_excluded_tags_sql(
+        exclude_tags: tuple[str, ...] = ("Sports", "Weather"),
+        table_name: str = "_tmp_excluded_tags",
+    ) -> str:
+        """SQL to materialize excluded condition_ids as a native CH Memory table.
+
+        Must be executed ONCE before calling qualified_traders_query().
+        The PG engine views (markets -> events -> event_tags -> tags) are too
+        slow for inline CTEs, so we pre-compute and store natively.
+        """
+        all_tags: list[str] = []
+        for group in exclude_tags:
+            tags = S2HitRateCopy._TAG_GROUP_MAP.get(group, (group,))
+            all_tags.extend(tags)
+        tag_list = ", ".join(f"'{t}'" for t in all_tags)
+        return f"""
+            CREATE TABLE IF NOT EXISTS {table_name} ENGINE = Memory AS
+            SELECT DISTINCT m2.condition_id
+            FROM markets AS m2
+            INNER JOIN events AS e2 ON m2.event_id = e2.id
+            INNER JOIN event_tags AS et2 ON e2.id = et2.event_id
+            INNER JOIN tags AS t2 ON et2.tag_id = t2.id
+            WHERE t2.label IN ({tag_list})
+        """
 
     @staticmethod
     def qualified_traders_query(
@@ -279,20 +308,25 @@ class S2HitRateCopy:
         no_base_rate: float | None = None,
         use_bayesian_hr: bool = False,
         as_of_date: str | None = None,
+        excluded_table: str = "_tmp_excluded_tags",
     ) -> str:
         """Build CH SQL for qualified traders with direction-aware excess HR.
 
         Returns trader, position (YES/NO), wins, total, hit_rate, excess_hr.
         Excess HR = hit_rate - base_rate(direction).
 
-        Category exclusion uses tag-based joins (markets -> events -> event_tags -> tags)
-        because markets.category is 99.3% NULL.
+        Tag exclusion references a pre-materialized native CH table
+        (created by ``materialize_excluded_tags_sql()``). This avoids
+        slow PG engine joins on every query.
 
         Parameters
         ----------
         as_of_date:
             If provided, use this date (YYYY-MM-DD) instead of now() for
             the recency window. Required for walk-forward backtesting.
+        excluded_table:
+            Name of the pre-materialized CH table with excluded condition_ids.
+            Pass empty string to skip tag exclusion entirely.
         """
         yes_br = yes_base_rate if yes_base_rate is not None else YES_BASE_RATE
         no_br = no_base_rate if no_base_rate is not None else NO_BASE_RATE
@@ -314,26 +348,12 @@ class S2HitRateCopy:
                            ELSE 1.0 - avg_yes_price END
                   ) < {max_entry_price}"""
 
-        # Tag-based category exclusion (builds a CTE of excluded condition_ids)
-        category_cte = ""
+        # Tag exclusion: reference pre-materialized native CH table
         category_filter = ""
-        if exclude_tags:
-            # Collect all tag labels to exclude
-            all_tags: list[str] = []
-            for cat in exclude_tags:
-                tags = S2HitRateCopy._CATEGORY_TAG_MAP.get(cat, (cat,))
-                all_tags.extend(tags)
-            tag_list = ", ".join(f"'{t}'" for t in all_tags)
-            category_cte = f"""
-            WITH excluded_markets AS (
-                SELECT DISTINCT m2.condition_id
-                FROM markets AS m2
-                INNER JOIN events AS e2 ON m2.event_id = e2.id
-                INNER JOIN event_tags AS et2 ON e2.id = et2.event_id
-                INNER JOIN tags AS t2 ON et2.tag_id = t2.id
-                WHERE t2.label IN ({tag_list})
-            )"""
-            category_filter = "AND p.condition_id NOT IN (SELECT condition_id FROM excluded_markets)"
+        if exclude_tags and excluded_table:
+            category_filter = (
+                f"AND p.condition_id NOT IN (SELECT condition_id FROM {excluded_table})"
+            )
 
         # HR formula: raw or Bayesian
         if use_bayesian_hr:
@@ -344,7 +364,7 @@ class S2HitRateCopy:
         else:
             hr_expr = "countIf(p.correct = 1) / count(*)"
 
-        return f"""{category_cte}
+        return f"""
             SELECT
                 lower(p.trader) AS trader,
                 p.position AS direction,
