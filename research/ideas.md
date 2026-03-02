@@ -6,41 +6,57 @@
   - Source: data/derived/maker_volume_fractions.parquet exists, unexplored
   - Priority: HIGH
   - Compounding angle: MVF is computable per-trade, no hold-time dependency
-  - Related: knowledge base has no MVF entries yet
+  - Data: pure takers (MVF<0.1) = 25.8% HR; makers-who-take (MVF 0.5-0.9) ~45% HR
 
 - [ ] **Consensus velocity** — speed at which qualified traders converge on a side
-  - Source: S1 research — consensus threshold is static, timing might carry signal
+  - Source: consensus threshold is static, timing might carry signal
   - Priority: MEDIUM
   - Compounding angle: fast consensus → short hold time → faster recycling
   - Related: pitfalls/consensus_dedup.md
 
 - [ ] **Category-specialized ensembles** — separate models per category, combine
-  - Source: S1c notebook — category breakdown shows very different dynamics
+  - Source: category breakdown shows very different dynamics (hold time, HR, volume)
   - Priority: MEDIUM
   - Compounding angle: sports/esports sub-models recycle in <1 day
   - Related: execution/hold_time_capital.md
 
-- [ ] **Exit signal from trader reversals** — qualified traders selling = exit signal
-  - Source: pitfalls/sell_is_exit.md — SELL is exit, but IS it an informative exit?
+- [ ] **Exit signal from trader reversals** — qualified traders selling = informative exit signal
+  - Source: pitfalls/sell_is_exit.md — SELL is exit, but IS it predictive?
   - Priority: HIGH
-  - Compounding angle: early exits free capital faster
+  - Compounding angle: early exits free capital faster (shorter hold)
   - Related: pitfalls/sell_is_exit.md
 
 - [ ] **Price momentum at consensus** — entry price trajectory when consensus forms
-  - Source: S1 research — entry price filter (L2) was dominant, momentum might refine it
+  - Source: entry price filter was dominant in prior research, momentum might refine it
   - Priority: LOW
   - Compounding angle: unclear, needs exploration
 
 ## In Progress
 
-(none)
+### S2: Insider Copy (HIGH priority)
+
+**Hypothesis**: Some traders exhibit "insider knowledge" — infrequent, high-conviction,
+high-accuracy bets on susceptible markets. Copy their BUY trades.
+
+**Status**: Design approved, implementation in progress.
+**Design doc**: `docs/plans/2026-03-02-insider-copy-strategy-design.md`
+
+**Key features**:
+- Two-stage market susceptibility filter (HIGH/MEDIUM/LOW)
+- 6-feature Bayesian scoring: HR excess, conviction, selectivity, anomaly, timing, susceptibility
+- Configurable: single insider vs consensus trigger
+- Stop-loss protection (default 50%)
+- Hold to resolution
+
+**Open questions**:
+- What's the actual insider pool size at various thresholds?
+- Single trigger vs consensus: which has better risk-adjusted returns?
+- Optimal stop-loss level vs hold-to-resolution?
+- Category-specific insider detection (politics vs sports)?
 
 ## Tested
 
-- [x] **Hit-rate copy trading (S1)** — copy high-HR specialist traders with consensus filter
-  - Result: 87.9% HR (tick), $0.94/trade, compounding_score ~2.3
-  - Notebook: research/notebooks/S1_hitrate_copy_exploration.py
-  - Status: PROMOTED to strategies_impl/s1_hitrate_copy/
+(none — clean slate)
 
 ## Parked
 

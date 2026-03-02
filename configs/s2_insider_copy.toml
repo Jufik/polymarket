@@ -1,0 +1,31 @@
+# configs/s2_insider_copy.toml
+# Insider Copy Strategy — research configuration
+
+[strategy.s2_insider_copy]
+enabled = true
+mode = "replay"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 0
+features = ["insider_provider"]
+
+[strategy.s2_insider_copy.params]
+min_consensus = 1
+size_usd = 50
+stop_loss_pct = 0.50
+
+[provider.insider_provider]
+enabled = true
+refresh_interval_s = 0
+
+[provider.insider_provider.params]
+min_positions = 3
+min_bayesian_hr = 0.55
+lookback_months = 6
+
+[promotion]
+min_trades = 50
+min_sharpe = 0.3
+min_fills = 30
+max_drawdown = 0.25
