@@ -1,0 +1,28 @@
+[strategy.s2_hitrate_copy]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 0
+features = ["s2_provider"]
+
+[strategy.s2_hitrate_copy.params]
+min_positions = 30
+min_excess_hr = 0.10
+seed_threshold = 1
+scale_threshold = 4
+seed_pct = 0.25
+direction = "BOTH"
+recency_months = 6
+position_size_usd = 100
+
+[provider.s2_provider]
+enabled = true
+refresh_interval_s = 900
+
+[provider.s2_provider.params]
+min_positions = 30
+min_excess_hr = 0.10
+recency_months = 6
+direction = "BOTH"
