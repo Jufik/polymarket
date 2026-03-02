@@ -161,9 +161,11 @@ class InsiderCopyProvider:
 
     def get_features(self) -> dict[str, Any]:
         return {
-            "insider_pool": self._pool,
-            "insider_signals": self._signals,
-            "pool_size": len(self._pool),
+            self.name: {
+                "insider_pool": self._pool,
+                "insider_signals": self._signals,
+                "pool_size": len(self._pool),
+            },
         }
 
     async def _load_pool(self, backend: FeatureBackend) -> None:
