@@ -183,9 +183,24 @@ class InsiderCopyProvider:
                 "hr_excess": row["hr_excess"],
                 "high_pct": row["high_pct"],
             }
+        old_pool = self._pool
         self._pool = pool
-        # Reset signals on pool refresh — stale consensus from old pool
-        self._signals = {}
+
+        # Prune signals: drop insiders no longer in the pool, keep the rest
+        if old_pool:
+            pruned = 0
+            for cid, sig in list(self._signals.items()):
+                sig["insiders"] = {a for a in sig["insiders"] if a in pool}
+                sig["consensus_count"] = len(sig["insiders"])
+                if not sig["insiders"]:
+                    del self._signals[cid]
+                    pruned += 1
+            logger.info(
+                "insider_copy_provider.signals_pruned",
+                kept=len(self._signals),
+                pruned=pruned,
+            )
+
         logger.info(
             "insider_copy_provider.pool_loaded",
             size=len(pool),

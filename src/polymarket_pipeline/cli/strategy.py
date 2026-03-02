@@ -41,10 +41,15 @@ def _register_providers() -> None:
 
     Add new provider registrations here when implementing strategies.
     """
-    from polymarket_pipeline.strategies_impl.s2_hitrate_copy.provider import S2Provider
+    try:
+        from polymarket_pipeline.strategies_impl.s2_hitrate_copy.provider import S2Provider
+
+        _PROVIDER_REGISTRY["s2_provider"] = S2Provider
+    except ImportError:
+        logger.warning("provider.skip", name="s2_provider", reason="import failed")
+
     from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import InsiderCopyProvider
 
-    _PROVIDER_REGISTRY["s2_provider"] = S2Provider
     _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
 
 
@@ -60,12 +65,19 @@ def _register_strategies() -> None:
 
     Add new strategy factories here when implementing strategies.
     """
-    from polymarket_pipeline.strategies_impl.s2_hitrate_copy.strategy import create_s2_strategy
+    try:
+        from polymarket_pipeline.strategies_impl.s2_hitrate_copy.strategy import (
+            create_s2_strategy,
+        )
+
+        _STRATEGY_FACTORIES["s2_hitrate_copy"] = create_s2_strategy
+    except ImportError:
+        logger.warning("strategy.skip", name="s2_hitrate_copy", reason="import failed")
+
     from polymarket_pipeline.strategies_impl.s2_insider_copy.strategy import (
         create_insider_copy_strategy,
     )
 
-    _STRATEGY_FACTORIES["s2_hitrate_copy"] = create_s2_strategy
     _STRATEGY_FACTORIES["s2_insider_fast"] = create_insider_copy_strategy
     _STRATEGY_FACTORIES["s2_insider_slow"] = create_insider_copy_strategy
 

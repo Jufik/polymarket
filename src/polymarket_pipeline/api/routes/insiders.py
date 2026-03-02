@@ -7,13 +7,43 @@ Provides two views:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 
 import structlog
 from fastapi import APIRouter, Request
 
 router = APIRouter(tags=["insiders"])
 log = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Cached pool: heavy query runs at most once per TTL, shared across endpoints
+# ---------------------------------------------------------------------------
+_POOL_CACHE_TTL = 3600  # 1 hour, matches provider refresh_interval_s
+_pool_cache: list[dict] = []
+_pool_cache_ts: float = 0.0
+_pool_cache_lock = asyncio.Lock()
+
+
+async def _get_cached_pool(request: Request) -> list[dict]:
+    """Return the insider pool, refreshing from CH at most once per TTL."""
+    global _pool_cache, _pool_cache_ts
+    now = time.monotonic()
+    if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
+        return _pool_cache
+    async with _pool_cache_lock:
+        # Double-check after acquiring lock
+        if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
+            return _pool_cache
+        sql = _INSIDER_POOL_SQL.format(
+            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99, min_high_pct=0.20,
+        )
+        rows = await _ch_query(request, sql)
+        _pool_cache = rows
+        _pool_cache_ts = time.monotonic()
+        log.info("insiders.pool_cache_refreshed", size=len(rows))
+        return rows
 
 
 async def _ch_query(request: Request, query: str) -> list[dict]:
@@ -141,16 +171,20 @@ async def insider_pool(
 
     Mirrors the InsiderCopyProvider query but returns richer data for the UI.
     """
-    sql = _INSIDER_POOL_SQL.format(
-        lookback=lookback_months,
-        min_positions=min_positions,
-        min_hr=min_hr,
-        max_hr=max_hr,
-        min_high_pct=min_high_pct,
+    # Use cache when default params match the provider config
+    is_default = (
+        lookback_months == 12 and min_positions == 3
+        and min_hr == 0.75 and max_hr == 0.99 and min_high_pct == 0.20
     )
-
     try:
-        rows = await _ch_query(request, sql)
+        if is_default:
+            rows = await _get_cached_pool(request)
+        else:
+            sql = _INSIDER_POOL_SQL.format(
+                lookback=lookback_months, min_positions=min_positions,
+                min_hr=min_hr, max_hr=max_hr, min_high_pct=min_high_pct,
+            )
+            rows = await _ch_query(request, sql)
     except Exception:
         log.exception("insiders.pool_query_failed")
         return {"traders": [], "total": 0, "error": "ClickHouse query failed"}
@@ -172,22 +206,9 @@ async def insider_pool(
             "avg_volume": round(float(r["avg_volume"]), 2),
         })
 
-    # Also check if any of these traders are in the live strategy_pool
-    live_addresses: set[str] = set()
-    try:
-        pool = request.app.state.pool
-        async with pool.acquire() as conn:
-            pg_rows = await conn.fetch(
-                """SELECT lower(trader_address) AS addr
-                   FROM strategy_pool
-                   WHERE strategy = 'insider_copy_provider'"""
-            )
-            live_addresses = {r["addr"] for r in pg_rows}
-    except Exception:
-        log.debug("insiders.pg_pool_check_failed")
-
+    # Every trader returned by the pool query IS in the live pool
     for t in traders:
-        t["in_live_pool"] = t["trader"] in live_addresses
+        t["in_live_pool"] = True
 
     return {
         "traders": traders,
@@ -211,20 +232,14 @@ async def insider_signals(
 
     Cross-references with strategy_intents to show which signals triggered.
     """
-    # Step 1: Get live pool addresses from PG
-    pool = request.app.state.pool
+    # Step 1: Get live pool addresses from cached CH query
     try:
-        async with pool.acquire() as conn:
-            pg_rows = await conn.fetch(
-                """SELECT lower(trader_address) AS addr
-                   FROM strategy_pool
-                   WHERE strategy = 'insider_copy_provider'"""
-            )
+        pool_rows = await _get_cached_pool(request)
     except Exception:
-        log.exception("insiders.signals_pg_failed")
-        return {"signals": [], "total": 0, "error": "PG query failed"}
+        log.exception("insiders.signals_ch_pool_failed")
+        return {"signals": [], "total": 0, "error": "CH pool query failed"}
 
-    addresses = [r["addr"] for r in pg_rows]
+    addresses = [r["trader"] for r in pool_rows]
     if not addresses:
         return {"signals": [], "total": 0, "message": "No insiders in live pool"}
 
@@ -271,8 +286,9 @@ async def insider_signals(
     intent_map: dict[str, list[dict]] = {}
     if markets:
         cid_list = list(markets.keys())
+        pg = request.app.state.pool
         try:
-            async with pool.acquire() as conn:
+            async with pg.acquire() as conn:
                 intent_rows = await conn.fetch(
                     """SELECT si.condition_id, si.side, si.outcome,
                               si.size_usd, si.disposition, si.filled_price,
@@ -344,8 +360,6 @@ async def insider_signals(
 @router.get("/insiders/overview")
 async def insider_overview(request: Request) -> dict:
     """Quick overview stats for the insiders dashboard header."""
-    pg = request.app.state.pool
-
     overview: dict = {
         "pool_size": 0,
         "pool_refreshed_at": None,
@@ -354,35 +368,27 @@ async def insider_overview(request: Request) -> dict:
         "active_signals": 0,
     }
 
+    # Pool size from cached CH query
     try:
-        async with pg.acquire() as conn:
-            # Pool size + last refresh
-            row = await conn.fetchrow(
-                """SELECT count(*) AS pool_size,
-                          max(refreshed_at) AS refreshed_at
-                   FROM strategy_pool
-                   WHERE strategy = 'insider_copy_provider'"""
-            )
-            if row:
-                overview["pool_size"] = row["pool_size"]
-                overview["pool_refreshed_at"] = (
-                    row["refreshed_at"].isoformat() if row["refreshed_at"] else None
-                )
+        rows = await _get_cached_pool(request)
+        overview["pool_size"] = len(rows)
+    except Exception:
+        log.exception("insiders.overview_pool_failed")
 
-            # Intent counts
+    # Intent counts + active signals from PG (strategy_intents table)
+    try:
+        pg = request.app.state.pool
+        async with pg.acquire() as conn:
             row = await conn.fetchrow(
                 """SELECT count(*) AS total,
-                          countIf(disposition = 'filled') AS filled
-                   FROM (
-                       SELECT disposition FROM strategy_intents
-                       WHERE strategy LIKE 's2_insider%'
-                   ) sub"""
+                          count(*) FILTER (WHERE disposition = 'filled') AS filled
+                   FROM strategy_intents
+                   WHERE strategy LIKE 's2_insider%'"""
             )
             if row:
                 overview["total_intents"] = row["total"]
                 overview["filled_intents"] = row["filled"]
 
-            # Active signals (unique markets with insider intents in last 48h)
             val = await conn.fetchval(
                 """SELECT count(DISTINCT condition_id)
                    FROM strategy_intents
@@ -390,8 +396,7 @@ async def insider_overview(request: Request) -> dict:
                      AND captured_at >= now() - INTERVAL '48 hours'"""
             )
             overview["active_signals"] = val or 0
-
     except Exception:
-        log.exception("insiders.overview_failed")
+        log.exception("insiders.overview_intents_failed")
 
     return overview
