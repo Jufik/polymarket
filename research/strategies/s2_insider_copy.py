@@ -17,7 +17,15 @@ Usage:
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+import polars as pl
+
+from polymarket_pipeline.strategies.types import TradeIntent
+
+if TYPE_CHECKING:
+    from polymarket_pipeline.models import NormalizedTrade
+    from polymarket_pipeline.strategies.protocol import FeatureBackend, StrategyContext
 
 # --------------------------------------------------------------------------- #
 # Stage 1: Market susceptibility classification
@@ -128,8 +136,6 @@ def compute_effective_hr(
 # Stage 2: Composite insider scoring
 # --------------------------------------------------------------------------- #
 
-import polars as pl
-
 
 def _percentile_rank(series: pl.Series) -> pl.Series:
     """Rank values as percentile (0-1). Higher = better."""
@@ -223,3 +229,213 @@ def compute_insider_scores(
     )
 
     return result
+
+
+# --------------------------------------------------------------------------- #
+# InsiderProvider: tracks insider trades per market (FeatureProvider protocol)
+# --------------------------------------------------------------------------- #
+
+InsiderPool = dict[str, dict[str, Any]]  # trader -> {"score": float, "direction": "YES"|"NO"}
+
+
+class InsiderProvider:
+    """Tracks insider BUY trades and builds per-market consensus signals.
+
+    Implements FeatureProvider protocol for use with ReplayRunner.
+    """
+
+    name: str = "insider_provider"
+
+    def __init__(self, insider_pool: InsiderPool) -> None:
+        self._pool = {k.lower(): v for k, v in insider_pool.items()}
+        # condition_id -> {direction, insiders: set, consensus_count, first_signal_time}
+        self._signals: dict[str, dict[str, Any]] = {}
+
+    async def compute(self, backend: FeatureBackend) -> None:
+        """No batch compute needed — pool is pre-loaded."""
+
+    async def on_trade(self, trade: NormalizedTrade) -> None:
+        """Track BUY trades from insider pool members."""
+        # CRITICAL: SELL is exit, not directional signal
+        if trade.side != "BUY":
+            return
+        maker = (trade.maker or "").lower()
+        if maker not in self._pool:
+            return
+
+        cid = trade.condition_id
+        insider_info = self._pool[maker]
+        direction = insider_info["direction"]
+
+        if cid not in self._signals:
+            self._signals[cid] = {
+                "direction": direction,
+                "insiders": set(),
+                "consensus_count": 0,
+                "first_signal_time": trade.published_at,
+                "max_score": insider_info["score"],
+            }
+
+        signal = self._signals[cid]
+        if maker not in signal["insiders"]:
+            signal["insiders"].add(maker)
+            signal["consensus_count"] = len(signal["insiders"])
+            signal["max_score"] = max(signal["max_score"], insider_info["score"])
+
+    async def refresh(self, backend: FeatureBackend) -> None:
+        """No periodic refresh needed for offline backtesting."""
+
+    def get_features(self) -> dict[str, Any]:
+        return {"insider_signals": self._signals}
+
+
+# --------------------------------------------------------------------------- #
+# InsiderCopyStrategy (Strategy protocol)
+# --------------------------------------------------------------------------- #
+
+class InsiderCopyStrategy:
+    """Copy trades from identified insiders.
+
+    Entry: When insider pool member(s) BUY into a susceptible market
+    (single or consensus mode). Exit: Hold to resolution + stop-loss.
+
+    Params (from TOML config.params):
+        insider_pool: dict[trader -> {score, direction}]
+        min_consensus: int (1 = single trigger, 2+ = consensus)
+        size_usd: float (flat position size)
+        stop_loss_pct: float (exit if price drops this fraction from entry)
+    """
+
+    name: str = "s2_insider_copy"
+
+    def __init__(
+        self,
+        insider_pool: InsiderPool,
+        min_consensus: int = 1,
+        size_usd: float = 50.0,
+        stop_loss_pct: float = 0.50,
+    ) -> None:
+        self._pool = {k.lower(): v for k, v in insider_pool.items()}
+        self._min_consensus = min_consensus
+        self._size_usd = size_usd
+        self._stop_loss_pct = stop_loss_pct
+        # Track our entries for stop-loss: condition_id -> {entry_price, outcome}
+        self._entries: dict[str, dict[str, Any]] = {}
+        # Track insider signals inline (no separate provider needed for backtest)
+        self._signals: dict[str, dict[str, Any]] = {}
+
+    async def on_trade(
+        self,
+        trade: NormalizedTrade,
+        ctx: StrategyContext,
+    ) -> list[TradeIntent] | None:
+        cid = trade.condition_id
+        price = float(trade.price)
+
+        # --- Stop-loss check on existing positions ---
+        if cid in self._entries:
+            pos = await ctx.get_position(cid)
+            if pos and (pos.qty_yes > 0 or pos.qty_no > 0):
+                entry = self._entries[cid]
+                entry_price = entry["entry_price"]
+                outcome = entry["outcome"]
+
+                # Get current market price for our outcome
+                current_price = await ctx.get_price(cid, outcome)
+                if current_price is None:
+                    current_price = price  # fallback to trade price
+
+                if current_price < entry_price * (1 - self._stop_loss_pct):
+                    qty = pos.qty_yes if outcome == "YES" else pos.qty_no
+                    del self._entries[cid]
+                    return [
+                        TradeIntent(
+                            strategy=self.name,
+                            condition_id=cid,
+                            side="SELL",
+                            outcome=outcome,
+                            size_usd=qty * current_price,
+                            urgency="immediate",
+                            max_price=current_price,
+                            reason=f"stop-loss: {current_price:.3f} < "
+                                   f"{entry_price:.3f} * {1 - self._stop_loss_pct:.2f}",
+                            signal_time=trade.published_at,
+                            asset_id=trade.asset_id,
+                        ),
+                    ]
+            return None
+
+        # --- Entry logic: only process BUY trades from insiders ---
+        if trade.side != "BUY":
+            return None
+
+        maker = (trade.maker or "").lower()
+        if maker not in self._pool:
+            return None
+
+        # Update signals (inline, same logic as InsiderProvider)
+        insider_info = self._pool[maker]
+        direction = insider_info["direction"]
+
+        if cid not in self._signals:
+            self._signals[cid] = {
+                "direction": direction,
+                "insiders": set(),
+                "consensus_count": 0,
+            }
+        signal = self._signals[cid]
+        signal["insiders"].add(maker)
+        signal["consensus_count"] = len(signal["insiders"])
+
+        # Also check features from provider (if running with ReplayRunner)
+        provider_signals = {}
+        try:
+            feats = await ctx.get_features("insider_provider")
+            if isinstance(feats, dict) and "insider_signals" in feats:
+                provider_signals = feats["insider_signals"]
+        except Exception:
+            pass
+
+        # Merge: use provider signals if available, else inline
+        effective_signal = provider_signals.get(cid, signal)
+        consensus = effective_signal.get("consensus_count", 0)
+
+        # Check consensus threshold
+        if consensus < self._min_consensus:
+            return None
+
+        # Check: no existing position
+        pos = await ctx.get_position(cid)
+        if pos and (pos.qty_yes > 0 or pos.qty_no > 0):
+            return None
+
+        # Determine outcome from insider direction
+        outcome = effective_signal.get("direction", direction)
+
+        # Record entry for stop-loss tracking
+        self._entries[cid] = {"entry_price": price, "outcome": outcome}
+
+        return [
+            TradeIntent(
+                strategy=self.name,
+                condition_id=cid,
+                side="BUY",
+                outcome=outcome,
+                size_usd=self._size_usd,
+                urgency="patient",
+                max_price=price + 0.02,
+                reason=f"insider copy: {consensus} insiders, direction={outcome}",
+                signal_time=trade.published_at,
+                asset_id=trade.asset_id,
+            ),
+        ]
+
+    async def on_market_update(
+        self, update: object, ctx: StrategyContext
+    ) -> list[TradeIntent] | None:
+        return None
+
+    async def on_timer(
+        self, now: float, ctx: StrategyContext
+    ) -> list[TradeIntent] | None:
+        return None
