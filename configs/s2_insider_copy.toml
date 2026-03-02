@@ -1,83 +1,110 @@
 # configs/s2_insider_copy.toml
-# S2 Insider Copy — Paper Trading (two-pool deployment)
+# S2 Insider Copy — Paper Trading (three-pool deployment, per-tag tuned)
 #
-# Two strategy instances share one provider:
-#   s2_insider_fast  → esports, hold to resolution (fast capital recycling)
-#   s2_insider_slow  → politics+culture+finance, take-profit at 3%/day
+# Three strategy instances share one provider:
+#   s2_insider_sports   → sports, fast capital recycling (HIGH confidence)
+#   s2_insider_politics → politics+other, take-profit at 3%/day (CONDITIONAL)
+#   s2_insider_misc     → culture+weather+finance (CONDITIONAL)
+#
+# EXCLUDED categories: crypto (negative excess HR), esports (near-zero PnL)
 #
 # Run: uv run pm-strategy run --config configs/s2_insider_copy.toml --log-dir logs/paper
 #
 # =========================================================================
-# VIABLE CONFIGURATIONS (from tick-by-tick validation)
+# PER-TAG TUNED PARAMETERS (from tick-by-tick validation 2026-03-02)
 # =========================================================================
 #
-# MAX COMPOUNDING (recommended):
-#   min_consensus = 3, max_entry_price = 0.65, size_usd = quarter-Kelly
-#   Expected: 57% HR, +$1.57 per $1 risked, compounding score 12.37
+# Sports (GO — positive excess HR):
+#   cons >= 4, no price filter, 74.3% HR, +13.5pp NO excess, $391/pos
+#   Vectorized-to-tick gap: only 4pp (most reliable signal)
 #
-# HIGHER CONSENSUS (more selective):
-#   min_consensus = 5, max_entry_price = 0.65
-#   Expected: 59% HR, +$1.81 per $1 risked, compounding score 12.14
+# Politics+Other (CONDITIONAL — PnL via asymmetric payoffs):
+#   cons >= 3, no price filter, 69.3% HR, -5.1pp NO excess, $435/pos
+#   Positive PnL from low entry prices, not prediction accuracy
 #
-# WARNING: Configs WITHOUT max_entry_price < 0.65 have NEGATIVE Kelly.
-#          The entry price filter is MANDATORY for positive expectation.
+# Culture+Weather+Finance (CONDITIONAL — PnL via asymmetric payoffs):
+#   cons >= 2, no price filter, 66-72% HR, $113-$436/pos
+#
+# NOTE: Entry price filter < 0.65 confirmed suboptimal per-category.
+#       Lowers HR 8-10pp everywhere. Removed from all pools.
 # =========================================================================
 
 # ---------------------------------------------------------------------------
-# Fast pool: esports — hold to resolution, fast recycling
+# Sports pool: fastest capital recycling, only category with positive excess HR
 # ---------------------------------------------------------------------------
-[strategy.s2_insider_fast]
+[strategy.s2_insider_sports]
 enabled = true
 mode = "paper_dev"
-capital_usd = 300
+capital_usd = 400
+max_position_usd = 100
+max_open_positions = 15
+cooldown_s = 0
+features = ["insider_copy_provider"]
+
+[strategy.s2_insider_sports.params]
+min_consensus = 4
+size_usd = 50
+stop_loss_pct = 0.50
+max_entry_price = 1.00               # no price filter (validated)
+categories = ["sports"]
+take_profit_daily_pct = 0.0          # hold to resolution
+min_days_to_take_profit = 0
+
+# ---------------------------------------------------------------------------
+# Politics pool: highest absolute HR, long hold times
+# ---------------------------------------------------------------------------
+[strategy.s2_insider_politics]
+enabled = true
+mode = "paper_dev"
+capital_usd = 400
 max_position_usd = 100
 max_open_positions = 10
 cooldown_s = 0
 features = ["insider_copy_provider"]
 
-[strategy.s2_insider_fast.params]
+[strategy.s2_insider_politics.params]
 min_consensus = 3
 size_usd = 50
 stop_loss_pct = 0.50
-max_entry_price = 0.65
-categories = ["esports"]
-take_profit_daily_pct = 0.0       # hold to resolution
-min_days_to_take_profit = 0
+max_entry_price = 1.00               # no price filter (validated)
+categories = ["politics", "other"]
+take_profit_daily_pct = 0.03         # exit at 3%/day return
+min_days_to_take_profit = 7          # only after 7+ days held
 
 # ---------------------------------------------------------------------------
-# Slow pool: politics + culture + finance — active take-profit
+# Misc pool: culture + weather + finance — lower consensus, moderate hold
 # ---------------------------------------------------------------------------
-[strategy.s2_insider_slow]
+[strategy.s2_insider_misc]
 enabled = true
 mode = "paper_dev"
-capital_usd = 700
+capital_usd = 200
 max_position_usd = 100
 max_open_positions = 8
 cooldown_s = 0
 features = ["insider_copy_provider"]
 
-[strategy.s2_insider_slow.params]
-min_consensus = 3
+[strategy.s2_insider_misc.params]
+min_consensus = 2
 size_usd = 50
 stop_loss_pct = 0.50
-max_entry_price = 0.65
-categories = ["politics", "culture", "finance"]
-take_profit_daily_pct = 0.03      # exit at 3%/day return
-min_days_to_take_profit = 7       # only after 7+ days held
+max_entry_price = 1.00               # no price filter (validated)
+categories = ["culture", "weather", "finance"]
+take_profit_daily_pct = 0.03         # exit at 3%/day return
+min_days_to_take_profit = 7          # only after 7+ days held
 
 # ---------------------------------------------------------------------------
 # Shared provider: insider pool from ClickHouse
 # ---------------------------------------------------------------------------
 [provider.insider_copy_provider]
 enabled = true
-refresh_interval_s = 3600         # hourly pool refresh
+refresh_interval_s = 3600            # hourly pool refresh
 
 [provider.insider_copy_provider.params]
 lookback_months = 12
 min_positions = 3
-min_bayesian_hr = 0.75            # strict tier
-min_high_pct = 0.20               # at least 20% HIGH-susceptibility markets
-max_hr = 0.99                     # exclude bots buying at $0.99+
+min_bayesian_hr = 0.75               # strict tier
+min_high_pct = 0.20                  # at least 20% HIGH-susceptibility markets
+max_hr = 0.99                        # exclude bots buying at $0.99+
 
 # ---------------------------------------------------------------------------
 # Promotion gates (for pm-strategy promote)

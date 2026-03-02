@@ -222,16 +222,14 @@ def test_qualified_query_includes_entry_price_filter():
     assert "0.8" in sql
 
 
-def test_qualified_query_includes_category_exclusion():
+def test_qualified_query_includes_tag_exclusion():
     sql = S2HitRateCopy.qualified_traders_query(
-        exclude_tags=("Sports", "Weather")
+        exclude_tags=("Sports", "Weather"),
+        excluded_table="_tmp_excluded_tags",
     )
-    # Tag-based exclusion via CTE
-    assert "excluded_markets" in sql
-    assert "event_tags" in sql
-    assert "tags" in sql
-    assert "'Sports'" in sql
-    assert "'Weather'" in sql
+    # References pre-materialized native CH table
+    assert "_tmp_excluded_tags" in sql
+    assert "NOT IN" in sql
 
 
 def test_qualified_query_no_entry_price_filter():
@@ -242,11 +240,23 @@ def test_qualified_query_no_entry_price_filter():
     assert "dir_entry" not in sql or "1.0" in sql
 
 
-def test_qualified_query_empty_category_exclusion():
-    sql = S2HitRateCopy.qualified_traders_query(exclude_tags=())
-    # Should NOT contain tag-based exclusion CTE
-    assert "excluded_markets" not in sql
-    assert "event_tags" not in sql
+def test_qualified_query_empty_tag_exclusion():
+    sql = S2HitRateCopy.qualified_traders_query(exclude_tags=(), excluded_table="")
+    # Should NOT reference any exclusion table
+    assert "_tmp_excluded" not in sql
+    assert "NOT IN" not in sql
+
+
+def test_materialize_excluded_tags_sql():
+    sql = S2HitRateCopy.materialize_excluded_tags_sql(
+        exclude_tags=("Sports", "Weather"),
+        table_name="_tmp_test_excl",
+    )
+    assert "_tmp_test_excl" in sql
+    assert "event_tags" in sql
+    assert "'Sports'" in sql
+    assert "'Weather'" in sql
+    assert "Memory" in sql
 
 
 # ── Task 2: Signal price filter + adaptive base rates ──

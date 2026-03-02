@@ -14,11 +14,12 @@
   - Compounding angle: fast consensus → short hold time → faster recycling
   - Related: pitfalls/consensus_dedup.md
 
-- [ ] **Category-specialized ensembles** — separate models per category, combine
-  - Source: category breakdown shows very different dynamics (hold time, HR, volume)
-  - Priority: MEDIUM
-  - Compounding angle: sports/esports sub-models recycle in <1 day
-  - Related: execution/hold_time_capital.md
+- [x] **Category-specialized ensembles** — COMPLETED as per-tag parameter tuning (2026-03-02)
+  - Result: Per-tag tuning shows 6% direct compounding improvement + crypto/esports exclusion
+  - Sports is 10x more capital-efficient than politics (comp=1867 vs 181)
+  - Knowledge: signals/insider_tag_tuning.md
+  - Notebook: research/notebooks/S2_tag_tuning.py
+  - SPAWNED: tick-by-tick validation of per-tag configs (below)
 
 - [ ] **Exit signal from trader reversals** — qualified traders selling = informative exit signal
   - Source: pitfalls/sell_is_exit.md — SELL is exit, but IS it predictive?
@@ -31,12 +32,44 @@
   - Priority: LOW
   - Compounding angle: unclear, needs exploration
 
-- [ ] **Sports-specific insider filter** — sports has 76% HR but NEGATIVE PnL at strict tier
-  - Source: S2 discovery shows sports edge consumed by spread/slippage
+- [x] **Sports-specific insider filter** — RESOLVED: sports is POSITIVE PnL at cons>=3-5 (2026-03-02)
+  - Result: Sports cons>=4 = 78.4% HR, +$78.69/pos, comp=1,867 (10x politics)
+  - Previous negative PnL finding was from a single training window; walk-forward shows positive
+  - 1-day median hold enables fastest capital recycling of any category
+  - Knowledge: signals/insider_tag_tuning.md
+
+- [x] **Per-tag tick-by-tick validation** — COMPLETED (2026-03-02)
+  - Result: Sports is the standout (74.3% HR, +13.5pp NO excess, -4.1pp vec gap)
+  - Politics/culture/other/weather profitable but negative excess HR (base-rate artifact)
+  - Crypto: confirmed NO-GO (55.7% HR, -20.5pp NO excess)
+  - Esports: marginal (54.3% HR, near-zero PnL)
+  - Entry price filter confirmed suboptimal for ALL categories in tick-by-tick
+  - Hold times much longer than vectorized estimated (8-33d vs 1-7d)
+  - Knowledge: signals/insider_tag_tuning.md
+  - Script: research/scripts/s2_tick_tag_validation.py
+  - Output: research/output/s2_tick_tag/per_tag_all.parquet
+
+- [ ] **Sports-only insider deployment** — implement sports C>=4 insider copy in strategies_impl/
+  - Source: per-tag tick validation shows sports is ONLY category with genuine positive excess HR (+13.5pp)
+  - Priority: HIGHEST
+  - Compounding angle: 74.3% HR, $391/pos, 8d median hold -> deploy as first per-tag strategy
+  - Related: signals/insider_tag_tuning.md
+  - Spawned from: per-tag tick-by-tick validation (2026-03-02)
+
+- [ ] **Asymmetric payoff thesis** — investigate whether positive PnL with negative excess HR is sustainable
+  - Source: per-tag tick validation found most categories have NEGATIVE excess HR but POSITIVE PnL
+  - The PnL comes from very-low-price entries creating asymmetric payoffs, not from predicting outcomes
   - Priority: MEDIUM
-  - Compounding angle: 1-day median hold, high throughput IF edge can be recovered
-  - Spawned from: S2 insider discovery category analysis
-  - Related: signals/insider_copy.md
+  - Question: is this a reliable edge or a survivorship artifact from 3 test months?
+  - Compounding angle: if sustainable, entry price is the real signal, not insider accuracy
+  - Spawned from: per-tag tick-by-tick validation (2026-03-02)
+
+- [ ] **Hold time discrepancy investigation** — vectorized estimates 1-7d median holds, tick shows 8-33d
+  - Source: per-tag tick validation found hold times 5-10x longer than vectorized predicted
+  - Priority: LOW
+  - Root cause likely: vectorized counts only resolved positions (selection bias toward faster resolution)
+  - Impact: compounding scores from vectorized are 5-10x too optimistic
+  - Spawned from: per-tag tick-by-tick validation (2026-03-02)
 
 - [ ] **Bot-as-signal** — 534+ late-betting bots (99%+ HR) detect resolution before market
   - Source: S2 discovery -- bots buy at $0.99+ on near-certain outcomes
@@ -70,6 +103,25 @@
   - Compounding angle: liquid markets = better execution, less slippage
   - Spawned from: S2 volume-at-entry analysis (2026-03-02)
   - Related: signals/insider_entry_characteristics.md
+
+- [ ] **Direction-aware hit-rate consensus** — fix S2 HRC to require same-direction qualified consensus
+  - Source: S2 HRC tick validation found +7pp HR from same-direction consensus vs naive
+  - Priority: MEDIUM (marginal improvement, still 50-54% HR, uncertain PnL)
+  - Compounding angle: fewer fills but higher quality; still 442-907 fills/month
+  - Root cause: current consensus counts ANY qualified trader regardless of their qualified direction
+  - Spawned from: S2 HRC tick-by-tick validation (2026-03-02)
+
+- [ ] **YES-only hit-rate copy** — ignore NO direction entirely in S2 HRC
+  - Source: S2 HRC tick validation found YES has +7 to +18pp excess HR; NO is BELOW base
+  - Priority: LOW (43-46% absolute HR is unprofitable despite excess)
+  - Compounding angle: unclear, YES-only reduces fill count by ~50-60%
+  - Spawned from: S2 HRC tick-by-tick validation (2026-03-02)
+
+- [ ] **Hit-rate x Insider composite** — use hit-rate filter as secondary on insider pool
+  - Source: Insider copy shows 57-67% HR tick-by-tick. Hit-rate filter could narrow pool
+  - Priority: MEDIUM
+  - Compounding angle: tighter pool -> higher consensus signal quality
+  - Related: signals/insider_copy.md
 
 ## In Progress
 
@@ -196,11 +248,55 @@ The FIXED variant has higher HR across all periods and 2-3x higher PnL per posit
 - Consensus dedup critical (72.6% inflation if trades not unique traders)
 - Monthly base rate variance can flip PnL negative even at high HR
 
-**Next**: Tick-by-tick validation with FIXED config
+**Next**: Tick-by-tick validation with FIXED config -- **COMPLETED, SEE TESTED BELOW**
 
 ## Tested
 
-(none — clean slate)
+### S2: Hit-Rate Copy -- REJECTED (2026-03-02)
+
+**Hypothesis**: Traders with excess hit rate above direction-specific base rate are skilled.
+Copying their entries with tiered conviction builds an edge.
+
+**Result**: DOES NOT SURVIVE tick-by-tick validation. HR at or below base rate, negative PnL.
+
+**Tick-by-tick results (3 OOS months: Apr-25, Jul-25, Oct-25):**
+
+| Period | Vec HR (UB) | Tick HR | Gap (pp) | Tick PnL | Fills | Sharpe |
+|--------|-------------|---------|----------|----------|-------|--------|
+| Apr 25 | 82.9% | 45.9% | -37.0pp | -$6,417 | 740 | -0.21 |
+| Jul 25 | 84.2% | 50.6% | -33.6pp | -$5,835 | 1,317 | -0.14 |
+| Oct 25 | 85.5% | 46.1% | -39.4pp | +$2,385 | 1,579 | +0.04 |
+
+**Root causes (5 identified):**
+1. **Direction-agnostic consensus** (-7pp HR): Strategy ignores trader's qualified direction
+2. **NO HR collapse in tick-by-tick** (-8 to -15pp below base): Structural, not a bug
+3. **UNKNOWN outcomes** (50-180 fills/period): Missing token_map defaults to YES incorrectly
+4. **Entry price shift** (~-2pp PnL): max_price = price + 0.02 worsens entry
+5. **on_timer() never called**: ReplayRunner doesn't call on_timer(), max_hold_hours is non-functional
+
+**Direction diagnosis (manual simulation):**
+| Variant | Apr HR | Jul HR | Oct HR | YES excess | NO excess |
+|---------|--------|--------|--------|-----------|----------|
+| Naive (current) | 46.1% | 50.6% | 46.0% | +8.0pp | -14.7pp |
+| Same-dir consensus | 52.9% | 53.6% | 50.7% | +14.0pp | -7.0pp |
+| YES-only directed | 46.4% | 43.8% | 43.9% | +14.0pp | N/A |
+
+**Key learning**: The vectorized-to-tick gap for HR-based strategies is
+STRUCTURAL, not fixable by code improvements. The vectorized analysis uses
+per-trader per-direction aggregate HR (net position over many trades). Tick-by-tick
+enters at a specific trade price. The NO direction is particularly vulnerable because:
+- NO is the default outcome (62-74% base rate)
+- Entering at a specific NO trade price is worse than the blended average
+- Many "NO wins" happen after price already moved to 0.90+
+
+**Validation script**: `research/scripts/s2_hitrate_tick_validation.py`
+**Diagnostic scripts**: `research/scripts/s2_hitrate_diagnose*_tick.py`
+**Notebook**: `research/notebooks/s2_tick_validation.py`
+
+**Spawned ideas**:
+- Direction-aware consensus (queued, MEDIUM priority)
+- YES-only hit-rate copy (queued, LOW priority)
+- Hit-rate x Insider composite (queued, MEDIUM priority)
 
 ## Parked
 
