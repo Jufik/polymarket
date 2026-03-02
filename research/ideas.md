@@ -2,6 +2,30 @@
 
 ## Queued
 
+- [ ] **Tag-aware hit-rate copy** — use TAG-SPECIFIC base rates instead of global 38%/62%
+  - Source: tag_edge_analysis.md — tag base rates vary from 9% (Elections) to 73% (Earnings)
+  - Priority: **HIGHEST**
+  - Data: 959 Politics-YES traders with +42pp tag-excess generate $15.6M aggregate PnL
+  - Total: ~3,500 tag-aware skilled traders across 16 tags, ~$40M/yr aggregate
+  - Key insight: excess HR over global base ≠ edge; must beat TAG-SPECIFIC base + spread
+  - Approach: qualified_traders_query with per-tag base rates, direction-specific
+  - Related: signals/tag_edge_analysis.md, data/tag_base_rates.md
+
+- [ ] **NO mispricing in extreme-bias tags** — NO traders in Culture/Music/Movies/Elections
+  have NEGATIVE excess HR but POSITIVE PnL (market overprices NO outcome)
+  - Source: tag_edge_analysis.md — NO paradox section
+  - Priority: HIGH
+  - Culture NO: -9.9pp excess but +$12.44/pos ($1.1M aggregate from 112 traders)
+  - Elections NO: -18.4pp excess but +$23.81/pos
+  - Approach: buy NO in extreme-bias tags where market price > true probability
+  - Warning: need to distinguish market mispricing from spread capture
+
+- [ ] **Earnings YES niche strategy** — 73% YES base rate, sweet spot at 0.50-0.70 entry
+  - Source: earnings_naive_edge.sql — 55% HR, +$3-5/pos at 0.50-0.70 entry prices
+  - Priority: MEDIUM
+  - Very small universe (612 markets) but fast resolution (1-3 days)
+  - Compounding: high throughput if enough volume
+
 - [ ] **Maker volume fraction as signal** — traders with high MVF (limit orders) may be more informed
   - Source: data/derived/maker_volume_fractions.parquet exists, unexplored
   - Priority: HIGH

@@ -7,11 +7,13 @@ import {
   fetchIntents,
   fetchAnalytics,
   fetchPnlSummary,
+  fetchPoolHealth,
   triggerPanic,
   Position,
   Intent,
   AnalyticsData,
   PnlSummary,
+  PoolHealth,
 } from "@/lib/api";
 import IntentDetailPanel from "@/components/IntentDetailPanel";
 import ReconciliationChart from "@/components/ReconciliationChart";
@@ -53,6 +55,7 @@ export default function Dashboard() {
   const [intentFilter, setIntentFilter] = useState<string>("");
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [pnl, setPnl] = useState<PnlSummary | null>(null);
+  const [poolHealth, setPoolHealth] = useState<PoolHealth[] | null>(null);
 
   // Hover panel state
   const [hoveredIntentId, setHoveredIntentId] = useState<number | null>(null);
@@ -110,6 +113,12 @@ export default function Dashboard() {
     try {
       const p = await fetchPnlSummary();
       setPnl(p);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const ph = await fetchPoolHealth();
+      setPoolHealth(ph.pools);
     } catch {
       /* ignore */
     }
@@ -252,6 +261,59 @@ export default function Dashboard() {
                   ` (${(pnl.summary.win_rate * 100).toFixed(0)}%)`}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Strategy Pool Health (compact) */}
+        {poolHealth && poolHealth.length > 0 && (
+          <div className="flex gap-4 mb-8">
+            {poolHealth.map((p) => {
+              const labels: Record<string, { name: string; color: string; border: string }> = {
+                s2_insider_sports: { name: "Sports", color: "text-blue-400", border: "border-blue-500/30" },
+                s2_insider_politics: { name: "Politics", color: "text-purple-400", border: "border-purple-500/30" },
+                s2_insider_misc: { name: "Misc", color: "text-amber-400", border: "border-amber-500/30" },
+              };
+              const display = labels[p.pool] || { name: p.pool, color: "text-gray-400", border: "border-gray-700" };
+              const healthDot = p.fills_7d === 0
+                ? "text-yellow-400"
+                : p.hr_7d !== null && p.hr_7d < 0.4
+                  ? "text-red-400"
+                  : "text-green-400";
+              return (
+                <a
+                  key={p.pool}
+                  href="/insiders"
+                  className={`bg-gray-900 rounded-lg p-3 flex-1 border ${display.border} hover:bg-gray-800/50 transition-colors`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={healthDot}>{"\u25CF"}</span>
+                    <span className={`text-sm font-semibold ${display.color}`}>
+                      {display.name}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-auto font-mono">
+                      c{"\u2265"}{p.consensus_threshold}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs font-mono">
+                    <span className="text-gray-300">
+                      {p.fills_7d} fills
+                    </span>
+                    <span className="text-gray-600">{"\u00B7"}</span>
+                    <span className={p.hr_7d !== null ? (p.hr_7d >= 0.5 ? "text-green-400" : "text-red-400") : "text-gray-500"}>
+                      {p.hr_7d !== null ? `${(p.hr_7d * 100).toFixed(0)}%` : "-"}
+                    </span>
+                    <span className="text-gray-600">{"\u00B7"}</span>
+                    <span className={p.pnl_7d >= 0 ? "text-green-400" : "text-red-400"}>
+                      {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(0)}
+                    </span>
+                    <span className="text-gray-600">{"\u00B7"}</span>
+                    <span className="text-purple-400">
+                      {p.candidates} cand
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
 
