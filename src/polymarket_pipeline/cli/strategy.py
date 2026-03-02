@@ -78,8 +78,9 @@ def _register_strategies() -> None:
         create_insider_copy_strategy,
     )
 
-    _STRATEGY_FACTORIES["s2_insider_fast"] = create_insider_copy_strategy
-    _STRATEGY_FACTORIES["s2_insider_slow"] = create_insider_copy_strategy
+    _STRATEGY_FACTORIES["s2_insider_sports"] = create_insider_copy_strategy
+    _STRATEGY_FACTORIES["s2_insider_politics"] = create_insider_copy_strategy
+    _STRATEGY_FACTORIES["s2_insider_misc"] = create_insider_copy_strategy
 
 
 # ---------------------------------------------------------------------------
