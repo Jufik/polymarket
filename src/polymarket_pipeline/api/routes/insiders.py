@@ -304,134 +304,110 @@ async def insider_signals(
     request: Request,
     hours: int = 48,
 ) -> dict:
-    """Return active consensus signals — markets where insiders are trading.
+    """Return active signals from strategy_intents (PG only, no CH scan).
 
-    Cross-references with strategy_intents to show which signals triggered.
+    Groups intents by market, shows fill/rejection status per strategy pool.
     """
-    # Step 1+2: Query recent insider BUY trades from CH (pool inlined as CTE)
-    sql = _RECENT_INSIDER_TRADES_SQL.format(
-        lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
-        min_high_pct=0.20, hours=hours,
-    )
+    pg = request.app.state.pool
 
     try:
-        trade_rows = await _ch_query(request, sql)
+        async with pg.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT si.condition_id, si.side, si.outcome,
+                          si.size_usd, si.disposition, si.filled_price,
+                          si.filled_size_usd, si.reason, si.captured_at,
+                          si.strategy,
+                          m.question,
+                          e.slug AS event_slug
+                   FROM strategy_intents si
+                   LEFT JOIN markets m ON si.condition_id = m.condition_id
+                   LEFT JOIN events e ON m.event_id = e.id
+                   WHERE si.strategy LIKE 's2_insider%'
+                     AND si.captured_at >= now() - make_interval(hours => $1)
+                   ORDER BY si.captured_at DESC""",
+                hours,
+            )
     except Exception:
-        log.exception("insiders.signals_ch_failed")
-        return {"signals": [], "total": 0, "error": "ClickHouse query failed"}
+        log.exception("insiders.signals_pg_failed")
+        return {"signals": [], "total": 0, "error": "PG query failed"}
 
-    # Get pool size from cache for the response
+    # Group by market
+    markets: dict[str, dict] = {}
+    for r in rows:
+        cid = r["condition_id"]
+        if cid not in markets:
+            markets[cid] = {
+                "condition_id": cid,
+                "question": r["question"],
+                "event_slug": r["event_slug"],
+                "polymarket_url": (
+                    f"https://polymarket.com/event/{r['event_slug']}"
+                    if r["event_slug"]
+                    else None
+                ),
+                "intents": [],
+                "filled": 0,
+                "rejected": 0,
+                "strategies": set(),
+                "first_seen": r["captured_at"],
+                "last_seen": r["captured_at"],
+            }
+        m = markets[cid]
+        m["strategies"].add(r["strategy"])
+        if r["captured_at"] and (m["first_seen"] is None or r["captured_at"] < m["first_seen"]):
+            m["first_seen"] = r["captured_at"]
+        if r["captured_at"] and (m["last_seen"] is None or r["captured_at"] > m["last_seen"]):
+            m["last_seen"] = r["captured_at"]
+
+        disp = r["disposition"] or "unknown"
+        if disp == "filled":
+            m["filled"] += 1
+        else:
+            m["rejected"] += 1
+
+        m["intents"].append({
+            "strategy": r["strategy"],
+            "side": r["side"],
+            "outcome": r["outcome"],
+            "size_usd": round(float(r["size_usd"]), 2) if r["size_usd"] else 0,
+            "disposition": disp,
+            "filled_price": (
+                round(float(r["filled_price"]), 4)
+                if r["filled_price"]
+                else None
+            ),
+            "reason": r["reason"],
+            "captured_at": r["captured_at"].isoformat()
+            if r["captured_at"]
+            else None,
+        })
+
+    # Pool size from cache (cheap PG-backed)
+    pool_size = 0
     try:
         pool_rows = await _get_cached_pool(request)
         pool_size = len(pool_rows)
     except Exception:
-        pool_size = 0
+        pass
 
-    # Step 3: Build per-market consensus
-    markets: dict[str, dict] = {}
-    for r in trade_rows:
-        cid = r["condition_id"]
-        maker = r["maker"]
-        category = r.get("primary_category") or "other"
-        if cid not in markets:
-            pool_name, cons_threshold = _category_to_pool(category)
-            markets[cid] = {
-                "condition_id": cid,
-                "question": r.get("question"),
-                "event_slug": r.get("event_slug"),
-                "category": category,
-                "pool": pool_name,
-                "consensus_threshold": cons_threshold,
-                "insiders": set(),
-                "trades": [],
-                "first_trade": r["timestamp"],
-                "last_trade": r["timestamp"],
-                "max_price": float(r["price"]),
-                "total_usd": 0.0,
-            }
-        m = markets[cid]
-        m["insiders"].add(maker)
-        m["trades"].append({
-            "maker": maker[:8] + "..." + maker[-6:] if len(maker) > 16 else maker,
-            "price": round(float(r["price"]), 4),
-            "amount_usd": round(float(r["amount_usd"]), 2),
-            "timestamp": r["timestamp"],
-        })
-        m["last_trade"] = r["timestamp"]
-        m["max_price"] = max(m["max_price"], float(r["price"]))
-        m["total_usd"] += float(r["amount_usd"])
-
-    # Step 4: Get matching intents from PG
-    intent_map: dict[str, list[dict]] = {}
-    if markets:
-        cid_list = list(markets.keys())
-        pg = request.app.state.pool
-        try:
-            async with pg.acquire() as conn:
-                intent_rows = await conn.fetch(
-                    """SELECT si.condition_id, si.side, si.outcome,
-                              si.size_usd, si.disposition, si.filled_price,
-                              si.reason, si.captured_at, si.strategy
-                       FROM strategy_intents si
-                       WHERE si.condition_id = ANY($1::text[])
-                         AND si.strategy LIKE 's2_insider%'
-                       ORDER BY si.captured_at DESC""",
-                    cid_list,
-                )
-                for r in intent_rows:
-                    cid = r["condition_id"]
-                    if cid not in intent_map:
-                        intent_map[cid] = []
-                    intent_map[cid].append({
-                        "strategy": r["strategy"],
-                        "side": r["side"],
-                        "outcome": r["outcome"],
-                        "size_usd": round(float(r["size_usd"]), 2),
-                        "disposition": r["disposition"],
-                        "filled_price": (
-                            round(float(r["filled_price"]), 4)
-                            if r["filled_price"]
-                            else None
-                        ),
-                        "reason": r["reason"],
-                        "captured_at": r["captured_at"].isoformat()
-                        if r["captured_at"]
-                        else None,
-                    })
-        except Exception:
-            log.debug("insiders.signals_intents_failed")
-
-    # Step 5: Assemble output
     signals = []
     for cid, m in sorted(
-        markets.items(), key=lambda x: len(x[1]["insiders"]), reverse=True
+        markets.items(),
+        key=lambda x: x[1]["last_seen"] or "",
+        reverse=True,
     ):
-        consensus = len(m["insiders"])
-        threshold = m["consensus_threshold"]
         signals.append({
             "condition_id": cid,
             "question": m["question"],
             "event_slug": m["event_slug"],
-            "polymarket_url": (
-                f"https://polymarket.com/event/{m['event_slug']}"
-                if m["event_slug"]
-                else None
-            ),
-            "category": m["category"],
-            "pool": m["pool"],
-            "consensus_count": consensus,
-            "consensus_threshold": threshold,
-            "consensus_met": threshold > 0 and consensus >= threshold,
-            "insider_addresses": [
-                a[:8] + "..." + a[-6:] for a in sorted(m["insiders"])
-            ],
-            "trade_count": len(m["trades"]),
-            "total_usd": round(m["total_usd"], 2),
-            "max_price": round(m["max_price"], 4),
-            "first_trade": m["first_trade"],
-            "last_trade": m["last_trade"],
-            "intents": intent_map.get(cid, []),
-            "triggered": len(intent_map.get(cid, [])) > 0,
+            "polymarket_url": m["polymarket_url"],
+            "strategies": sorted(m["strategies"]),
+            "filled": m["filled"],
+            "rejected": m["rejected"],
+            "total_intents": len(m["intents"]),
+            "intents": m["intents"][:10],  # cap per-market detail
+            "first_seen": m["first_seen"].isoformat() if m["first_seen"] else None,
+            "last_seen": m["last_seen"].isoformat() if m["last_seen"] else None,
         })
 
     return {
@@ -541,34 +517,20 @@ async def insider_health(request: Request) -> dict:
     except Exception:
         log.exception("insiders.health_pg_failed")
 
-    # Step 2: Count candidates per pool from recent signals (reuse signals logic)
+    # Step 2: Candidates count — skip heavy CH query, use PG intent counts instead
     candidates_per_pool: dict[str, int] = {}
     try:
-        sql = _RECENT_INSIDER_TRADES_SQL.format(
-            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
-            min_high_pct=0.20, hours=48,
-        )
-        trade_rows = await _ch_query(request, sql)
-        if trade_rows:
-
-            # Build per-market consensus, count candidates per pool
-            market_consensus: dict[str, dict] = {}
-            for r in trade_rows:
-                cid = r["condition_id"]
-                category = r.get("primary_category") or "other"
-                if cid not in market_consensus:
-                    pool_name, cons_threshold = _category_to_pool(category)
-                    market_consensus[cid] = {
-                        "pool": pool_name,
-                        "threshold": cons_threshold,
-                        "insiders": set(),
-                    }
-                market_consensus[cid]["insiders"].add(r["maker"])
-
-            for mc in market_consensus.values():
-                pn = mc["pool"]
-                if pn and len(mc["insiders"]) < mc["threshold"]:
-                    candidates_per_pool[pn] = candidates_per_pool.get(pn, 0) + 1
+        async with pg.acquire() as conn:
+            cand_rows = await conn.fetch(
+                """SELECT strategy, count(DISTINCT condition_id) AS cnt
+                   FROM strategy_intents
+                   WHERE strategy LIKE 's2_insider%'
+                     AND disposition = 'filled'
+                     AND captured_at >= now() - INTERVAL '48 hours'
+                   GROUP BY strategy"""
+            )
+            for r in cand_rows:
+                candidates_per_pool[r["strategy"]] = r["cnt"]
     except Exception:
         log.exception("insiders.health_candidates_failed")
 
