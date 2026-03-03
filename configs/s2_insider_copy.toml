@@ -35,15 +35,15 @@
 [strategy.s2_insider_sports]
 enabled = true
 mode = "paper_dev"
-capital_usd = 400
-max_position_usd = 100
-max_open_positions = 15
+capital_usd = 500
+max_position_usd = 50
+max_open_positions = 50
 cooldown_s = 0
 features = ["insider_copy_provider"]
 
 [strategy.s2_insider_sports.params]
 min_consensus = 4
-size_usd = 50
+size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
 categories = ["sports"]
@@ -56,15 +56,15 @@ min_days_to_take_profit = 0
 [strategy.s2_insider_politics]
 enabled = true
 mode = "paper_dev"
-capital_usd = 400
-max_position_usd = 100
-max_open_positions = 10
+capital_usd = 300
+max_position_usd = 50
+max_open_positions = 30
 cooldown_s = 0
 features = ["insider_copy_provider"]
 
 [strategy.s2_insider_politics.params]
 min_consensus = 3
-size_usd = 50
+size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
 categories = ["politics", "other"]
@@ -78,14 +78,14 @@ min_days_to_take_profit = 7          # only after 7+ days held
 enabled = true
 mode = "paper_dev"
 capital_usd = 200
-max_position_usd = 100
-max_open_positions = 8
+max_position_usd = 50
+max_open_positions = 20
 cooldown_s = 0
 features = ["insider_copy_provider"]
 
 [strategy.s2_insider_misc.params]
 min_consensus = 2
-size_usd = 50
+size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
 categories = ["culture", "weather", "finance"]
