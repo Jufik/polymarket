@@ -4,13 +4,18 @@ Buys NO on newly created markets where the YES price is in the 0.15-0.50
 "mispricing zone". Edge is concentrated in the first 5 minutes of market
 life before smart money corrects the price.
 
-Eligible tags (high NO base rate, proven first-5-min edge):
-  Tech (83.5% NO WR), Trump (79.8%), Economy (75.9%)
+Eligible tags (tick-by-tick validated, 3 OOS periods):
+  Economy (77.6% HR tick), Tech (72.7% HR tick)
+
+Excluded: Trump (collapses to 53-60% in tick), Crypto (no timing edge).
+
+Best config: Economy+Tech, mp0.50 → 77.0% HR, +$213, 0.43 Sharpe, 1.33 PF
+  Tighter price zones (mp0.30) increase HR but kill payoff ratio.
 
 Usage:
     from research.strategies.s3_no_sniper import S3NoSniper, S3Config
     strat = S3NoSniper(S3Config())
-    strat.set_tag_map({"cid_1": "Tech", "cid_2": "Trump"})
+    strat.set_tag_map({"cid_1": "Tech", "cid_2": "Economy"})
     strat.set_token_map({"cid_1": {"YES": "asset_y", "NO": "asset_n"}})
 """
 from __future__ import annotations
@@ -25,7 +30,7 @@ if TYPE_CHECKING:
     from polymarket_pipeline.strategies.protocol import StrategyContext
 
 
-DEFAULT_ELIGIBLE_TAGS = frozenset({"Tech", "Trump", "Economy"})
+DEFAULT_ELIGIBLE_TAGS = frozenset({"Economy", "Tech"})
 
 
 @dataclass(frozen=True)

@@ -148,6 +148,20 @@
   - Compounding angle: tighter pool -> higher consensus signal quality
   - Related: signals/insider_copy.md
 
+- [x] **S3 NO Sniper — first-5-minute base rate** — TICK-BY-TICK VALIDATED (2026-03-03)
+  - Result: Economy+Tech, mp0.50 is best: 77.0% HR, +$213, 0.43 Sharpe, 1.33 PF
+  - 366 fills across 3 OOS months (Jul-25, Oct-25, Jan-26), 278 resolved
+  - Avg win $4.04, avg loss -$10.17, avg per bet $0.77
+  - Tighter price zones (mp0.30) COUNTERPRODUCTIVE: +4pp HR but -41% avg win → $0 PnL
+  - Trump tag collapses in tick-by-tick (53-60% HR) — excluded
+  - Stop loss counterproductive: winners and losers hit adverse prices at same rate
+  - Hold duration: median 27.4d, p10=2.0d, p90=70.4d
+  - ~$70/month on $1K capital (8.4% monthly)
+  - Knowledge: `signals/s3_no_sniper.md`
+  - Strategy: `research/strategies/s3_no_sniper.py`
+  - Validation: `research/scripts/s3_tick_improved.py`
+  - Next: implement in `strategies_impl/` for paper trading
+
 ## In Progress
 
 ### S2: Insider Copy (HIGH priority) -- TICK-BY-TICK VALIDATED
