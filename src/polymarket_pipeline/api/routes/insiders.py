@@ -223,7 +223,7 @@ SELECT
     m.question,
     e.slug AS event_slug,
     ms.primary_category
-FROM (SELECT * FROM trades_raw FINAL) AS t
+FROM trades_raw AS t
 INNER JOIN insider_pool ip ON lower(t.maker) = ip.trader
 LEFT JOIN markets AS m ON t.condition_id = m.condition_id
 LEFT JOIN events AS e ON m.event_id = e.id

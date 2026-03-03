@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     # ClickHouse HTTP client (same pattern as ClickHouseBackend)
     ch_client = httpx.AsyncClient(
         base_url=f"http://{settings.ch_host}:{settings.ch_port}",
-        timeout=30.0,
+        timeout=120.0,
     )
 
     # Store in app state
