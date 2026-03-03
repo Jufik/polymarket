@@ -399,3 +399,161 @@ class TestMultiInstance:
         assert fast_intents[0].strategy == "s2_insider_fast"
         assert slow_intents is not None
         assert slow_intents[0].strategy == "s2_insider_slow"
+
+
+# ---------------------------------------------------------------------------
+# Category-specific pool tests
+# ---------------------------------------------------------------------------
+
+
+class TestCategoryPool:
+    @pytest.mark.asyncio
+    async def test_category_pool_merges_new_traders(self) -> None:
+        """Category pool adds traders not in standard pool."""
+        backend = AsyncMock()
+        # Standard pool: alice only
+        pool_df = pl.DataFrame({
+            "trader": ["0xalice"],
+            "effective_hr": [0.82],
+            "best_direction": ["NO"],
+            "hr_excess": [0.20],
+            "high_pct": [0.30],
+            "total_positions": [10],
+            "yes_wins": [3], "yes_total": [4],
+            "no_wins": [6], "no_total": [6],
+            "total_pnl": [100.0], "avg_volume": [5000.0],
+        })
+        # Category pool: bob (sports specialist, not in standard pool)
+        cat_pool_df = pl.DataFrame({
+            "trader": ["0xbob"],
+            "effective_hr": [0.79],
+            "best_direction": ["NO"],
+            "hr_excess": [0.17],
+            "high_pct": [0.0],
+            "total_positions": [50],
+            "yes_wins": [5], "yes_total": [10],
+            "no_wins": [35], "no_total": [40],
+            "total_pnl": [500.0], "avg_volume": [3000.0],
+        })
+        cat_df = pl.DataFrame({
+            "condition_id": ["cid_1"],
+            "primary_category": ["sports"],
+        })
+        token_df = pl.DataFrame({
+            "asset_id": ["asset_yes_1"],
+            "condition_id": ["cid_1"],
+            "outcome": ["YES"],
+        })
+        bootstrap_df = pl.DataFrame({
+            "condition_id": pl.Series([], dtype=pl.Utf8),
+            "maker": pl.Series([], dtype=pl.Utf8),
+            "asset_id": pl.Series([], dtype=pl.Utf8),
+            "timestamp": pl.Series([], dtype=pl.Utf8),
+        })
+        backend.query_custom.side_effect = [
+            pool_df, cat_pool_df, cat_df, token_df, bootstrap_df,
+        ]
+
+        provider = InsiderCopyProvider(category_pools=["sports"])
+        await provider.compute(backend)
+
+        feats = provider.get_features()["insider_copy_provider"]
+        assert feats["pool_size"] == 2
+        assert "0xalice" in feats["insider_pool"]
+        assert "0xbob" in feats["insider_pool"]
+        assert feats["insider_pool"]["0xbob"]["score"] == 0.79
+
+    @pytest.mark.asyncio
+    async def test_category_pool_keeps_higher_score_on_conflict(self) -> None:
+        """When same trader in both pools, keep higher score."""
+        backend = AsyncMock()
+        # Standard pool: alice at 0.82
+        pool_df = pl.DataFrame({
+            "trader": ["0xalice"],
+            "effective_hr": [0.82],
+            "best_direction": ["NO"],
+            "hr_excess": [0.20],
+            "high_pct": [0.30],
+            "total_positions": [10],
+            "yes_wins": [3], "yes_total": [4],
+            "no_wins": [6], "no_total": [6],
+            "total_pnl": [100.0], "avg_volume": [5000.0],
+        })
+        # Category pool: alice at 0.85 (higher on sports)
+        cat_pool_df = pl.DataFrame({
+            "trader": ["0xalice"],
+            "effective_hr": [0.85],
+            "best_direction": ["NO"],
+            "hr_excess": [0.25],
+            "high_pct": [0.0],
+            "total_positions": [30],
+            "yes_wins": [5], "yes_total": [5],
+            "no_wins": [20], "no_total": [25],
+            "total_pnl": [300.0], "avg_volume": [4000.0],
+        })
+        cat_df = pl.DataFrame({
+            "condition_id": pl.Series([], dtype=pl.Utf8),
+            "primary_category": pl.Series([], dtype=pl.Utf8),
+        })
+        token_df = pl.DataFrame({
+            "asset_id": pl.Series([], dtype=pl.Utf8),
+            "condition_id": pl.Series([], dtype=pl.Utf8),
+            "outcome": pl.Series([], dtype=pl.Utf8),
+        })
+        bootstrap_df = pl.DataFrame({
+            "condition_id": pl.Series([], dtype=pl.Utf8),
+            "maker": pl.Series([], dtype=pl.Utf8),
+            "asset_id": pl.Series([], dtype=pl.Utf8),
+            "timestamp": pl.Series([], dtype=pl.Utf8),
+        })
+        backend.query_custom.side_effect = [
+            pool_df, cat_pool_df, cat_df, token_df, bootstrap_df,
+        ]
+
+        provider = InsiderCopyProvider(category_pools=["sports"])
+        await provider.compute(backend)
+
+        feats = provider.get_features()["insider_copy_provider"]
+        assert feats["pool_size"] == 1
+        # Should have the higher score (0.85 from category pool)
+        assert feats["insider_pool"]["0xalice"]["score"] == 0.85
+
+    @pytest.mark.asyncio
+    async def test_no_category_pool_when_not_configured(self) -> None:
+        """Without category_pools, only standard pool is loaded."""
+        backend = AsyncMock()
+        pool_df = pl.DataFrame({
+            "trader": ["0xalice"],
+            "effective_hr": [0.82],
+            "best_direction": ["NO"],
+            "hr_excess": [0.20],
+            "high_pct": [0.30],
+            "total_positions": [10],
+            "yes_wins": [3], "yes_total": [4],
+            "no_wins": [6], "no_total": [6],
+            "total_pnl": [100.0], "avg_volume": [5000.0],
+        })
+        cat_df = pl.DataFrame({
+            "condition_id": ["cid_1"],
+            "primary_category": ["politics"],
+        })
+        token_df = pl.DataFrame({
+            "asset_id": ["asset_yes_1"],
+            "condition_id": ["cid_1"],
+            "outcome": ["YES"],
+        })
+        bootstrap_df = pl.DataFrame({
+            "condition_id": pl.Series([], dtype=pl.Utf8),
+            "maker": pl.Series([], dtype=pl.Utf8),
+            "asset_id": pl.Series([], dtype=pl.Utf8),
+            "timestamp": pl.Series([], dtype=pl.Utf8),
+        })
+        backend.query_custom.side_effect = [pool_df, cat_df, token_df, bootstrap_df]
+
+        provider = InsiderCopyProvider()  # no category_pools
+        await provider.compute(backend)
+
+        feats = provider.get_features()["insider_copy_provider"]
+        assert feats["pool_size"] == 1
+        # Only 4 queries: pool, categories, token_map, bootstrap (no category pool)
+        assert backend.query_custom.call_count == 4

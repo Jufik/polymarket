@@ -125,6 +125,81 @@ WHERE effective_hr >= {min_hr}
 ORDER BY hr_excess DESC
 """
 
+# Category-specific pool: scored on specific categories only, NO high_pct filter.
+# Used for categories where HIGH susceptibility markets are rare (e.g. sports)
+# and high_pct would exclude genuine category specialists.
+CATEGORY_POOL_SQL = """\
+WITH resolved_susceptible AS (
+    SELECT
+        p.trader,
+        p.condition_id,
+        p.position,
+        p.correct,
+        p.realized_pnl,
+        p.market_volume,
+        p.avg_yes_price,
+        p.resolved_at,
+        ms.susceptibility
+    FROM (SELECT * FROM trader_positions_resolved) AS p
+    INNER JOIN market_susceptibility AS ms ON p.condition_id = ms.condition_id
+    WHERE ms.susceptibility != 'LOW'
+      AND ms.primary_category IN ({categories})
+      AND p.position IN ('YES', 'NO')
+      AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
+      AND (CASE WHEN p.position = 'YES'
+                THEN p.avg_yes_price
+                ELSE 1.0 - p.avg_yes_price
+           END) < {max_entry_price}
+),
+trader_stats AS (
+    SELECT
+        trader,
+        countIf(position = 'YES' AND correct = 1) AS yes_wins,
+        countIf(position = 'YES') AS yes_total,
+        countIf(position = 'NO' AND correct = 1) AS no_wins,
+        countIf(position = 'NO') AS no_total,
+        count(*) AS total_positions,
+        0.0 AS high_pct,
+        sum(realized_pnl) AS total_pnl,
+        avg(market_volume) AS avg_volume
+    FROM resolved_susceptible
+    GROUP BY trader
+    HAVING count(*) >= {min_positions}
+),
+scored AS (
+    SELECT
+        *,
+        greatest(
+            (3.81 + yes_wins) / (10.0 + yes_total),
+            (6.19 + no_wins) / (10.0 + no_total)
+        ) AS effective_hr,
+        if(
+            (3.81 + yes_wins) / (10.0 + yes_total)
+                >= (6.19 + no_wins) / (10.0 + no_total),
+            'YES', 'NO'
+        ) AS best_direction,
+        greatest(
+            (3.81 + yes_wins) / (10.0 + yes_total) - 0.381,
+            (6.19 + no_wins) / (10.0 + no_total) - 0.619
+        ) AS hr_excess,
+        greatest(
+            if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
+            if(no_total > 0, no_wins * 1.0 / no_total, 0)
+        ) AS raw_hr
+    FROM trader_stats
+)
+SELECT
+    lower(trader) AS trader, effective_hr, best_direction, hr_excess,
+    high_pct, total_positions,
+    yes_wins, yes_total, no_wins, no_total,
+    total_pnl, avg_volume
+FROM scored
+WHERE effective_hr >= {min_hr}
+  AND effective_hr < {max_hr}
+  AND raw_hr < {max_raw_hr}
+ORDER BY hr_excess DESC
+"""
+
 
 # Default pool query parameters — shared with API to prevent drift.
 POOL_DEFAULTS: dict[str, int | float] = {
@@ -161,6 +236,7 @@ class InsiderCopyProvider:
         max_hr: float = 0.99,
         max_pool_entry_price: float = 0.95,
         max_raw_hr: float = 0.99,
+        category_pools: list[str] | None = None,
     ) -> None:
         self._lookback_months = lookback_months
         self._min_positions = min_positions
@@ -169,6 +245,7 @@ class InsiderCopyProvider:
         self._max_hr = max_hr
         self._max_pool_entry_price = max_pool_entry_price
         self._max_raw_hr = max_raw_hr
+        self._category_pools = category_pools or []
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
@@ -253,6 +330,45 @@ class InsiderCopyProvider:
                 "hr_excess": row["hr_excess"],
                 "high_pct": row["high_pct"],
             }
+
+        # Category-specific pool: scored on specific categories, no high_pct.
+        # Merges into pool — new traders added, conflicts keep higher score.
+        cat_pool_size = 0
+        if self._category_pools:
+            cat_in = ", ".join(f"'{c}'" for c in self._category_pools)
+            cat_sql = CATEGORY_POOL_SQL.format(
+                lookback=self._lookback_months,
+                min_positions=self._min_positions,
+                min_hr=self._min_bayesian_hr,
+                max_hr=self._max_hr,
+                max_raw_hr=self._max_raw_hr,
+                max_entry_price=self._max_pool_entry_price,
+                categories=cat_in,
+            )
+            try:
+                cat_df = await backend.query_custom(cat_sql)
+                for row in cat_df.iter_rows(named=True):
+                    addr = row["trader"].lower()
+                    entry = {
+                        "score": row["effective_hr"],
+                        "direction": row["best_direction"],
+                        "hr_excess": row["hr_excess"],
+                        "high_pct": row["high_pct"],
+                    }
+                    if addr not in pool or entry["score"] > pool[addr]["score"]:
+                        pool[addr] = entry
+                        cat_pool_size += 1
+                logger.info(
+                    "insider_copy_provider.category_pool_merged",
+                    categories=self._category_pools,
+                    added=cat_pool_size,
+                )
+            except Exception:
+                logger.warning(
+                    "insider_copy_provider.category_pool_failed",
+                    categories=self._category_pools,
+                )
+
         old_pool = self._pool
         self._pool = pool
 
@@ -313,6 +429,7 @@ class InsiderCopyProvider:
         logger.info(
             "insider_copy_provider.pool_loaded",
             size=len(pool),
+            category_pool_added=cat_pool_size,
             lookback_months=self._lookback_months,
             signals=len(self._signals),
         )
