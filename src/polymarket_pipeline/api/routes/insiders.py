@@ -188,68 +188,29 @@ WHERE effective_hr >= {min_hr}
 ORDER BY hr_excess DESC
 """
 
-# Recent insider trades in the last N hours (for live signals)
-# NOTE: pool is inlined as a CTE to avoid 21K-address IN clause exceeding
-# CH max_query_size (256KB). Same pool SQL as InsiderCopyProvider.
+# Recent insider trades in the last N hours, pre-aggregated per market.
+# Uses pre-computed pool addresses (passed as IN clause) instead of inline CTE.
 _RECENT_INSIDER_TRADES_SQL = """\
-WITH insider_pool AS (
-    SELECT lower(trader) AS trader FROM (
-        WITH resolved_susceptible AS (
-            SELECT
-                p.trader, p.position, p.correct, p.avg_yes_price, ms.susceptibility
-            FROM (SELECT * FROM trader_positions_resolved) AS p
-            INNER JOIN market_susceptibility AS ms ON p.condition_id = ms.condition_id
-            WHERE ms.susceptibility != 'LOW'
-              AND p.position IN ('YES', 'NO')
-              AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
-              AND (CASE WHEN p.position = 'YES'
-                        THEN p.avg_yes_price
-                        ELSE 1.0 - p.avg_yes_price
-                   END) < {max_entry_price}
-        ),
-        trader_stats AS (
-            SELECT trader,
-                countIf(position = 'YES' AND correct = 1) AS yes_wins,
-                countIf(position = 'YES') AS yes_total,
-                countIf(position = 'NO' AND correct = 1) AS no_wins,
-                countIf(position = 'NO') AS no_total,
-                count(*) AS total_positions,
-                countIf(susceptibility = 'HIGH') / count(*) AS high_pct
-            FROM resolved_susceptible GROUP BY trader HAVING count(*) >= {min_positions}
-        ),
-        scored AS (
-            SELECT *, greatest(
-                (3.81 + yes_wins) / (10.0 + yes_total),
-                (6.19 + no_wins) / (10.0 + no_total)
-            ) AS effective_hr,
-            greatest(
-                if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
-                if(no_total > 0, no_wins * 1.0 / no_total, 0)
-            ) AS raw_hr FROM trader_stats
-        )
-        SELECT trader FROM scored
-        WHERE effective_hr >= {min_hr} AND effective_hr < {max_hr}
-          AND raw_hr < {max_raw_hr} AND high_pct >= {min_high_pct}
-    )
-)
 SELECT
-    t.condition_id,
-    lower(t.maker) AS maker,
-    t.asset_id,
-    t.price,
-    t.amount_usd,
-    t.timestamp,
-    m.question,
-    e.slug AS event_slug,
-    ms.primary_category
+    t.condition_id AS condition_id,
+    any(m.question) AS question,
+    any(e.slug) AS event_slug,
+    any(ms.primary_category) AS primary_category,
+    groupUniqArray(lower(t.maker)) AS makers,
+    count(*) AS trade_count,
+    sum(t.amount_usd) AS total_usd,
+    max(t.price) AS max_price,
+    min(t.timestamp) AS first_trade,
+    max(t.timestamp) AS last_trade
 FROM trades_raw AS t
-INNER JOIN insider_pool ip ON lower(t.maker) = ip.trader
 LEFT JOIN markets AS m ON t.condition_id = m.condition_id
 LEFT JOIN events AS e ON m.event_id = e.id
 LEFT JOIN market_susceptibility AS ms ON t.condition_id = ms.condition_id
 WHERE t.side = 'BUY'
   AND t.timestamp >= now() - INTERVAL {hours} HOUR
-ORDER BY t.timestamp DESC
+  AND lower(t.maker) IN ({pool_addresses})
+GROUP BY t.condition_id
+ORDER BY last_trade DESC
 """
 
 
@@ -327,7 +288,7 @@ _signals_cache_lock = asyncio.Lock()
 
 
 async def _get_cached_signals(request: Request, hours: int) -> list[dict]:
-    """Run _RECENT_INSIDER_TRADES_SQL, caching results per hours value."""
+    """Query recent insider trades using cached pool addresses."""
     global _signals_cache, _signals_cache_ts
     now = time.monotonic()
     if now - _signals_cache_ts.get(hours, 0) < _SIGNALS_CACHE_TTL and hours in _signals_cache:
@@ -335,11 +296,15 @@ async def _get_cached_signals(request: Request, hours: int) -> list[dict]:
     async with _signals_cache_lock:
         if now - _signals_cache_ts.get(hours, 0) < _SIGNALS_CACHE_TTL and hours in _signals_cache:
             return _signals_cache[hours]
-        sql = _RECENT_INSIDER_TRADES_SQL.format(
-            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
-            max_raw_hr=0.99, min_high_pct=0.20, max_entry_price=0.95,
-            hours=hours,
-        )
+        # Reuse pool cache (1h TTL) to get trader addresses — avoids 15s pool CTE
+        pool_rows = await _get_cached_pool(request)
+        if not pool_rows:
+            _signals_cache[hours] = []
+            _signals_cache_ts[hours] = time.monotonic()
+            return []
+        addresses = [r["trader"] for r in pool_rows]
+        pool_in = ", ".join(f"'{a}'" for a in addresses)
+        sql = _RECENT_INSIDER_TRADES_SQL.format(hours=hours, pool_addresses=pool_in)
         rows = await _ch_query(request, sql)
         _signals_cache[hours] = rows
         _signals_cache_ts[hours] = time.monotonic()
@@ -369,34 +334,24 @@ async def insider_signals(
         log.exception("insiders.signals_ch_failed")
         ch_rows = []
 
-    # Step 2: Group CH rows by condition_id
+    # Step 2: CH rows are pre-aggregated per condition_id
     ch_by_cid: dict[str, dict] = {}
     for row in ch_rows:
         cid = row["condition_id"]
-        if cid not in ch_by_cid:
-            ch_by_cid[cid] = {
-                "question": row.get("question"),
-                "event_slug": row.get("event_slug"),
-                "category": row.get("primary_category") or "unknown",
-                "makers": set(),
-                "trade_count": 0,
-                "total_usd": 0.0,
-                "max_price": 0.0,
-                "first_trade": row["timestamp"],
-                "last_trade": row["timestamp"],
-            }
-        entry = ch_by_cid[cid]
-        entry["makers"].add(row["maker"])
-        entry["trade_count"] += 1
-        entry["total_usd"] += float(row.get("amount_usd") or 0)
-        price = float(row.get("price") or 0)
-        if price > entry["max_price"]:
-            entry["max_price"] = price
-        ts = row["timestamp"]
-        if ts < entry["first_trade"]:
-            entry["first_trade"] = ts
-        if ts > entry["last_trade"]:
-            entry["last_trade"] = ts
+        makers = row.get("makers", [])
+        if isinstance(makers, str):
+            makers = json.loads(makers) if makers.startswith("[") else [makers]
+        ch_by_cid[cid] = {
+            "question": row.get("question"),
+            "event_slug": row.get("event_slug"),
+            "category": row.get("primary_category") or "unknown",
+            "makers": set(makers),
+            "trade_count": int(row.get("trade_count", 0)),
+            "total_usd": float(row.get("total_usd", 0)),
+            "max_price": float(row.get("max_price", 0)),
+            "first_trade": row.get("first_trade", ""),
+            "last_trade": row.get("last_trade", ""),
+        }
 
     if not ch_by_cid:
         # No CH data — fallback to PG-only view

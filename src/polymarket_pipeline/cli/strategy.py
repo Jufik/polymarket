@@ -52,6 +52,10 @@ def _register_providers() -> None:
 
     _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
 
+    from polymarket_pipeline.strategies_impl.s3_no_sniper.provider import S3DataProvider
+
+    _PROVIDER_REGISTRY["s3_data_provider"] = S3DataProvider
+
 
 # ---------------------------------------------------------------------------
 # Strategy factory registry
@@ -81,6 +85,12 @@ def _register_strategies() -> None:
     _STRATEGY_FACTORIES["s2_insider_sports"] = create_insider_copy_strategy
     _STRATEGY_FACTORIES["s2_insider_politics"] = create_insider_copy_strategy
     _STRATEGY_FACTORIES["s2_insider_misc"] = create_insider_copy_strategy
+
+    from polymarket_pipeline.strategies_impl.s3_no_sniper.strategy import (
+        create_s3_no_sniper_strategy,
+    )
+
+    _STRATEGY_FACTORIES["s3_no_sniper"] = create_s3_no_sniper_strategy
 
 
 # ---------------------------------------------------------------------------
