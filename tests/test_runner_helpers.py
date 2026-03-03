@@ -178,8 +178,9 @@ class TestApplyFillSell:
         pnl_delta = (0.70 - 0.50) * sold_qty - 0.5  # 10.0 - 0.5 = 9.5
         assert pos.qty_yes == pytest.approx(100.0 - sold_qty)
         assert pos.realized_pnl == pytest.approx(pnl_delta)
-        # cost_basis unchanged on sell
-        assert pos.cost_basis == pytest.approx(50.0)
+        # cost_basis decremented by sold_qty * avg_entry (capital freed on exit)
+        cost_released = min(sold_qty, 100.0) * 0.50  # 50 * 0.50 = 25.0
+        assert pos.cost_basis == pytest.approx(50.0 - cost_released)
 
     def test_sell_no_loss(self) -> None:
         old = Position(

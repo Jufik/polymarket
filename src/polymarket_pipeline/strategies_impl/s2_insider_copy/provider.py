@@ -128,6 +128,7 @@ class InsiderCopyProvider:
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
+        self._asset_id_to_outcome: dict[str, str] = {}  # asset_id → "YES"/"NO"
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Initial pool load from ClickHouse."""
@@ -142,6 +143,8 @@ class InsiderCopyProvider:
 
         CRITICAL: SELL is exit, not directional signal — always filtered.
         Consensus counts unique traders, not trade events.
+        Direction is derived from the actual trade's asset_id via token_map,
+        NOT the pool's aggregate best_direction.
         """
         if trade.side != "BUY":
             return
@@ -152,13 +155,20 @@ class InsiderCopyProvider:
         cid = trade.condition_id
         info = self._pool[maker]
 
+        # Derive actual outcome from asset_id via token_map
+        trade_outcome = self._asset_id_to_outcome.get(trade.asset_id)
+        if trade_outcome is None:
+            # Fallback to pool's best_direction if token_map not loaded yet
+            trade_outcome = info["direction"]
+
         if cid not in self._signals:
             self._signals[cid] = {
-                "direction": info["direction"],
+                "direction": trade_outcome,
                 "insiders": set(),
                 "consensus_count": 0,
                 "first_signal_time": trade.published_at,
                 "max_score": info["score"],
+                "asset_id": trade.asset_id,
             }
 
         sig = self._signals[cid]
@@ -210,6 +220,22 @@ class InsiderCopyProvider:
             )
         except Exception:
             logger.warning("insider_copy_provider.categories_load_failed")
+
+        # Load asset_id → outcome mapping from token_market_map (PG-replicated)
+        try:
+            token_df = await backend.query_custom(
+                "SELECT asset_id, outcome FROM token_market_map"
+            )
+            asset_map: dict[str, str] = {}
+            for row in token_df.iter_rows(named=True):
+                asset_map[row["asset_id"]] = row["outcome"]
+            self._asset_id_to_outcome = asset_map
+            logger.info(
+                "insider_copy_provider.token_map_loaded",
+                count=len(asset_map),
+            )
+        except Exception:
+            logger.warning("insider_copy_provider.token_map_load_failed")
 
         # Prune signals: drop insiders no longer in the pool, keep the rest
         if old_pool:

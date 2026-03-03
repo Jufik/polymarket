@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  fetchPositions,
   fetchHealth,
   fetchIntents,
   fetchAnalytics,
   fetchPnlSummary,
   fetchPoolHealth,
   triggerPanic,
-  Position,
   Intent,
   AnalyticsData,
   PnlSummary,
@@ -46,8 +44,6 @@ function CountdownBadge({ endDate, resolvedAt, winner }: {
 }
 
 export default function Dashboard() {
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [totalExposure, setTotalExposure] = useState(0);
   const [health, setHealth] = useState<string>("loading...");
   const [panicResult, setPanicResult] = useState<string | null>(null);
   const [intents, setIntents] = useState<Intent[]>([]);
@@ -79,13 +75,6 @@ export default function Dashboard() {
   }, []);
 
   const refresh = async () => {
-    try {
-      const data = await fetchPositions();
-      setPositions(data.positions);
-      setTotalExposure(data.total_exposure);
-    } catch {
-      setPositions([]);
-    }
     try {
       const h = await fetchHealth();
       setHealth(h.status);
@@ -170,12 +159,12 @@ export default function Dashboard() {
           </div>
           <div className="bg-gray-900 rounded-lg p-4 flex-1">
             <div className="text-sm text-gray-400">Positions</div>
-            <div className="text-lg font-mono">{positions.length}</div>
+            <div className="text-lg font-mono">{pnl ? pnl.live.count : "-"}</div>
           </div>
           <div className="bg-gray-900 rounded-lg p-4 flex-1">
             <div className="text-sm text-gray-400">Total Exposure</div>
             <div className="text-lg font-mono">
-              ${totalExposure.toFixed(2)}
+              {pnl ? `$${pnl.live.invested.toFixed(2)}` : "-"}
             </div>
           </div>
           <div className="bg-gray-900 rounded-lg p-4 flex-1">
@@ -303,9 +292,17 @@ export default function Dashboard() {
                       {p.hr_7d !== null ? `${(p.hr_7d * 100).toFixed(0)}%` : "-"}
                     </span>
                     <span className="text-gray-600">{"\u00B7"}</span>
-                    <span className={p.pnl_7d >= 0 ? "text-green-400" : "text-red-400"}>
-                      {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(0)}
+                    <span className="text-gray-300" title="Capital deployed in open positions">
+                      ${(p.invested_7d ?? 0).toFixed(0)} inv
                     </span>
+                    {p.resolved_7d > 0 && (
+                      <>
+                        <span className="text-gray-600">{"\u00B7"}</span>
+                        <span className={p.pnl_7d >= 0 ? "text-green-400" : "text-red-400"}>
+                          {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(0)}
+                        </span>
+                      </>
+                    )}
                     <span className="text-gray-600">{"\u00B7"}</span>
                     <span className="text-purple-400">
                       {p.candidates} cand
@@ -317,14 +314,14 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Positions Table */}
+        {/* Positions Table — from PnL live positions (PG-based, not in-memory tracker) */}
         <div className="bg-gray-900 rounded-lg overflow-hidden mb-8">
           <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-300">
-              Open Positions ({positions.length})
+              Open Positions ({pnl?.live.count ?? 0})
             </span>
             <span className="text-xs text-gray-500">
-              Exposure: ${totalExposure.toFixed(2)}
+              Invested: ${pnl?.live.invested.toFixed(2) ?? "0.00"}
             </span>
           </div>
           <table className="w-full text-sm">
@@ -337,40 +334,22 @@ export default function Dashboard() {
                 <th className="p-3 text-right">Entry</th>
                 <th className="p-3 text-right">Current</th>
                 <th className="p-3 text-right">Unrealized PnL</th>
-                <th className="p-3 text-left">Status</th>
+                <th className="p-3 text-left">Time Left</th>
               </tr>
             </thead>
             <tbody>
-              {positions.map((p) => {
-                const pnlPct =
-                  p.cost_basis > 0
-                    ? ((p.unrealized_pnl / p.cost_basis) * 100).toFixed(1)
-                    : null;
-                const isResolved = !!p.resolved_at;
+              {(pnl?.live.positions ?? []).map((p) => {
                 const isExpired =
-                  !isResolved &&
-                  p.end_date &&
-                  new Date(p.end_date).getTime() < Date.now();
+                  p.end_date && new Date(p.end_date).getTime() < Date.now();
                 return (
-                  <tr key={p.condition_id} className="border-t border-gray-800 hover:bg-gray-800/30">
+                  <tr key={p.id} className="border-t border-gray-800 hover:bg-gray-800/30">
                     <td className="p-3 text-xs max-w-[260px]">
-                      {p.event_slug ? (
-                        <a
-                          href={`https://polymarket.com/event/${p.event_slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:underline"
-                        >
-                          {p.question || p.condition_id.slice(0, 12) + "…"}
-                        </a>
-                      ) : (
-                        <span className="text-gray-300">
-                          {p.question || p.condition_id.slice(0, 12) + "…"}
-                        </span>
-                      )}
+                      <span className="text-gray-300">
+                        {p.question || `#${p.id}`}
+                      </span>
                     </td>
                     <td className="p-3 font-mono text-xs text-gray-400">
-                      {p.strategy || "—"}
+                      {p.strategy || "\u2014"}
                     </td>
                     <td className="p-3 text-center">
                       <span
@@ -382,36 +361,44 @@ export default function Dashboard() {
                             : "bg-gray-800 text-gray-400"
                         }`}
                       >
-                        {p.outcome ?? p.side}
+                        {p.outcome}
                       </span>
                     </td>
                     <td className="p-3 text-right font-mono text-gray-200">
-                      ${p.cost_basis.toFixed(2)}
+                      ${p.size_usd.toFixed(2)}
                     </td>
                     <td className="p-3 text-right font-mono text-gray-400">
-                      ${p.avg_entry.toFixed(4)}
+                      ${p.entry_price.toFixed(4)}
                     </td>
                     <td className="p-3 text-right font-mono text-gray-300">
-                      ${p.last_price.toFixed(4)}
+                      {p.current_price != null
+                        ? `$${p.current_price.toFixed(4)}`
+                        : "-"}
                     </td>
                     <td
                       className={`p-3 text-right font-mono font-semibold ${
-                        p.unrealized_pnl >= 0 ? "text-green-400" : "text-red-400"
+                        p.pnl_usd != null
+                          ? p.pnl_usd >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                          : "text-gray-500"
                       }`}
                     >
-                      {p.unrealized_pnl >= 0 ? "+" : ""}${p.unrealized_pnl.toFixed(2)}
-                      {pnlPct && (
-                        <span className="text-xs ml-1 opacity-70">
-                          ({pnlPct}%)
-                        </span>
+                      {p.pnl_usd != null ? (
+                        <>
+                          {p.pnl_usd >= 0 ? "+" : ""}${p.pnl_usd.toFixed(2)}
+                          {p.pnl_pct != null && (
+                            <span className="text-xs ml-1 opacity-70">
+                              ({p.pnl_pct.toFixed(1)}%)
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        "-"
                       )}
                     </td>
                     <td className="p-3 text-xs">
-                      {isResolved ? (
-                        <span className="text-yellow-400">
-                          {p.winner_outcome ?? "Resolved"}
-                        </span>
-                      ) : isExpired ? (
+                      {isExpired ? (
                         <span className="text-orange-400">Awaiting res.</span>
                       ) : p.end_date ? (
                         <span className="text-gray-500 font-mono">
@@ -432,7 +419,7 @@ export default function Dashboard() {
                   </tr>
                 );
               })}
-              {positions.length === 0 && (
+              {(!pnl || pnl.live.count === 0) && (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-gray-500">
                     No open positions

@@ -65,7 +65,7 @@ class TestFactory:
         strategy = create_insider_copy_strategy(config)
         assert strategy.name == "s2_insider_fast"
         assert strategy._cfg.min_consensus == 3
-        assert strategy._cfg.max_entry_price == 0.65
+        assert strategy._cfg.max_entry_price == 1.00
 
     def test_creates_strategy_with_custom_params(self) -> None:
         config = AsyncMock()
@@ -96,7 +96,8 @@ class TestProvider:
     @pytest.mark.asyncio
     async def test_loads_pool_from_backend(self) -> None:
         backend = AsyncMock()
-        backend.query_custom.return_value = pl.DataFrame({
+        # Return pool DF for the first call, then empty DFs for categories/token_map
+        pool_df = pl.DataFrame({
             "trader": ["0xalice", "0xbob"],
             "effective_hr": [0.82, 0.78],
             "best_direction": ["NO", "YES"],
@@ -104,6 +105,15 @@ class TestProvider:
             "high_pct": [0.30, 0.25],
             "total_positions": [10, 8],
         })
+        cat_df = pl.DataFrame({
+            "condition_id": ["cid_1"],
+            "primary_category": ["politics"],
+        })
+        token_df = pl.DataFrame({
+            "asset_id": ["asset_yes_1"],
+            "outcome": ["YES"],
+        })
+        backend.query_custom.side_effect = [pool_df, cat_df, token_df]
 
         provider = InsiderCopyProvider(
             lookback_months=12, min_positions=3, min_bayesian_hr=0.75,
@@ -111,9 +121,10 @@ class TestProvider:
         await provider.compute(backend)
 
         feats = provider.get_features()
-        assert feats["pool_size"] == 2
-        assert "0xalice" in feats["insider_pool"]
-        assert feats["insider_pool"]["0xalice"]["direction"] == "NO"
+        inner = feats["insider_copy_provider"]
+        assert inner["pool_size"] == 2
+        assert "0xalice" in inner["insider_pool"]
+        assert inner["insider_pool"]["0xalice"]["direction"] == "NO"
 
     @pytest.mark.asyncio
     async def test_tracks_insider_buy_trades(self) -> None:
@@ -124,9 +135,9 @@ class TestProvider:
         trade = _make_trade(maker="alice", side="BUY")
         await provider.on_trade(trade)
 
-        sigs = provider.get_features()["insider_signals"]
-        assert "cid_1" in sigs
-        assert sigs["cid_1"]["consensus_count"] == 1
+        feats = provider.get_features()["insider_copy_provider"]
+        assert "cid_1" in feats["insider_signals"]
+        assert feats["insider_signals"]["cid_1"]["consensus_count"] == 1
 
     @pytest.mark.asyncio
     async def test_ignores_sell_trades(self) -> None:
@@ -134,7 +145,8 @@ class TestProvider:
         provider._pool = {"alice": {"score": 0.8, "direction": "YES"}}
 
         await provider.on_trade(_make_trade(maker="alice", side="SELL"))
-        assert "cid_1" not in provider.get_features()["insider_signals"]
+        feats = provider.get_features()["insider_copy_provider"]
+        assert "cid_1" not in feats["insider_signals"]
 
     @pytest.mark.asyncio
     async def test_ignores_non_pool_traders(self) -> None:
@@ -142,7 +154,8 @@ class TestProvider:
         provider._pool = {"alice": {"score": 0.8, "direction": "YES"}}
 
         await provider.on_trade(_make_trade(maker="random", side="BUY"))
-        assert "cid_1" not in provider.get_features()["insider_signals"]
+        feats = provider.get_features()["insider_copy_provider"]
+        assert "cid_1" not in feats["insider_signals"]
 
     @pytest.mark.asyncio
     async def test_consensus_counts_unique_traders(self) -> None:
@@ -156,7 +169,8 @@ class TestProvider:
         await provider.on_trade(_make_trade(maker="alice", side="BUY", ts=2.0))
         await provider.on_trade(_make_trade(maker="bob", side="BUY", ts=3.0))
 
-        sig = provider.get_features()["insider_signals"]["cid_1"]
+        feats = provider.get_features()["insider_copy_provider"]
+        sig = feats["insider_signals"]["cid_1"]
         assert sig["consensus_count"] == 2  # alice counted once
 
 
