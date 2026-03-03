@@ -38,6 +38,7 @@ async def run_s2_replay(
     *,
     resolutions: dict[str, tuple[str, float]] | None = None,
     token_map: dict[str, dict[str, str]] | None = None,
+    market_tags: dict[str, str] | None = None,
     fill_config: FillModelConfig | None = None,
     output_dir: Path = Path("research/output"),
 ) -> tuple[BacktestResult, LedgerSummary]:
@@ -56,11 +57,17 @@ async def run_s2_replay(
         Used to build MarketResolution objects for mid-run settlement.
     token_map:
         condition_id -> {"YES": asset_id, "NO": asset_id}.
+    market_tags:
+        condition_id -> primary_tag. Required for tag-aware mode.
+        Call strategy.set_market_tags() before replay if provided.
     fill_config:
         RealisticFillSimulator config. None = default realistic fills.
     output_dir:
         Directory for ledger parquet output.
     """
+    # Set market tags on strategy if provided (tag-aware mode)
+    if market_tags is not None and hasattr(strategy, "set_market_tags"):
+        strategy.set_market_tags(market_tags)
     output_dir.mkdir(parents=True, exist_ok=True)
     ledger_path = output_dir / f"ledger_{strategy.name}.parquet"
     ledger = ParquetLedger(ledger_path)

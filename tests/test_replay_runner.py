@@ -23,6 +23,7 @@ from polymarket_pipeline.strategies.types import ExecutionMode, TradeIntent
 # ── Helpers ────────────────────────────────────────────────────────────
 
 _CFG = StrategyConfig(
+    name="test",
     enabled=True,
     mode=ExecutionMode.REPLAY,
     capital_usd=100.0,
@@ -297,6 +298,7 @@ async def test_capital_recycles_through_settlements():
     gw = ExecutionGateway(SimulatedExecutor(fee_pct=0.0))
 
     cfg = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=30.0,

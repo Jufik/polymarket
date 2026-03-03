@@ -148,6 +148,7 @@ async def run_period(backend: ClickHouseBackend, period: str) -> None:
 
     # Gateway + Context
     strat_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=50_000,

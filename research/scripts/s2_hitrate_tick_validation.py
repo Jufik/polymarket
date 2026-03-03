@@ -65,6 +65,7 @@ OUTPUT_DIR = Path("research/output/s2_tick_hitrate")
 # Relaxed capital config for replay: let capital constraint be realistic
 # but not artificially binding. $50K capital, 500 max positions, $200 per pos.
 STRATEGY_CONFIG = StrategyConfig(
+    name="test",
     enabled=True,
     mode=ExecutionMode.REPLAY,
     capital_usd=50_000,

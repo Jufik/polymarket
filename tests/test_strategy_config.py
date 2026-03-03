@@ -69,6 +69,7 @@ def sample_toml(tmp_path: Path) -> Path:
 class TestStrategyConfig:
     def test_frozen(self) -> None:
         cfg = StrategyConfig(
+            name="test",
             enabled=True,
             mode=ExecutionMode.REPLAY,
             capital_usd=1000.0,
@@ -81,6 +82,7 @@ class TestStrategyConfig:
 
     def test_default_params(self) -> None:
         cfg = StrategyConfig(
+            name="test",
             enabled=True,
             mode=ExecutionMode.REPLAY,
             capital_usd=1000.0,
@@ -155,6 +157,7 @@ class TestStrategyRegistry:
         registry = StrategyRegistry()
         registry.register("dummy", _DummyStrategy)
         cfg = StrategyConfig(
+            name="test",
             enabled=True,
             mode=ExecutionMode.REPLAY,
             capital_usd=1000.0,
@@ -170,6 +173,7 @@ class TestStrategyRegistry:
     def test_unknown_strategy_raises(self) -> None:
         registry = StrategyRegistry()
         cfg = StrategyConfig(
+            name="test",
             enabled=True,
             mode=ExecutionMode.REPLAY,
             capital_usd=1000.0,

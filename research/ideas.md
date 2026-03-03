@@ -2,13 +2,15 @@
 
 ## Queued
 
-- [ ] **Tag-aware hit-rate copy** — use TAG-SPECIFIC base rates instead of global 38%/62%
-  - Source: tag_edge_analysis.md — tag base rates vary from 9% (Elections) to 73% (Earnings)
-  - Priority: **HIGHEST**
-  - Data: 959 Politics-YES traders with +42pp tag-excess generate $15.6M aggregate PnL
-  - Total: ~3,500 tag-aware skilled traders across 16 tags, ~$40M/yr aggregate
-  - Key insight: excess HR over global base ≠ edge; must beat TAG-SPECIFIC base + spread
-  - Approach: qualified_traders_query with per-tag base rates, direction-specific
+- [x] **Tag-aware hit-rate copy** — REJECTED (2026-03-03, tick-by-tick validated)
+  - Result: Tag-aware mode WORSE than global pool (46.7% HR vs 50.6%, -$6,486 vs -$5,835)
+  - Tag-aware pool 2.1x larger (3,433 vs 1,634 traders) but 85% YES-direction
+  - Crypto YES is only tag with meaningful signal (51.3% HR, +22.4pp excess)
+  - Extreme-NO-bias tags are terrible for YES: Culture 12.9%, Politics 3.0%
+  - Vectorized-to-tick gap smaller (11pp vs 34pp) because vectorized was already lower (57.8% vs 84.2%)
+  - Root cause: beating tag-specific base (9-29% YES) is too easy; aggregate HR != trade-level HR
+  - Notebook: research/notebooks/s2_tag_aware_estimation.py
+  - Script: research/scripts/s2_tag_aware_tick_validation.py
   - Related: signals/tag_edge_analysis.md, data/tag_base_rates.md
 
 - [ ] **NO mispricing in extreme-bias tags** — NO traders in Culture/Music/Movies/Elections
@@ -128,11 +130,10 @@
   - Spawned from: S2 volume-at-entry analysis (2026-03-02)
   - Related: signals/insider_entry_characteristics.md
 
-- [ ] **Direction-aware hit-rate consensus** — fix S2 HRC to require same-direction qualified consensus
+- [x] **Direction-aware hit-rate consensus** — TESTED as part of gap fix validation (2026-03-03)
+  - Result: Direction-aware filtering IMPLEMENTED and validated in gap fix bundle
+  - See "S2: Hit-Rate Copy Gap Fixes" in Tested section below
   - Source: S2 HRC tick validation found +7pp HR from same-direction consensus vs naive
-  - Priority: MEDIUM (marginal improvement, still 50-54% HR, uncertain PnL)
-  - Compounding angle: fewer fills but higher quality; still 442-907 fills/month
-  - Root cause: current consensus counts ANY qualified trader regardless of their qualified direction
   - Spawned from: S2 HRC tick-by-tick validation (2026-03-02)
 
 - [ ] **YES-only hit-rate copy** — ignore NO direction entirely in S2 HRC
@@ -190,7 +191,7 @@ high-accuracy bets on susceptible markets. Copy their BUY trades.
 **Hypothesis**: Traders with excess hit rate above direction-specific base rate are skilled.
 Copying their entries with tiered conviction (seed + scale) builds an edge.
 
-**Status**: Two critical bugs FIXED (2026-03-02). Re-estimation COMPLETE. Awaiting tick-by-tick.
+**Status**: GAP FIXES VALIDATED (2026-03-03). All 3 fixes tested. Marginal improvement. Strategy remains UNPROFITABLE. SEE TESTED BELOW.
 **Design doc**: `docs/plans/2026-03-02-s2-hitrate-copy-design.md`
 **Workbench**: `research/notebooks/s2_workbench.py`
 **Estimation notebook**: `research/notebooks/s2_estimation.py`
@@ -272,9 +273,132 @@ The FIXED variant has higher HR across all periods and 2-3x higher PnL per posit
 - Consensus dedup critical (72.6% inflation if trades not unique traders)
 - Monthly base rate variance can flip PnL negative even at high HR
 
-**Next**: Tick-by-tick validation with FIXED config -- **COMPLETED, SEE TESTED BELOW**
+**Next**: Strategy REJECTED. See Tested section for full gap fix results.
 
 ## Tested
+
+### S2: Hit-Rate Copy Gap Fixes -- REJECTED (2026-03-03)
+
+**Hypothesis**: Three targeted fixes address the 34pp vectorized-to-tick gap:
+  1. Position-level dedup (1 signal per trader per market) -- addresses 23pp dilution
+  2. Consensus cap (max_consensus=5) -- addresses -3pp anti-predictive consensus
+  3. Direction-aware filtering -- addresses -5pp cross-direction contamination
+
+**Result**: Marginal HR improvement (+2-7pp), but strategy remains UNPROFITABLE.
+Gap reduced from 34pp to 30-37pp. PnL improved for Apr only; Jul/Oct negative.
+C>=4 is the ONLY config with aggregate positive PnL (+$2,275 total).
+
+**Tick-by-tick results (walk-forward, all 3 fixes ON):**
+
+| Period | Vec HR | BEFORE HR | AFTER HR | Delta | BEFORE PnL | AFTER PnL | Fills |
+|--------|--------|-----------|----------|-------|------------|-----------|-------|
+| Apr 25 | 82.9% | 45.9% | 53.3% | +7.4pp | -$6,417 | +$185 | 482 |
+| Jul 25 | 84.2% | 50.6% | 52.9% | +2.3pp | -$5,835 | -$1,451 | 1,104 |
+| Oct 25 | 85.5% | 46.1% | 48.5% | +2.4pp | +$2,385 | -$5,919 | 1,098 |
+
+**C>=4 with all fixes (best config found):**
+
+| Period | HR | PnL | Fills | Sharpe | Hold |
+|--------|-----|-----|-------|--------|------|
+| Apr 25 | 56.7% | +$5,905 | 239 | +0.43 | 18.5d |
+| Jul 25 | 55.5% | -$5,021 | 647 | -0.63 | 14.4d |
+| Oct 25 | 52.9% | +$1,391 | 589 | +0.14 | 14.2d |
+| **Total** | **54.7%** | **+$2,275** | **1,475** | **-0.02** | |
+
+**Fix isolation analysis:**
+- **Dedup (dedup_per_position)**: NEGATIVE impact. Dedup REDUCES HR by 2-4pp and hurts PnL.
+  No-dedup variant: 53.8% avg HR vs all_fixes 51.2%. Dedup removes fills that would
+  have been correct, because multiple trades from the same trader ARE informative
+  (subsequent trades indicate ongoing conviction).
+- **Consensus cap (max_consensus=5)**: ZERO impact. Cap=5 and no-cap produce identical
+  results across all 3 periods. Consensus rarely reaches 5+ in practice with
+  direction-aware filtering (pool is too small).
+- **Direction-aware filtering**: This is the SOLE driver of the improvement. Restricting
+  traders to their qualified direction produces the +2-7pp HR lift vs BEFORE.
+
+**Why Oct 25 is worse with all fixes (-$5,919 vs +$2,385 BEFORE):**
+Oct 25 has 401 traders (largest pool) entering 242 markets, but 48.5% HR is BELOW
+50% base. The direction filter reduces NO fills (fewer cross-direction trades) but
+the remaining NO fills still collapse below base. More markets entered = more
+exposure to NO collapse.
+
+**Cross-period averages:**
+
+| Config | Avg HR | Total PnL | Total Fills | Avg Sharpe |
+|--------|--------|-----------|-------------|------------|
+| all_fixes (C>=3) | 51.2% | -$7,185 | 2,684 | -0.11 |
+| no_dedup (C>=3) | 53.8% | -$6,231 | 2,939 | -0.09 |
+| c4_fixes (C>=4) | 54.7% | +$2,275 | 1,475 | -0.02 |
+| no_cap (C>=3) | 51.2% | -$7,185 | 2,684 | -0.11 |
+
+**Key learnings:**
+1. Position-level dedup is COUNTERPRODUCTIVE: multiple trades from same trader
+   in same market are informative (ongoing conviction), not dilution
+2. Consensus cap has zero effect with direction-aware pools (too small to reach 5+)
+3. Direction-aware filtering is the only fix that helps (+2-7pp)
+4. Even with all fixes, NO direction still collapses in tick-by-tick (structural)
+5. C>=4 is marginally profitable but inconsistent across periods (1 of 3 negative)
+6. on_timer() now fires correctly (max_hold_hours=168h) but causes oversell
+   warnings when trying to sell already-settled positions (harmless)
+7. Hold times are 13-18 days (consistent with prior finding of vectorized underestimate)
+8. All rejections are position_limit (281-461 per period), not capital
+
+**Verdict**: Strategy remains UNPROFITABLE at C>=3. C>=4 is marginal (+$2,275 total,
+negative Sharpe). The vectorized-to-tick gap is 30-37pp (still WITHIN 20-40pp range).
+The fundamental issue remains: trade-level copying cannot capture position-level edge.
+
+**Compounding scores**: all near zero or negative. Not viable for capital recycling.
+
+**Recommendation**: ABANDON hit-rate copy strategy. The position-to-trade dilution
+(Step 2 in vectorized_tick_gap_anatomy.md) is structural and unfixable. Focus on
+insider copy strategy which uses position-level signals (infrequent, high-conviction).
+
+**Script**: `research/scripts/s2_hitrate_gapfix_validation.py`
+**Output**: `research/output/s2_tick_hitrate_gapfix/gapfix_validation_results.json`
+
+### S2: Tag-Aware Hit-Rate Copy -- REJECTED (2026-03-03)
+
+**Hypothesis**: Using tag-specific base rates (9%-73% YES) instead of global
+(38%/62%) to qualify traders, with direction-specific consensus, should identify
+more genuinely skilled traders and avoid NO direction collapse.
+
+**Result**: WORSE than global pool. Tag-aware pool is too permissive and produces
+mostly YES signals that underperform.
+
+**Tick-by-tick results (Jul 2025 OOS, consensus >= 3):**
+
+| Variant | Vec HR | Tick HR | Gap | Tick PnL | Fills | Sharpe |
+|---------|--------|--------|------|----------|-------|--------|
+| Global (BEFORE) | 84.2% | 50.6% | -33.6pp | -$5,835 | 1,317 | -0.14 |
+| Tag-aware | 57.8% | 46.7% | -11.1pp | -$6,486 | 4,870 | -0.14 |
+
+**Root causes (3 identified):**
+1. **Too-permissive qualification**: Beating 9-29% YES base is easy; 2,793 tag-only traders
+   have near-zero global excess HR (median = -0.2pp)
+2. **Aggregate-to-trade gap persists**: A trader with 55% aggregate YES HR on Culture (11.7% base)
+   still enters bad individual YES trades because most Culture markets resolve NO
+3. **Crypto concentration**: 81% of resolved signals are Crypto YES (51.3% HR).
+   Other tags add noise: Culture 12.9%, Politics 3.0%, Movies 13.7%
+
+**Per-tag tick-by-tick (C>=3, Jul 25):**
+| Tag | YES HR | Base | Excess | Signals |
+|-----|--------|------|--------|---------|
+| Crypto | 51.3% | 28.9% | +22.4pp | 2,364 |
+| Trump | 38.9% | 34.1% | +4.8pp | 131 |
+| Culture | 12.9% | 11.7% | +1.2pp | 147 |
+| Movies | 13.7% | 9.7% | +4.0pp | 51 |
+| Politics | 3.0% | 23.2% | -20.2pp | 33 |
+
+**Key learning**: Tag-specific base rates produce MORE HONEST vectorized estimates
+(57.8% vs 84.2%) with smaller vec-to-tick gap (11pp vs 34pp), but the absolute
+tick performance is still unprofitable. The fundamental issue is NET POSITION HR
+(aggregate) vs INDIVIDUAL TRADE HR (per-tick) -- tag-awareness doesn't fix this.
+
+**Spawned ideas:**
+- Crypto-YES-only copy (51.3% HR, needs multi-month validation)
+
+**Notebook**: `research/notebooks/s2_tag_aware_estimation.py`
+**Script**: `research/scripts/s2_tag_aware_tick_validation.py`
 
 ### S2: Hit-Rate Copy -- REJECTED (2026-03-02)
 

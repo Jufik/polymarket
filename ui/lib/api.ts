@@ -13,6 +13,14 @@ export interface Position {
   cost_basis: number;
   unrealized_pnl: number;
   last_price: number;
+  // enriched
+  question: string | null;
+  strategy: string | null;
+  outcome: string | null;
+  event_slug: string | null;
+  resolved_at: string | null;
+  winner_outcome: string | null;
+  end_date: string | null;
 }
 
 export interface Fill {
@@ -394,9 +402,11 @@ export interface PoolHealth {
   resolved_7d: number;
   wins_7d: number;
   hr_7d: number | null;
+  /** Realized PnL from resolved positions (won – lost – fees). */
   pnl_7d: number;
   invested_7d: number;
   open_positions: number;
+  /** Fraction of capital_usd currently deployed in open positions. */
   capital_pct: number;
   fill_rate: number | null;
   risk_rejected_7d: number;

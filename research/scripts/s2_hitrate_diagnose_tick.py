@@ -45,6 +45,7 @@ CH_PORT = 18123
 CH_DB = "polymarket"
 
 STRATEGY_CONFIG = StrategyConfig(
+    name="test",
     enabled=True,
     mode=ExecutionMode.REPLAY,
     capital_usd=50_000,

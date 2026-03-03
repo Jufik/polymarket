@@ -160,6 +160,142 @@ function ResolvedTable({ positions }: { positions: PnlResolvedPosition[] }) {
   );
 }
 
+const POOL_LABEL: Record<string, string> = {
+  s2_insider_sports: "Sports",
+  s2_insider_politics: "Politics",
+  s2_insider_misc: "Misc",
+};
+const POOL_CAPITAL: Record<string, number> = {
+  s2_insider_sports: 600,
+  s2_insider_politics: 250,
+  s2_insider_misc: 150,
+};
+
+function StrategyBreakdown({
+  live,
+  resolved,
+}: {
+  live: PnlLivePosition[];
+  resolved: PnlResolvedPosition[];
+}) {
+  // Build a unified per-strategy view
+  const strategies = new Set([
+    ...live.map((p) => p.strategy),
+    ...resolved.map((p) => p.strategy),
+  ]);
+
+  const rows = Array.from(strategies).map((s) => {
+    const livePos = live.filter((p) => p.strategy === s);
+    const resPos = resolved.filter((p) => p.strategy === s);
+    const openInvested = livePos.reduce((a, p) => a + p.size_usd, 0);
+    const resolvedInvested = resPos.reduce((a, p) => a + p.size_usd, 0);
+    const unrealized = livePos.reduce((a, p) => a + (p.pnl_usd ?? 0), 0);
+    const realized = resPos.reduce((a, p) => a + p.pnl_usd, 0);
+    const wins = resPos.filter((p) => p.won).length;
+    const losses = resPos.filter((p) => !p.won).length;
+    const hr = wins + losses > 0 ? wins / (wins + losses) : null;
+    const budget = POOL_CAPITAL[s] ?? null;
+    const capitalPct = budget ? openInvested / budget : null;
+    return {
+      strategy: s,
+      label: POOL_LABEL[s] ?? s,
+      openCount: livePos.length,
+      openInvested,
+      unrealized,
+      resolvedCount: resPos.length,
+      resolvedInvested,
+      realized,
+      wins,
+      losses,
+      hr,
+      budget,
+      capitalPct,
+    };
+  });
+
+  rows.sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0));
+
+  return (
+    <div className="bg-gray-900 rounded-lg overflow-hidden mb-8">
+      <div className="bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-300">
+        Per-Strategy Breakdown
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-800/50 text-gray-400">
+            <th className="p-3 text-left">Strategy</th>
+            <th className="p-3 text-right">Budget</th>
+            <th className="p-3 text-right">Open ($)</th>
+            <th className="p-3 text-right">Cap Used</th>
+            <th className="p-3 text-right">Unrealized</th>
+            <th className="p-3 text-right">Resolved</th>
+            <th className="p-3 text-center">W/L</th>
+            <th className="p-3 text-right">HR</th>
+            <th className="p-3 text-right">Realized PnL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.strategy} className="border-t border-gray-800">
+              <td className="p-3 font-mono text-xs text-gray-300">
+                {r.label}
+              </td>
+              <td className="p-3 text-right font-mono text-gray-500">
+                {r.budget != null ? `$${r.budget}` : "—"}
+              </td>
+              <td className="p-3 text-right font-mono text-gray-200">
+                {r.openCount} × ${r.openInvested.toFixed(0)}
+              </td>
+              <td className="p-3 text-right font-mono">
+                {r.capitalPct != null ? (
+                  <span
+                    className={
+                      r.capitalPct > 0.9
+                        ? "text-red-400"
+                        : r.capitalPct > 0.6
+                        ? "text-yellow-400"
+                        : "text-blue-400"
+                    }
+                  >
+                    {(r.capitalPct * 100).toFixed(0)}%
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td className={`p-3 text-right font-mono ${pnlColor(r.unrealized)}`}>
+                {r.unrealized >= 0 ? "+" : ""}${r.unrealized.toFixed(2)}
+              </td>
+              <td className="p-3 text-right font-mono text-gray-400">
+                {r.resolvedCount} (${r.resolvedInvested.toFixed(0)})
+              </td>
+              <td className="p-3 text-center font-mono text-gray-400">
+                {r.wins}W / {r.losses}L
+              </td>
+              <td
+                className={`p-3 text-right font-mono ${
+                  r.hr != null
+                    ? r.hr >= 0.5
+                      ? "text-green-400"
+                      : "text-red-400"
+                    : "text-gray-500"
+                }`}
+              >
+                {r.hr != null ? `${(r.hr * 100).toFixed(0)}%` : "—"}
+              </td>
+              <td
+                className={`p-3 text-right font-mono font-semibold ${pnlColor(r.realized)}`}
+              >
+                {r.realized >= 0 ? "+" : ""}${r.realized.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function PnlPage() {
   const [data, setData] = useState<PnlSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -202,6 +338,11 @@ export default function PnlPage() {
     );
   }
 
+  const roiPct =
+    data.summary.total_invested > 0
+      ? (data.summary.total_pnl_usd / data.summary.total_invested) * 100
+      : null;
+
   return (
     <main className="min-h-screen bg-gray-950 text-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -222,12 +363,16 @@ export default function PnlPage() {
               {data.summary.total_pnl_usd.toFixed(2)}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {data.summary.n_fills} fills / $
-              {data.summary.total_invested.toFixed(0)} invested
+              {data.summary.n_fills} fills · ${data.summary.total_invested.toFixed(0)} invested
+              {roiPct != null && (
+                <span className={`ml-1 ${roiPct >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  · {roiPct >= 0 ? "+" : ""}{roiPct.toFixed(1)}% ROI
+                </span>
+              )}
             </div>
           </div>
           <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-            <div className="text-sm text-gray-400">Live (Unrealized)</div>
+            <div className="text-sm text-gray-400">Open — Unrealized</div>
             <div
               className={`text-2xl font-mono font-bold ${
                 data.live.pnl_usd >= 0 ? "text-green-400" : "text-red-400"
@@ -236,12 +381,11 @@ export default function PnlPage() {
               {data.live.pnl_usd >= 0 ? "+" : ""}${data.live.pnl_usd.toFixed(2)}
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              {data.live.count} positions / ${data.live.invested.toFixed(0)}{" "}
-              invested
+              {data.live.count} open positions · ${data.live.invested.toFixed(0)} locked
             </div>
           </div>
           <div className="bg-gray-900 rounded-lg p-4 flex-1 border border-gray-800">
-            <div className="text-sm text-gray-400">Resolved (Realized)</div>
+            <div className="text-sm text-gray-400">Closed — Realized</div>
             <div
               className={`text-2xl font-mono font-bold ${
                 data.resolved.pnl_usd >= 0 ? "text-green-400" : "text-red-400"
@@ -253,23 +397,39 @@ export default function PnlPage() {
             <div className="text-xs text-gray-500 mt-1">
               {data.resolved.wins}W / {data.resolved.losses}L
               {data.summary.win_rate != null &&
-                ` (${(data.summary.win_rate * 100).toFixed(0)}%)`}
+                ` (${(data.summary.win_rate * 100).toFixed(0)}% HR)`}
             </div>
           </div>
         </div>
 
-        {/* Live Positions */}
+        {/* Per-strategy breakdown */}
+        <StrategyBreakdown
+          live={data.live.positions}
+          resolved={data.resolved.positions}
+        />
+
+        {/* Open Positions */}
         <div className="bg-gray-900 rounded-lg overflow-hidden mb-8">
-          <div className="bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-300">
-            Live Positions ({data.live.count})
+          <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-300">
+              Open Positions ({data.live.count})
+            </span>
+            <span className="text-xs text-gray-500">
+              Awaiting resolution — mark-to-market
+            </span>
           </div>
           <LiveTable positions={data.live.positions} />
         </div>
 
-        {/* Resolved Positions */}
+        {/* Closed / Resolved Positions */}
         <div className="bg-gray-900 rounded-lg overflow-hidden mb-8">
-          <div className="bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-300">
-            Resolved Positions ({data.resolved.count})
+          <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-300">
+              Closed Positions ({data.resolved.count})
+            </span>
+            <span className="text-xs text-gray-500">
+              Market resolved — realized PnL
+            </span>
           </div>
           <ResolvedTable positions={data.resolved.positions} />
         </div>

@@ -30,6 +30,13 @@ logger = structlog.get_logger(__name__)
 # Uses market_susceptibility VIEW for classification.
 # ---------------------------------------------------------------------------
 
+# Lightweight query: condition_id → primary_category for all markets in
+# market_susceptibility. Used by strategy to filter by category.
+_MARKET_CATEGORIES_SQL = """\
+SELECT condition_id, primary_category
+FROM market_susceptibility
+"""
+
 _INSIDER_POOL_SQL = """\
 WITH resolved_susceptible AS (
     SELECT
@@ -120,6 +127,7 @@ class InsiderCopyProvider:
         self._max_hr = max_hr
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
+        self._market_categories: dict[str, str] = {}  # condition_id → primary_category
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Initial pool load from ClickHouse."""
@@ -165,6 +173,7 @@ class InsiderCopyProvider:
                 "insider_pool": self._pool,
                 "insider_signals": self._signals,
                 "pool_size": len(self._pool),
+                "market_categories": self._market_categories,
             },
         }
 
@@ -187,6 +196,20 @@ class InsiderCopyProvider:
             }
         old_pool = self._pool
         self._pool = pool
+
+        # Load market → category mapping (for strategy-side filtering)
+        try:
+            cat_df = await backend.query_custom(_MARKET_CATEGORIES_SQL)
+            cats: dict[str, str] = {}
+            for row in cat_df.iter_rows(named=True):
+                cats[row["condition_id"]] = row["primary_category"]
+            self._market_categories = cats
+            logger.info(
+                "insider_copy_provider.categories_loaded",
+                count=len(cats),
+            )
+        except Exception:
+            logger.warning("insider_copy_provider.categories_load_failed")
 
         # Prune signals: drop insiders no longer in the pool, keep the rest
         if old_pool:

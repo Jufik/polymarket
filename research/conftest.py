@@ -16,6 +16,7 @@ from polymarket_pipeline.strategies.types import ExecutionMode
 def permissive_config() -> StrategyConfig:
     """StrategyConfig with no risk limits for testing."""
     return StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=1e9,

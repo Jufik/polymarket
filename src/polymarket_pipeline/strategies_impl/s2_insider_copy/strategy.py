@@ -4,36 +4,32 @@ Identifies traders with abnormally high hit rates on insider-susceptible
 markets (politics, regulatory, corporate) and mirrors their entries.
 
 ==========================================================================
-VALIDATED RESULTS (tick-by-tick, 3 test months, walk-forward)
+VALIDATED RESULTS (per-tag tick-by-tick, 2026-03-02)
 ==========================================================================
 
-    Config                 | HR    | PnL (3mo)  | Kelly EV  | Compounding
-    -----------------------+-------+------------+-----------+------------
-    C>=3, price<0.65       | 57.3% | +$784K     | +$1.57/$1 | 12.37
-    C>=2, no price filter  | 66.8% | +$254K     | NEGATIVE  | 7.01
-    C>=5, price<0.65       | 59.0% | +$698K     | +$1.81/$1 | 12.14
+    Tag                 | HR     | NO excess | Gap  | Verdict
+    --------------------+--------+-----------+------+-----------
+    Sports              | 74.3%  | +13.5pp   |  4pp | GO
+    Politics+Other      | 69.3%  |  -5.1pp   |  --  | CONDITIONAL
+    Culture+Weather+Fin | 66-72% |  varies   |  --  | CONDITIONAL
 
-    Base rate: ~44%. Vectorized-to-tick degradation: 18-29pp (expected 20-40pp).
+    Base rate: ~62% NO. Vectorized-to-tick gap: 4-29pp (expected 20-40pp).
 
-    CRITICAL: Configs WITHOUT entry price filter have NEGATIVE Kelly —
-    at avg entry 0.71, a +40% win doesn't offset -100% losses at 65% HR.
-    The max_entry_price < 0.65 filter is MANDATORY for positive expectation.
+    EXCLUDED: crypto (negative excess HR), esports (near-zero PnL).
+
+    NOTE: Entry price filter < 0.65 confirmed SUBOPTIMAL per-category.
+    Lowers HR 8-10pp everywhere. Removed from all pools.
 
 ==========================================================================
-VIABLE CONFIGURATIONS
+THREE-POOL DEPLOYMENT (per-tag tuned, configs/s2_insider_copy.toml)
 ==========================================================================
 
-    MAX COMPOUNDING (fastest capital recycling):
-        min_consensus = 3
-        max_entry_price = 0.65
-        size_usd = quarter-Kelly (~11% of bankroll)
-        Expected: 57% HR, +$1.57/$ risked, compound score 12.37
+    [strategy.s2_insider_sports]   → consensus >= 4, hold to resolution
+    [strategy.s2_insider_politics] → consensus >= 3, take-profit 2%/day
+    [strategy.s2_insider_misc]     → consensus >= 2, take-profit 2%/day
 
-    HIGHER CONSENSUS (more selective, slightly better HR):
-        min_consensus = 5
-        max_entry_price = 0.65
-        size_usd = quarter-Kelly
-        Expected: 59% HR, +$1.81/$ risked, compound score 12.14
+    Capital: sports $600, politics $250, misc $150 (total $1000).
+    All pools: size_usd = $10, stop_loss = 50%, no entry price filter.
 
 ==========================================================================
 REQUIRED DEPENDENCIES
@@ -52,28 +48,17 @@ REQUIRED DEPENDENCIES
         - insider_copy_provider (loads pool from CH, tracks consensus)
 
 ==========================================================================
-FUTURE WORK
+CATEGORY SAFETY
 ==========================================================================
 
-    - Gliding stop-loss: tighten stop as position profits (trailing stop)
-    - Exit on insider reversal: sell if pool members start SELLing same market
-    - Category-specific sizing: politics gets larger allocation than esports
-    - Feature weight optimization: F1 (HR excess) dominates at 3x; simplify to F1+F6
-
-==========================================================================
-TWO-POOL DEPLOYMENT (fast + slow capital recycling)
-==========================================================================
-
-    Run two instances of this strategy with different TOML configs:
-
-    [strategy.s2_insider_fast]   → esports only, hold to resolution
-    [strategy.s2_insider_slow]   → politics+culture+finance, take-profit at 3%/day
-
-    See configs/s2_insider_copy.toml for complete setup.
+    Hardcoded _EXCLUDED_CATEGORIES = {"crypto", "esports"} — belt-and-suspenders
+    on top of TOML categories filter. Crypto has negative excess HR and produces
+    only losses (confirmed: 20/23 losses in first deployment were crypto 5-min).
 """
 
 from __future__ import annotations
 
+import time as _time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -95,10 +80,15 @@ class InsiderCopyConfig:
     min_consensus: int = 3
     size_usd: float = 50.0
     stop_loss_pct: float = 0.50
-    max_entry_price: float = 0.65
+    max_entry_price: float = 1.00
     categories: list[str] = field(default_factory=list)
     take_profit_daily_pct: float = 0.0
     min_days_to_take_profit: int = 7
+
+
+# Categories that must NEVER be traded — hardcoded safety net on top of
+# TOML config.  These have negative excess HR and produce only losses.
+_EXCLUDED_CATEGORIES = frozenset({"crypto", "esports"})
 
 
 class InsiderCopyStrategy:
@@ -116,11 +106,15 @@ class InsiderCopyStrategy:
     def __init__(self, cfg: InsiderCopyConfig, name: str = "s2_insider_copy") -> None:
         self._cfg = cfg
         self.name = name
+        self._allowed_categories: frozenset[str] | None = (
+            frozenset(cfg.categories) if cfg.categories else None
+        )
         self._entries: dict[str, dict[str, Any]] = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._debug_counters: dict[str, int] = {
             "total": 0, "not_buy": 0, "price_gate": 0, "no_pool": 0,
-            "not_insider": 0, "low_consensus": 0, "dup_position": 0, "emitted": 0,
+            "not_insider": 0, "low_consensus": 0, "dup_position": 0,
+            "category_blocked": 0, "emitted": 0,
         }
         self._debug_last_log: float = 0.0
 
@@ -166,7 +160,6 @@ class InsiderCopyStrategy:
             return None
 
         # --- Debug: periodic summary every 60s ---
-        import time as _time
         self._debug_counters["total"] += 1
         now_mono = _time.monotonic()
         if now_mono - self._debug_last_log > 60.0:
@@ -189,7 +182,7 @@ class InsiderCopyStrategy:
             self._debug_counters["not_buy"] += 1
             return None
 
-        # Entry price gate (MANDATORY for positive Kelly expectation)
+        # Entry price gate (disabled by default — set to 1.00 per research)
         if price >= self._cfg.max_entry_price:
             self._debug_counters["price_gate"] += 1
             return None
@@ -203,6 +196,16 @@ class InsiderCopyStrategy:
         maker = (trade.maker or "").lower()
         if maker not in pool:
             self._debug_counters["not_insider"] += 1
+            return None
+
+        # --- Category gate: exclude crypto/esports + enforce TOML categories ---
+        market_categories = await self._get_market_categories(ctx)
+        category = market_categories.get(cid, "unknown")
+        if category in _EXCLUDED_CATEGORIES:
+            self._debug_counters["category_blocked"] += 1
+            return None
+        if self._allowed_categories and category not in self._allowed_categories:
+            self._debug_counters["category_blocked"] += 1
             return None
 
         # Update inline consensus (unique traders per market)
@@ -345,6 +348,12 @@ class InsiderCopyStrategy:
             return feats["insider_signals"]
         return {}
 
+    async def _get_market_categories(self, ctx: StrategyContext) -> dict[str, str]:
+        feats = await ctx.get_features("insider_copy_provider")
+        if isinstance(feats, dict) and "market_categories" in feats:
+            return feats["market_categories"]
+        return {}
+
 
 def create_insider_copy_strategy(config: Any) -> InsiderCopyStrategy:
     """Factory function for CLI registry.
@@ -356,11 +365,9 @@ def create_insider_copy_strategy(config: Any) -> InsiderCopyStrategy:
         min_consensus=params.get("min_consensus", 3),
         size_usd=params.get("size_usd", 50.0),
         stop_loss_pct=params.get("stop_loss_pct", 0.50),
-        max_entry_price=params.get("max_entry_price", 0.65),
+        max_entry_price=params.get("max_entry_price", 1.00),
         categories=params.get("categories", []),
         take_profit_daily_pct=params.get("take_profit_daily_pct", 0.0),
         min_days_to_take_profit=params.get("min_days_to_take_profit", 7),
     )
-    # Use strategy section name from config for multi-instance support
-    name = getattr(config, "name", "s2_insider_copy")
-    return InsiderCopyStrategy(cfg, name=name)
+    return InsiderCopyStrategy(cfg, name=config.name)

@@ -57,6 +57,7 @@ def _make_config(
     cooldown_s: int = 60,
 ) -> StrategyConfig:
     return StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.PAPER_DEV,
         capital_usd=capital_usd,

@@ -24,12 +24,12 @@ log = structlog.get_logger()
 # Must match configs/s2_insider_copy.toml
 # ---------------------------------------------------------------------------
 _POOL_CONFIG: dict[str, dict] = {
-    "sports": {"pool": "s2_insider_sports", "consensus": 4, "capital_usd": 400},
-    "politics": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 400},
-    "other": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 400},
-    "culture": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
-    "weather": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
-    "finance": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 200},
+    "sports": {"pool": "s2_insider_sports", "consensus": 4, "capital_usd": 600},
+    "politics": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 250},
+    "other": {"pool": "s2_insider_politics", "consensus": 3, "capital_usd": 250},
+    "culture": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 150},
+    "weather": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 150},
+    "finance": {"pool": "s2_insider_misc", "consensus": 2, "capital_usd": 150},
 }
 # Categories explicitly excluded from strategy
 _EXCLUDED_CATEGORIES = frozenset({"crypto", "esports"})
@@ -299,90 +299,131 @@ async def insider_pool(
     }
 
 
+# Signals cache: refreshed at most every 2 minutes (CH query is heavy)
+_SIGNALS_CACHE_TTL = 120
+_signals_cache: dict[int, list[dict]] = {}  # hours -> rows
+_signals_cache_ts: dict[int, float] = {}
+_signals_cache_lock = asyncio.Lock()
+
+
+async def _get_cached_signals(request: Request, hours: int) -> list[dict]:
+    """Run _RECENT_INSIDER_TRADES_SQL, caching results per hours value."""
+    global _signals_cache, _signals_cache_ts
+    now = time.monotonic()
+    if now - _signals_cache_ts.get(hours, 0) < _SIGNALS_CACHE_TTL and hours in _signals_cache:
+        return _signals_cache[hours]
+    async with _signals_cache_lock:
+        if now - _signals_cache_ts.get(hours, 0) < _SIGNALS_CACHE_TTL and hours in _signals_cache:
+            return _signals_cache[hours]
+        sql = _RECENT_INSIDER_TRADES_SQL.format(
+            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
+            min_high_pct=0.20, hours=hours,
+        )
+        rows = await _ch_query(request, sql)
+        _signals_cache[hours] = rows
+        _signals_cache_ts[hours] = time.monotonic()
+        log.info("insiders.signals_cache_refreshed", hours=hours, rows=len(rows))
+        return rows
+
+
 @router.get("/insiders/signals")
 async def insider_signals(
     request: Request,
     hours: int = 48,
 ) -> dict:
-    """Return active signals from strategy_intents (PG only, no CH scan).
+    """Return active signals by merging recent insider CH trades with PG intents.
 
-    Groups intents by market, shows fill/rejection status per strategy pool.
+    For each market where insiders have traded in the lookback window:
+    - consensus_count: unique insider addresses that bought
+    - consensus_met: count >= threshold for that pool
+    - triggered: strategy actually placed a fill intent
+    - intents: filled/rejected intents from strategy_intents
     """
     pg = request.app.state.pool
 
+    # Step 1: CH — recent insider BUY trades in the window
+    try:
+        ch_rows = await _get_cached_signals(request, hours)
+    except Exception:
+        log.exception("insiders.signals_ch_failed")
+        ch_rows = []
+
+    # Step 2: Group CH rows by condition_id
+    ch_by_cid: dict[str, dict] = {}
+    for row in ch_rows:
+        cid = row["condition_id"]
+        if cid not in ch_by_cid:
+            ch_by_cid[cid] = {
+                "question": row.get("question"),
+                "event_slug": row.get("event_slug"),
+                "category": row.get("primary_category") or "unknown",
+                "makers": set(),
+                "trade_count": 0,
+                "total_usd": 0.0,
+                "max_price": 0.0,
+                "first_trade": row["timestamp"],
+                "last_trade": row["timestamp"],
+            }
+        entry = ch_by_cid[cid]
+        entry["makers"].add(row["maker"])
+        entry["trade_count"] += 1
+        entry["total_usd"] += float(row.get("amount_usd") or 0)
+        price = float(row.get("price") or 0)
+        if price > entry["max_price"]:
+            entry["max_price"] = price
+        ts = row["timestamp"]
+        if ts < entry["first_trade"]:
+            entry["first_trade"] = ts
+        if ts > entry["last_trade"]:
+            entry["last_trade"] = ts
+
+    if not ch_by_cid:
+        # No CH data — fallback to PG-only view
+        pool_size = 0
+        try:
+            pool_rows = await _get_cached_pool(request)
+            pool_size = len(pool_rows)
+        except Exception:
+            pass
+        return {"signals": [], "total": 0, "pool_size": pool_size, "lookback_hours": hours}
+
+    # Step 3: PG — intents for these condition_ids
+    cids = list(ch_by_cid.keys())
+    intents_by_cid: dict[str, list[dict]] = {}
+    filled_cids: set[str] = set()
     try:
         async with pg.acquire() as conn:
-            rows = await conn.fetch(
-                """SELECT si.condition_id, si.side, si.outcome,
+            pg_rows = await conn.fetch(
+                """SELECT si.condition_id, si.strategy, si.side, si.outcome,
                           si.size_usd, si.disposition, si.filled_price,
-                          si.filled_size_usd, si.reason, si.captured_at,
-                          si.strategy,
-                          m.question,
-                          e.slug AS event_slug
+                          si.reason, si.captured_at
                    FROM strategy_intents si
-                   LEFT JOIN markets m ON si.condition_id = m.condition_id
-                   LEFT JOIN events e ON m.event_id = e.id
                    WHERE si.strategy LIKE 's2_insider%'
-                     AND si.captured_at >= now() - make_interval(hours => $1)
+                     AND si.condition_id = ANY($1)
                    ORDER BY si.captured_at DESC""",
-                hours,
+                cids,
             )
+        for r in pg_rows:
+            cid = r["condition_id"]
+            disp = r["disposition"] or "unknown"
+            if disp == "filled":
+                filled_cids.add(cid)
+            intents_by_cid.setdefault(cid, []).append({
+                "strategy": r["strategy"],
+                "side": r["side"],
+                "outcome": r["outcome"],
+                "size_usd": round(float(r["size_usd"]), 2) if r["size_usd"] else 0,
+                "disposition": disp,
+                "filled_price": (
+                    round(float(r["filled_price"]), 4) if r["filled_price"] else None
+                ),
+                "reason": r["reason"],
+                "captured_at": r["captured_at"].isoformat() if r["captured_at"] else None,
+            })
     except Exception:
         log.exception("insiders.signals_pg_failed")
-        return {"signals": [], "total": 0, "error": "PG query failed"}
 
-    # Group by market
-    markets: dict[str, dict] = {}
-    for r in rows:
-        cid = r["condition_id"]
-        if cid not in markets:
-            markets[cid] = {
-                "condition_id": cid,
-                "question": r["question"],
-                "event_slug": r["event_slug"],
-                "polymarket_url": (
-                    f"https://polymarket.com/event/{r['event_slug']}"
-                    if r["event_slug"]
-                    else None
-                ),
-                "intents": [],
-                "filled": 0,
-                "rejected": 0,
-                "strategies": set(),
-                "first_seen": r["captured_at"],
-                "last_seen": r["captured_at"],
-            }
-        m = markets[cid]
-        m["strategies"].add(r["strategy"])
-        if r["captured_at"] and (m["first_seen"] is None or r["captured_at"] < m["first_seen"]):
-            m["first_seen"] = r["captured_at"]
-        if r["captured_at"] and (m["last_seen"] is None or r["captured_at"] > m["last_seen"]):
-            m["last_seen"] = r["captured_at"]
-
-        disp = r["disposition"] or "unknown"
-        if disp == "filled":
-            m["filled"] += 1
-        else:
-            m["rejected"] += 1
-
-        m["intents"].append({
-            "strategy": r["strategy"],
-            "side": r["side"],
-            "outcome": r["outcome"],
-            "size_usd": round(float(r["size_usd"]), 2) if r["size_usd"] else 0,
-            "disposition": disp,
-            "filled_price": (
-                round(float(r["filled_price"]), 4)
-                if r["filled_price"]
-                else None
-            ),
-            "reason": r["reason"],
-            "captured_at": r["captured_at"].isoformat()
-            if r["captured_at"]
-            else None,
-        })
-
-    # Pool size from cache (cheap PG-backed)
+    # Step 4: Pool size
     pool_size = 0
     try:
         pool_rows = await _get_cached_pool(request)
@@ -390,25 +431,53 @@ async def insider_signals(
     except Exception:
         pass
 
+    # Step 5: Assemble signals
     signals = []
-    for cid, m in sorted(
-        markets.items(),
-        key=lambda x: x[1]["last_seen"] or "",
-        reverse=True,
-    ):
+    for cid, data in ch_by_cid.items():
+        category = data["category"]
+        pool_name, consensus_threshold = _category_to_pool(category)
+        insider_addresses = sorted(data["makers"])
+        consensus_count = len(insider_addresses)
+        consensus_met = (
+            consensus_threshold > 0 and consensus_count >= consensus_threshold
+        )
+        triggered = cid in filled_cids
+        first_trade = data["first_trade"]
+        last_trade = data["last_trade"]
+
         signals.append({
             "condition_id": cid,
-            "question": m["question"],
-            "event_slug": m["event_slug"],
-            "polymarket_url": m["polymarket_url"],
-            "strategies": sorted(m["strategies"]),
-            "filled": m["filled"],
-            "rejected": m["rejected"],
-            "total_intents": len(m["intents"]),
-            "intents": m["intents"][:10],  # cap per-market detail
-            "first_seen": m["first_seen"].isoformat() if m["first_seen"] else None,
-            "last_seen": m["last_seen"].isoformat() if m["last_seen"] else None,
+            "question": data["question"],
+            "event_slug": data["event_slug"],
+            "polymarket_url": (
+                f"https://polymarket.com/event/{data['event_slug']}"
+                if data["event_slug"]
+                else None
+            ),
+            "category": category,
+            "pool": pool_name,
+            "consensus_count": consensus_count,
+            "consensus_threshold": consensus_threshold,
+            "consensus_met": consensus_met,
+            "insider_addresses": insider_addresses,
+            "trade_count": data["trade_count"],
+            "total_usd": round(data["total_usd"], 2),
+            "max_price": round(data["max_price"], 4),
+            "first_trade": str(first_trade),
+            "last_trade": str(last_trade),
+            "intents": intents_by_cid.get(cid, [])[:10],
+            "triggered": triggered,
         })
+
+    # Sort: triggered first, then by consensus progress, then recency
+    signals.sort(
+        key=lambda s: (
+            -(1 if s["triggered"] else 0),
+            -(1 if s["consensus_met"] else 0),
+            -(s["consensus_count"] / max(s["consensus_threshold"], 1)),
+            s["last_trade"],
+        )
+    )
 
     return {
         "signals": signals,
@@ -505,7 +574,27 @@ async def insider_health(request: Request) -> dict:
                        count(DISTINCT si.condition_id) FILTER (
                            WHERE si.disposition = 'filled'
                              AND m.winner_outcome IS NULL
-                       ) AS open_positions
+                       ) AS open_positions,
+                       coalesce(sum(si.filled_size_usd) FILTER (
+                           WHERE si.disposition = 'filled'
+                             AND m.winner_outcome IS NULL
+                       ), 0) AS open_invested_usd,
+                       coalesce(sum(
+                           CASE
+                               WHEN si.disposition = 'filled'
+                                 AND m.winner_outcome IS NOT NULL
+                                 AND (si.filled_price IS NOT NULL AND si.filled_price > 0)
+                               THEN
+                                   CASE WHEN m.winner_outcome = si.outcome
+                                       THEN si.filled_size_usd / si.filled_price
+                                            - si.filled_size_usd
+                                            - coalesce(si.fee_usd, 0)
+                                       ELSE -si.filled_size_usd
+                                            - coalesce(si.fee_usd, 0)
+                                   END
+                               ELSE 0
+                           END
+                       ), 0) AS pnl_resolved_7d
                    FROM strategy_intents si
                    LEFT JOIN markets m ON si.condition_id = m.condition_id
                    WHERE si.strategy LIKE 's2_insider%'
@@ -543,25 +632,27 @@ async def insider_health(request: Request) -> dict:
         risk_rej = int(stats.get("risk_rejected_7d", 0))
         rejected = int(stats.get("rejected_7d", 0))
         invested = float(stats.get("invested_7d", 0))
-        fees = float(stats.get("fees_7d", 0))
         open_pos = int(stats.get("open_positions", 0))
+        open_invested = float(stats.get("open_invested_usd", 0))
+        pnl_resolved = float(stats.get("pnl_resolved_7d", 0))
         total_intents = fills + risk_rej + rejected
+        capital_usd = pool_cfg["capital_usd"]
 
         pools_out.append({
             "pool": pool_name,
             "categories": pool_cfg["categories"],
             "consensus_threshold": pool_cfg["consensus"],
-            "capital_usd": pool_cfg["capital_usd"],
+            "capital_usd": capital_usd,
             "fills_7d": fills,
             "resolved_7d": resolved,
             "wins_7d": wins,
             "hr_7d": round(wins / resolved, 3) if resolved > 0 else None,
-            "pnl_7d": round(invested - fees, 2),
+            # Realized PnL: only from resolved positions (won - lost - fees)
+            "pnl_7d": round(pnl_resolved, 2),
             "invested_7d": round(invested, 2),
             "open_positions": open_pos,
-            "capital_pct": round(
-                (open_pos * 50) / pool_cfg["capital_usd"], 3
-            ) if pool_cfg["capital_usd"] > 0 else 0,
+            # Capital currently deployed in open (unresolved) positions
+            "capital_pct": round(open_invested / capital_usd, 3) if capital_usd > 0 else 0,
             "fill_rate": round(
                 fills / total_intents, 3
             ) if total_intents > 0 else None,

@@ -141,6 +141,7 @@ class TimerStrategy:
 
 
 _CFG = StrategyConfig(
+    name="test",
     enabled=True,
     mode=ExecutionMode.PAPER_DEV,
     capital_usd=1000.0,
@@ -302,6 +303,7 @@ async def test_risk_gate_blocks_in_live(ctx: InMemoryContext) -> None:
     strategy = RecordingStrategy(emit=True)
 
     tight_cfg = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.PAPER_DEV,
         capital_usd=15.0,  # Allows first 10 USD trade but blocks second
@@ -364,6 +366,7 @@ async def test_timer_risk_gate_blocks(ctx: InMemoryContext) -> None:
     strategy = TimerStrategy(size_usd=3.0)
 
     cfg = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.PAPER_DEV,
         capital_usd=5.0,
@@ -457,6 +460,7 @@ async def test_timer_risk_gate_rejects_over_capital(ctx: InMemoryContext) -> Non
     strategy = TimerStrategy(size_usd=4.0)
 
     cfg = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.PAPER_DEV,
         capital_usd=5.0,

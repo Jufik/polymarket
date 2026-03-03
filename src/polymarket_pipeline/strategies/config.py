@@ -28,6 +28,7 @@ class ProviderConfig:
 class StrategyConfig:
     """Immutable configuration for a single strategy."""
 
+    name: str
     enabled: bool
     mode: ExecutionMode
     capital_usd: float
@@ -68,6 +69,7 @@ def load_strategy_configs(
         params: dict[str, Any] = dict(section.get("params", {}))
 
         cfg = StrategyConfig(
+            name=name,
             enabled=section["enabled"],
             mode=ExecutionMode(section["mode"]),
             capital_usd=float(section["capital_usd"]),
