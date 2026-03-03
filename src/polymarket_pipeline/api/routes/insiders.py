@@ -17,6 +17,7 @@ import structlog
 from fastapi import APIRouter, Request
 
 from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import (
+    CATEGORY_POOL_SQL,
     INSIDER_POOL_SQL,
     POOL_DEFAULTS,
 )
@@ -71,9 +72,13 @@ _pool_cache: list[dict] = []
 _pool_cache_ts: float = 0.0
 _pool_cache_lock = asyncio.Lock()
 
+# Categories that get their own pool query without high_pct filter.
+# Must match provider's category_pools param in configs/s2_insider_copy.toml.
+_CATEGORY_POOLS: list[str] = ["sports"]
+
 
 async def _get_cached_pool(request: Request) -> list[dict]:
-    """Return the insider pool, refreshing from CH at most once per TTL."""
+    """Return the merged insider pool, refreshing from CH at most once per TTL."""
     global _pool_cache, _pool_cache_ts
     now = time.monotonic()
     if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
@@ -82,8 +87,30 @@ async def _get_cached_pool(request: Request) -> list[dict]:
         # Double-check after acquiring lock
         if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
             return _pool_cache
+        # Standard pool (with high_pct filter)
         sql = INSIDER_POOL_SQL.format(**POOL_DEFAULTS)
         rows = await _ch_query(request, sql)
+
+        # Category-specific pool (no high_pct), merge by trader address
+        if _CATEGORY_POOLS:
+            by_trader = {r["trader"]: r for r in rows}
+            cat_in = ", ".join(f"'{c}'" for c in _CATEGORY_POOLS)
+            cat_params = {
+                k: v for k, v in POOL_DEFAULTS.items() if k != "min_high_pct"
+            }
+            cat_sql = CATEGORY_POOL_SQL.format(categories=cat_in, **cat_params)
+            try:
+                cat_rows = await _ch_query(request, cat_sql)
+                for r in cat_rows:
+                    addr = r["trader"]
+                    if addr not in by_trader or float(r["effective_hr"]) > float(
+                        by_trader[addr]["effective_hr"]
+                    ):
+                        by_trader[addr] = r
+                rows = list(by_trader.values())
+            except Exception:
+                log.warning("insiders.category_pool_query_failed")
+
         _pool_cache = rows
         _pool_cache_ts = time.monotonic()
         log.info("insiders.pool_cache_refreshed", size=len(rows))

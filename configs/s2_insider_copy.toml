@@ -107,6 +107,7 @@ min_high_pct = 0.20                  # at least 20% HIGH-susceptibility markets
 max_hr = 0.99                        # exclude bots (Bayesian HR)
 max_pool_entry_price = 0.95          # exclude sure-bet positions (token price >= $0.95)
 max_raw_hr = 0.99                    # exclude bots (raw HR — catches small-sample perfects)
+category_pools = ["sports"]          # sports-specific pool (no high_pct filter)
 
 # ---------------------------------------------------------------------------
 # Promotion gates (for pm-strategy promote)
