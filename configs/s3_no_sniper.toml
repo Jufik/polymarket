@@ -1,0 +1,37 @@
+# S3 NO Sniper — buy NO on new markets in Economy/Tech tags
+#
+# Validated: 77.0% HR, +$213 PnL, 0.43 Sharpe, 1.33 PF
+# (Economy+Tech, mp0.50, 3 OOS periods: Jul-25, Oct-25, Jan-26)
+#
+# See: research/knowledge/signals/s3_no_sniper.md
+
+[strategy.s3_no_sniper]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 10
+max_open_positions = 100
+cooldown_s = 0
+features = ["s3_data_provider"]
+subscribe_pending = false
+
+[strategy.s3_no_sniper.params]
+eligible_tags = ["Economy", "Tech"]
+min_yes_price = 0.15
+max_yes_price = 0.50
+max_market_age_s = 300
+spread_buffer = 0.02
+position_size_usd = 10.0
+
+[provider.s3_data_provider]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.s3_data_provider.params]
+eligible_tags = ["Economy", "Tech"]
+
+[promotion]
+min_trades = 200
+min_sharpe = 0.3
+min_fills = 100
+max_drawdown = 0.15
