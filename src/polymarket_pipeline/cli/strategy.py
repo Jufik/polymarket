@@ -503,27 +503,32 @@ def reset(
 
     Strategies should be stopped first (supervisorctl stop strategies:*).
     """
-    import shutil
-    import subprocess
-
     if not yes:
-        typer.confirm("This will DELETE all intents, fills, positions, and JSONL logs. Continue?", abort=True)
+        typer.confirm(
+            "This will DELETE all intents, fills, positions, and JSONL logs. Continue?",
+            abort=True,
+        )
 
     from polymarket_pipeline.live.settings import Settings
 
     settings = Settings()
 
-    # 1. Truncate PG tables
+    # 1. Truncate PG tables via asyncpg
     logger.warning("reset.pg_truncate")
     try:
-        result = subprocess.run(
-            ["psql", settings.pg_dsn, "-c", "TRUNCATE strategy_intents, fills, positions CASCADE"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            typer.echo("  PG tables truncated")
-        else:
-            typer.echo(f"  PG truncate failed: {result.stderr.strip()}")
+        import asyncpg
+
+        async def _truncate_pg() -> None:
+            conn = await asyncpg.connect(settings.pg_dsn)
+            try:
+                await conn.execute(
+                    "TRUNCATE strategy_intents, fills, positions CASCADE"
+                )
+            finally:
+                await conn.close()
+
+        asyncio.run(_truncate_pg())
+        typer.echo("  PG tables truncated")
     except Exception as e:
         typer.echo(f"  PG truncate error: {e}")
 
@@ -536,16 +541,27 @@ def reset(
             count += 1
     typer.echo(f"  Deleted {count} JSONL files")
 
-    # 3. Recreate Kafka topic
+    # 3. Recreate Kafka topic via aiokafka admin client
     logger.warning("reset.kafka_topic")
     try:
-        rpk = shutil.which("rpk")
-        if rpk:
-            subprocess.run([rpk, "topic", "delete", "strategy.intents"], capture_output=True, timeout=10)
-            subprocess.run([rpk, "topic", "create", "strategy.intents", "-p", "1", "-r", "1"], capture_output=True, timeout=10)
-            typer.echo("  Kafka strategy.intents topic recreated")
-        else:
-            typer.echo("  rpk not found — manually recreate strategy.intents topic")
+        from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+
+        async def _recreate_topic() -> None:
+            admin = AIOKafkaAdminClient(bootstrap_servers=settings.redpanda_url)
+            await admin.start()
+            try:
+                try:
+                    await admin.delete_topics(["strategy.intents"])
+                except Exception:
+                    pass  # topic may not exist
+                await admin.create_topics(
+                    [NewTopic(name="strategy.intents", num_partitions=1, replication_factor=1)]
+                )
+            finally:
+                await admin.close()
+
+        asyncio.run(_recreate_topic())
+        typer.echo("  Kafka strategy.intents topic recreated")
     except Exception as e:
         typer.echo(f"  Kafka reset error: {e}")
 
