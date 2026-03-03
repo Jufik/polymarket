@@ -37,7 +37,7 @@ SELECT condition_id, primary_category
 FROM market_susceptibility
 """
 
-_INSIDER_POOL_SQL = """\
+INSIDER_POOL_SQL = """\
 WITH resolved_susceptible AS (
     SELECT
         p.trader,
@@ -67,7 +67,9 @@ trader_stats AS (
         countIf(position = 'NO' AND correct = 1) AS no_wins,
         countIf(position = 'NO') AS no_total,
         count(*) AS total_positions,
-        countIf(susceptibility = 'HIGH') / count(*) AS high_pct
+        countIf(susceptibility = 'HIGH') / count(*) AS high_pct,
+        sum(realized_pnl) AS total_pnl,
+        avg(market_volume) AS avg_volume
     FROM resolved_susceptible
     GROUP BY trader
     HAVING count(*) >= {min_positions}
@@ -95,8 +97,10 @@ scored AS (
     FROM trader_stats
 )
 SELECT
-    trader, effective_hr, best_direction, hr_excess,
-    high_pct, total_positions
+    lower(trader) AS trader, effective_hr, best_direction, hr_excess,
+    high_pct, total_positions,
+    yes_wins, yes_total, no_wins, no_total,
+    total_pnl, avg_volume
 FROM scored
 WHERE effective_hr >= {min_hr}
   AND effective_hr < {max_hr}
@@ -105,6 +109,17 @@ WHERE effective_hr >= {min_hr}
 ORDER BY hr_excess DESC
 """
 
+
+# Default pool query parameters — shared with API to prevent drift.
+POOL_DEFAULTS: dict[str, int | float] = {
+    "lookback": 12,
+    "min_positions": 3,
+    "min_hr": 0.75,
+    "max_hr": 0.99,
+    "max_raw_hr": 0.99,
+    "min_high_pct": 0.20,
+    "max_entry_price": 0.95,
+}
 
 InsiderPool = dict[str, dict[str, Any]]
 
@@ -201,7 +216,7 @@ class InsiderCopyProvider:
         }
 
     async def _load_pool(self, backend: FeatureBackend) -> None:
-        sql = _INSIDER_POOL_SQL.format(
+        sql = INSIDER_POOL_SQL.format(
             lookback=self._lookback_months,
             min_positions=self._min_positions,
             min_hr=self._min_bayesian_hr,
