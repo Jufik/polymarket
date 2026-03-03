@@ -44,7 +44,7 @@ def _make_strat(
     **kwargs,
 ) -> S3NoSniper:
     cfg = S3Config(
-        eligible_tags=eligible_tags or frozenset({"Tech", "Trump", "Economy"}),
+        eligible_tags=eligible_tags or frozenset({"Economy", "Tech"}),
         **kwargs,
     )
     strat = S3NoSniper(cfg)
@@ -87,6 +87,15 @@ def test_ineligible_tag_rejected():
     strat = _make_strat()
     ctx = InMemoryContext()
     trade = _make_trade("cid_crypto", price=0.30, ts=1000.0)
+    result = asyncio.run(strat.on_trade(trade, ctx))
+    assert result is None
+
+
+def test_trump_excluded_by_default():
+    """Trump is excluded from default eligible tags (collapses in tick-by-tick)."""
+    strat = _make_strat()
+    ctx = InMemoryContext()
+    trade = _make_trade("cid_trump", price=0.30, ts=1000.0, asset_id="asset_yes_2")
     result = asyncio.run(strat.on_trade(trade, ctx))
     assert result is None
 
@@ -174,11 +183,11 @@ def test_trade_within_window_enters():
     strat = _make_strat()
     ctx = InMemoryContext()
     # First trade: too expensive, doesn't trigger
-    t1 = _make_trade("cid_trump", price=0.60, ts=1000.0, asset_id="asset_yes_2")
+    t1 = _make_trade("cid_economy", price=0.60, ts=1000.0, asset_id="asset_yes_3")
     r1 = asyncio.run(strat.on_trade(t1, ctx))
     assert r1 is None
     # Second trade: 2 min later, good price
-    t2 = _make_trade("cid_trump", price=0.35, ts=1120.0, asset_id="asset_yes_2")
+    t2 = _make_trade("cid_economy", price=0.35, ts=1120.0, asset_id="asset_yes_3")
     r2 = asyncio.run(strat.on_trade(t2, ctx))
     assert r2 is not None
 
@@ -233,7 +242,7 @@ def test_different_markets_both_enter():
     t1 = _make_trade("cid_tech", price=0.30, ts=1000.0)
     r1 = asyncio.run(strat.on_trade(t1, ctx))
     assert r1 is not None
-    t2 = _make_trade("cid_trump", price=0.35, ts=1010.0, asset_id="asset_yes_2")
+    t2 = _make_trade("cid_economy", price=0.35, ts=1010.0, asset_id="asset_yes_3")
     r2 = asyncio.run(strat.on_trade(t2, ctx))
     assert r2 is not None
 

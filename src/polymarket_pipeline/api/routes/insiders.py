@@ -78,7 +78,8 @@ async def _get_cached_pool(request: Request) -> list[dict]:
         if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
             return _pool_cache
         sql = _INSIDER_POOL_SQL.format(
-            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99, min_high_pct=0.20,
+            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
+            max_raw_hr=0.99, min_high_pct=0.20, max_entry_price=0.95,
         )
         rows = await _ch_query(request, sql)
         _pool_cache = rows
@@ -126,6 +127,10 @@ WITH resolved_susceptible AS (
     WHERE ms.susceptibility != 'LOW'
       AND p.position IN ('YES', 'NO')
       AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
+      AND (CASE WHEN p.position = 'YES'
+                THEN p.avg_yes_price
+                ELSE 1.0 - p.avg_yes_price
+           END) < {max_entry_price}
 ),
 trader_stats AS (
     SELECT
@@ -157,7 +162,11 @@ scored AS (
         greatest(
             (3.81 + yes_wins) / (10.0 + yes_total) - 0.381,
             (6.19 + no_wins) / (10.0 + no_total) - 0.619
-        ) AS hr_excess
+        ) AS hr_excess,
+        greatest(
+            if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
+            if(no_total > 0, no_wins * 1.0 / no_total, 0)
+        ) AS raw_hr
     FROM trader_stats
 )
 SELECT
@@ -174,6 +183,7 @@ SELECT
 FROM scored
 WHERE effective_hr >= {min_hr}
   AND effective_hr < {max_hr}
+  AND raw_hr < {max_raw_hr}
   AND high_pct >= {min_high_pct}
 ORDER BY hr_excess DESC
 """
@@ -186,12 +196,16 @@ WITH insider_pool AS (
     SELECT lower(trader) AS trader FROM (
         WITH resolved_susceptible AS (
             SELECT
-                p.trader, p.position, p.correct, ms.susceptibility
+                p.trader, p.position, p.correct, p.avg_yes_price, ms.susceptibility
             FROM (SELECT * FROM trader_positions_resolved) AS p
             INNER JOIN market_susceptibility AS ms ON p.condition_id = ms.condition_id
             WHERE ms.susceptibility != 'LOW'
               AND p.position IN ('YES', 'NO')
               AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
+              AND (CASE WHEN p.position = 'YES'
+                        THEN p.avg_yes_price
+                        ELSE 1.0 - p.avg_yes_price
+                   END) < {max_entry_price}
         ),
         trader_stats AS (
             SELECT trader,
@@ -207,10 +221,15 @@ WITH insider_pool AS (
             SELECT *, greatest(
                 (3.81 + yes_wins) / (10.0 + yes_total),
                 (6.19 + no_wins) / (10.0 + no_total)
-            ) AS effective_hr FROM trader_stats
+            ) AS effective_hr,
+            greatest(
+                if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
+                if(no_total > 0, no_wins * 1.0 / no_total, 0)
+            ) AS raw_hr FROM trader_stats
         )
         SELECT trader FROM scored
-        WHERE effective_hr >= {min_hr} AND effective_hr < {max_hr} AND high_pct >= {min_high_pct}
+        WHERE effective_hr >= {min_hr} AND effective_hr < {max_hr}
+          AND raw_hr < {max_raw_hr} AND high_pct >= {min_high_pct}
     )
 )
 SELECT
@@ -258,7 +277,8 @@ async def insider_pool(
         else:
             sql = _INSIDER_POOL_SQL.format(
                 lookback=lookback_months, min_positions=min_positions,
-                min_hr=min_hr, max_hr=max_hr, min_high_pct=min_high_pct,
+                min_hr=min_hr, max_hr=max_hr, max_raw_hr=0.99,
+                min_high_pct=min_high_pct, max_entry_price=0.95,
             )
             rows = await _ch_query(request, sql)
     except Exception:
@@ -317,7 +337,8 @@ async def _get_cached_signals(request: Request, hours: int) -> list[dict]:
             return _signals_cache[hours]
         sql = _RECENT_INSIDER_TRADES_SQL.format(
             lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
-            min_high_pct=0.20, hours=hours,
+            max_raw_hr=0.99, min_high_pct=0.20, max_entry_price=0.95,
+            hours=hours,
         )
         rows = await _ch_query(request, sql)
         _signals_cache[hours] = rows
