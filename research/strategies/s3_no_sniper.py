@@ -11,6 +11,7 @@ Usage:
     from research.strategies.s3_no_sniper import S3NoSniper, S3Config
     strat = S3NoSniper(S3Config())
     strat.set_tag_map({"cid_1": "Tech", "cid_2": "Trump"})
+    strat.set_token_map({"cid_1": {"YES": "asset_y", "NO": "asset_n"}})
 """
 from __future__ import annotations
 
@@ -48,6 +49,10 @@ class S3NoSniper:
         self._cfg = cfg or S3Config()
         # condition_id -> tag (set externally)
         self._tag_map: dict[str, str] = {}
+        # asset_id -> {"condition_id": str, "outcome": str}
+        self._asset_lookup: dict[str, dict[str, str]] = {}
+        # condition_id -> {"YES": asset_id, "NO": asset_id}
+        self._token_map: dict[str, dict[str, str]] = {}
         # condition_id -> first trade published_at (tracked per replay)
         self._first_seen: dict[str, float] = {}
         # condition_ids where we already entered
@@ -60,6 +65,20 @@ class S3NoSniper:
     def set_tag_map(self, tag_map: dict[str, str]) -> None:
         """Set condition_id -> primary_tag mapping."""
         self._tag_map = tag_map
+
+    def set_token_map(self, token_map: dict[str, dict[str, str]]) -> None:
+        """Set condition_id -> {"YES": asset_id, "NO": asset_id}.
+
+        Also builds the inverse lookup asset_id -> {condition_id, outcome}.
+        """
+        self._token_map = token_map
+        self._asset_lookup = {}
+        for cid, outcomes in token_map.items():
+            for outcome, asset_id in outcomes.items():
+                self._asset_lookup[asset_id] = {
+                    "condition_id": cid,
+                    "outcome": outcome,
+                }
 
     # ------------------------------------------------------------------
     # Strategy protocol
@@ -91,12 +110,27 @@ class S3NoSniper:
         if cid in self._positioned:
             return None
 
-        # 5. YES price zone filter
-        yes_price = float(trade.price)
+        # 5. Determine YES-equivalent price from trade
+        # If trade's asset is the YES token, price IS the YES price.
+        # If trade's asset is the NO token, YES price = 1 - trade.price.
+        asset_info = self._asset_lookup.get(trade.asset_id)
+        if asset_info is not None:
+            trade_outcome = asset_info["outcome"]
+        else:
+            # No token map — assume price is YES price (best effort)
+            trade_outcome = "YES"
+
+        trade_price = float(trade.price)
+        if trade_outcome == "YES":
+            yes_price = trade_price
+        else:
+            yes_price = 1.0 - trade_price
+
+        # 6. YES price zone filter
         if yes_price < self._cfg.min_yes_price or yes_price > self._cfg.max_yes_price:
             return None
 
-        # 6. Only BUY side trades (we're buying NO on the other side)
+        # 7. Only BUY side trades as signal
         if str(trade.side) not in ("BUY", "Side.BUY"):
             return None
 
@@ -104,6 +138,9 @@ class S3NoSniper:
         self._positioned.add(cid)
         no_price = 1.0 - yes_price
         max_price = min(no_price + self._cfg.spread_buffer, 0.99)
+
+        # Resolve NO asset_id from token map
+        no_asset_id = self._token_map.get(cid, {}).get("NO", trade.asset_id)
 
         return [
             TradeIntent(
@@ -115,12 +152,17 @@ class S3NoSniper:
                 urgency="normal",
                 max_price=max_price,
                 reason=f"s3_snipe tag={tag} yes={yes_price:.2f} age={age_s:.0f}s",
-                asset_id=trade.asset_id,
+                signal_time=ts,
+                asset_id=no_asset_id,
             ),
         ]
 
-    async def on_market_update(self, market_id: str, ctx: StrategyContext) -> list[TradeIntent] | None:
+    async def on_market_update(
+        self, market_id: str, ctx: StrategyContext
+    ) -> list[TradeIntent] | None:
         return None
 
-    async def on_timer(self, ctx: StrategyContext) -> list[TradeIntent] | None:
+    async def on_timer(
+        self, now: float, ctx: StrategyContext
+    ) -> list[TradeIntent] | None:
         return None

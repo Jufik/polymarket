@@ -104,7 +104,9 @@ lookback_months = 12
 min_positions = 3
 min_bayesian_hr = 0.75               # strict tier
 min_high_pct = 0.20                  # at least 20% HIGH-susceptibility markets
-max_hr = 0.99                        # exclude bots buying at $0.99+
+max_hr = 0.99                        # exclude bots (Bayesian HR)
+max_pool_entry_price = 0.95          # exclude sure-bet positions (token price >= $0.95)
+max_raw_hr = 0.99                    # exclude bots (raw HR — catches small-sample perfects)
 
 # ---------------------------------------------------------------------------
 # Promotion gates (for pm-strategy promote)
