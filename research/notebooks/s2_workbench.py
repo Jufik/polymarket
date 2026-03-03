@@ -50,19 +50,24 @@ def _(mo):
     max_hold = mo.ui.dropdown(
         ["None", "72", "168", "336"], value="None", label="Max hold (h)"
     )
+    # Tag-aware mode
+    tag_aware = mo.ui.checkbox(value=False, label="Tag-aware mode")
+    tag_min_positions = mo.ui.slider(10, 50, value=20, step=5, label="Tag min positions")
+    tag_min_excess_hr = mo.ui.slider(0.05, 0.25, value=0.10, step=0.05, label="Tag min excess HR")
 
     mo.hstack([
         mo.vstack([min_positions, min_excess_hr, direction, max_entry_price]),
         mo.vstack([seed_threshold, scale_threshold, seed_pct, max_signal_price]),
         mo.vstack([seed_timeout, position_size, max_open, capital]),
         mo.vstack([use_bayesian_hr, yes_weight, no_weight, max_consensus_window, max_hold]),
-        mo.vstack([exclude_cats]),
+        mo.vstack([exclude_cats, tag_aware, tag_min_positions, tag_min_excess_hr]),
     ])
     return (
         min_positions, min_excess_hr, seed_threshold, scale_threshold,
         seed_pct, direction, seed_timeout, position_size, max_open, capital,
         max_entry_price, max_signal_price, use_bayesian_hr, exclude_cats,
         yes_weight, no_weight, max_consensus_window, max_hold,
+        tag_aware, tag_min_positions, tag_min_excess_hr,
     )
 
 
@@ -84,6 +89,7 @@ def _(
     seed_pct, direction, seed_timeout, position_size, max_open, capital,
     max_entry_price, max_signal_price, use_bayesian_hr, exclude_cats,
     yes_weight, no_weight, max_consensus_window, max_hold,
+    tag_aware, tag_min_positions, tag_min_excess_hr,
     periods,
 ):
     run_btn = mo.ui.run_button(label="Run Replay")
@@ -97,6 +103,7 @@ def _(
     seed_pct, direction, seed_timeout, position_size, max_open, capital,
     max_entry_price, max_signal_price, use_bayesian_hr, exclude_cats,
     yes_weight, no_weight, max_consensus_window, max_hold,
+    tag_aware, tag_min_positions, tag_min_excess_hr,
     periods,
 ):
     mo.stop(not run_btn.value, mo.md("*Click 'Run Replay' to start.*"))
@@ -129,9 +136,13 @@ def _(
         no_weight=no_weight.value,
         max_consensus_window_hours=None if max_consensus_window.value == "None" else float(max_consensus_window.value),
         max_hold_hours=None if max_hold.value == "None" else float(max_hold.value),
+        tag_aware=tag_aware.value,
+        tag_min_positions=tag_min_positions.value,
+        tag_min_excess_hr=tag_min_excess_hr.value,
     )
 
     strat_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=capital.value,
@@ -322,6 +333,7 @@ def _(
     )
 
     strat_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=capital.value,

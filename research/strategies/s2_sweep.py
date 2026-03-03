@@ -73,6 +73,12 @@ def config_label(params: dict[str, Any]) -> str:
         parts.append(f"yw{params['yes_weight']}")
     if "no_weight" in params and params["no_weight"] != 1.0:
         parts.append(f"nw{params['no_weight']}")
+    if params.get("dedup_per_position") is False:
+        parts.append("nodd")
+    if "max_consensus" in params and params["max_consensus"] is not None:
+        parts.append(f"mc{params['max_consensus']}")
+    if params.get("tag_aware"):
+        parts.append("T")
     return "_".join(parts) if parts else "default"
 
 

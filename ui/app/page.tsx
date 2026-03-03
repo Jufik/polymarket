@@ -319,54 +319,122 @@ export default function Dashboard() {
 
         {/* Positions Table */}
         <div className="bg-gray-900 rounded-lg overflow-hidden mb-8">
-          <div className="bg-gray-800 px-4 py-2 text-sm font-semibold text-gray-300">
-            Open Positions
+          <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-300">
+              Open Positions ({positions.length})
+            </span>
+            <span className="text-xs text-gray-500">
+              Exposure: ${totalExposure.toFixed(2)}
+            </span>
           </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-800/50 text-gray-400">
                 <th className="p-3 text-left">Market</th>
-                <th className="p-3 text-left">Side</th>
-                <th className="p-3 text-right">Size</th>
+                <th className="p-3 text-left">Strategy</th>
+                <th className="p-3 text-center">Outcome</th>
+                <th className="p-3 text-right">Invested</th>
                 <th className="p-3 text-right">Entry</th>
-                <th className="p-3 text-right">Last Price</th>
-                <th className="p-3 text-right">PnL</th>
+                <th className="p-3 text-right">Current</th>
+                <th className="p-3 text-right">Unrealized PnL</th>
+                <th className="p-3 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
-              {positions.map((p) => (
-                <tr key={p.condition_id} className="border-t border-gray-800">
-                  <td className="p-3 font-mono text-xs">
-                    {p.condition_id.slice(0, 12)}...
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={
-                        p.side === "BUY" ? "text-green-400" : "text-red-400"
-                      }
+              {positions.map((p) => {
+                const pnlPct =
+                  p.cost_basis > 0
+                    ? ((p.unrealized_pnl / p.cost_basis) * 100).toFixed(1)
+                    : null;
+                const isResolved = !!p.resolved_at;
+                const isExpired =
+                  !isResolved &&
+                  p.end_date &&
+                  new Date(p.end_date).getTime() < Date.now();
+                return (
+                  <tr key={p.condition_id} className="border-t border-gray-800 hover:bg-gray-800/30">
+                    <td className="p-3 text-xs max-w-[260px]">
+                      {p.event_slug ? (
+                        <a
+                          href={`https://polymarket.com/event/${p.event_slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:underline"
+                        >
+                          {p.question || p.condition_id.slice(0, 12) + "…"}
+                        </a>
+                      ) : (
+                        <span className="text-gray-300">
+                          {p.question || p.condition_id.slice(0, 12) + "…"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 font-mono text-xs text-gray-400">
+                      {p.strategy || "—"}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 text-xs rounded font-medium ${
+                          p.outcome === "YES"
+                            ? "bg-green-900/50 text-green-400"
+                            : p.outcome === "NO"
+                            ? "bg-red-900/50 text-red-400"
+                            : "bg-gray-800 text-gray-400"
+                        }`}
+                      >
+                        {p.outcome ?? p.side}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-mono text-gray-200">
+                      ${p.cost_basis.toFixed(2)}
+                    </td>
+                    <td className="p-3 text-right font-mono text-gray-400">
+                      ${p.avg_entry.toFixed(4)}
+                    </td>
+                    <td className="p-3 text-right font-mono text-gray-300">
+                      ${p.last_price.toFixed(4)}
+                    </td>
+                    <td
+                      className={`p-3 text-right font-mono font-semibold ${
+                        p.unrealized_pnl >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
                     >
-                      {p.side}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right font-mono">
-                    {p.size.toFixed(4)}
-                  </td>
-                  <td className="p-3 text-right font-mono">
-                    ${p.avg_entry.toFixed(4)}
-                  </td>
-                  <td className="p-3 text-right font-mono">
-                    ${p.last_price.toFixed(4)}
-                  </td>
-                  <td
-                    className={`p-3 text-right font-mono ${p.unrealized_pnl >= 0 ? "text-green-400" : "text-red-400"}`}
-                  >
-                    ${p.unrealized_pnl.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
+                      {p.unrealized_pnl >= 0 ? "+" : ""}${p.unrealized_pnl.toFixed(2)}
+                      {pnlPct && (
+                        <span className="text-xs ml-1 opacity-70">
+                          ({pnlPct}%)
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs">
+                      {isResolved ? (
+                        <span className="text-yellow-400">
+                          {p.winner_outcome ?? "Resolved"}
+                        </span>
+                      ) : isExpired ? (
+                        <span className="text-orange-400">Awaiting res.</span>
+                      ) : p.end_date ? (
+                        <span className="text-gray-500 font-mono">
+                          {(() => {
+                            const d = Math.floor(
+                              (new Date(p.end_date).getTime() - Date.now()) / 86400000
+                            );
+                            const h = Math.floor(
+                              ((new Date(p.end_date).getTime() - Date.now()) % 86400000) / 3600000
+                            );
+                            return d > 0 ? `${d}d ${h}h` : `${h}h`;
+                          })()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">Open</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {positions.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
+                  <td colSpan={8} className="p-8 text-center text-gray-500">
                     No open positions
                   </td>
                 </tr>

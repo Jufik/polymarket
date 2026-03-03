@@ -27,3 +27,12 @@ def test_qualified_trades_query():
     assert "maker" in sql
     assert "2025-07-01" in sql
     assert "side = 'BUY'" in sql
+
+
+def test_market_tags_query():
+    from research.strategies.s2_data import market_tags_query
+
+    sql = market_tags_query("_tmp_tag_markets")
+    assert "_tmp_tag_markets" in sql
+    assert "condition_id" in sql
+    assert "tag" in sql

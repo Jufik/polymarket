@@ -9,6 +9,7 @@ Usage:
 
     trades = load_compact_trades(max_files=10)
     config = StrategyConfig(
+        name="test",
         enabled=True, mode=ExecutionMode.REPLAY,
         capital_usd=1000, max_position_usd=100,
         max_open_positions=20, cooldown_s=0,

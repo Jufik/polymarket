@@ -445,6 +445,7 @@ class TestInsiderCopyIntegration:
         )
 
         config = StrategyConfig(
+            name="test",
             enabled=True,
             mode=ExecutionMode.REPLAY,
             capital_usd=1000,

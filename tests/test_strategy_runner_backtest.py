@@ -257,6 +257,7 @@ async def test_strategy_returning_none_produces_no_intents() -> None:
 # ---------------------------------------------------------------------------
 
 _PERMISSIVE = StrategyConfig(
+    name="test",
     enabled=True,
     mode=ExecutionMode.REPLAY,
     capital_usd=1e9,
@@ -289,6 +290,7 @@ async def test_risk_gate_blocks_over_capital() -> None:
     strategy = CountingStrategy(emit_every=1)
 
     tight_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=15.0,  # Allows first 10 USD fill, blocks second
@@ -319,6 +321,7 @@ async def test_cooldown_blocks_rapid_trades() -> None:
     strategy = CountingStrategy(emit_every=1)
 
     cooldown_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=1e9,

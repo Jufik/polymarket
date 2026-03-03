@@ -96,6 +96,19 @@ const POOL_DISPLAY: Record<string, { label: string; color: string; border: strin
 /* Pool Health Cards                                                         */
 /* ======================================================================== */
 
+/** Thin progress bar: fraction 0–1, color class. */
+function ProgressBar({ pct, colorClass }: { pct: number; colorClass: string }) {
+  const clamped = Math.min(1, Math.max(0, pct));
+  return (
+    <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full ${colorClass}`}
+        style={{ width: `${(clamped * 100).toFixed(1)}%` }}
+      />
+    </div>
+  );
+}
+
 function PoolHealthCards({ pools }: { pools: PoolHealth[] | null }) {
   if (!pools) {
     return (
@@ -103,7 +116,7 @@ function PoolHealthCards({ pools }: { pools: PoolHealth[] | null }) {
         {[...Array(3)].map((_, i) => (
           <div
             key={i}
-            className="bg-gray-900 rounded-lg p-4 flex-1 animate-pulse h-28"
+            className="bg-gray-900 rounded-lg p-4 flex-1 animate-pulse h-40"
           />
         ))}
       </div>
@@ -118,8 +131,9 @@ function PoolHealthCards({ pools }: { pools: PoolHealth[] | null }) {
           color: "text-gray-400",
           border: "border-gray-700/50",
         };
-        // Health indicator: green if fills > 0, yellow if no fills, red if HR < 40%
-        let healthDot = "text-yellow-400"; // no data
+
+        // Health dot: green=active&OK, yellow=no data, red=HR<40%
+        let healthDot = "text-yellow-400";
         if (p.fills_7d > 0) {
           healthDot =
             p.hr_7d !== null && p.hr_7d < 0.4
@@ -127,66 +141,101 @@ function PoolHealthCards({ pools }: { pools: PoolHealth[] | null }) {
               : "text-green-400";
         }
 
+        const deployedUsd = p.capital_pct * p.capital_usd;
+        const availableUsd = p.capital_usd - deployedUsd;
+        const capitalBarColor =
+          p.capital_pct > 0.9
+            ? "bg-red-500"
+            : p.capital_pct > 0.6
+            ? "bg-yellow-500"
+            : "bg-blue-500";
+
+        // Expected ROI: HR × (1/avg_entry - 1) approximation.
+        // For NO at 0.35 avg: 74% HR → edge = 0.74 × (1/0.35 - 1) - 0.26 × 1 ≈ +0.6 → simplify
+        // Show win_rate × avg_return hint instead.
+        const roiHint =
+          p.hr_7d !== null && p.resolved_7d > 0
+            ? `~${((p.hr_7d - 0.5) * 100).toFixed(0)}pp edge`
+            : null;
+
         return (
           <div
             key={p.pool}
-            className={`bg-gray-900 rounded-lg p-4 flex-1 border ${display.border}`}
+            className={`bg-gray-900 rounded-lg p-4 flex-1 border ${display.border} space-y-3`}
           >
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-lg ${healthDot}`}>{"\u25CF"}</span>
-              <span className={`text-sm font-semibold ${display.color}`}>
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <span className={`text-base ${healthDot}`}>{"\u25CF"}</span>
+              <span className={`text-sm font-bold ${display.color}`}>
                 {display.label}
               </span>
-              <span className="text-xs text-gray-500 ml-auto">
-                c{"\u2265"}{p.consensus_threshold}
+              <span className="text-xs text-gray-500 ml-auto font-mono">
+                c≥{p.consensus_threshold}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              <div className="text-gray-400">
-                Fills (7d)
+            {/* Budget allocation bar */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-400">Capital Budget</span>
+                <span className="font-mono text-gray-200">
+                  ${deployedUsd.toFixed(0)} / ${p.capital_usd}
+                </span>
               </div>
+              <ProgressBar pct={p.capital_pct} colorClass={capitalBarColor} />
+              <div className="flex justify-between text-xs mt-0.5 text-gray-500">
+                <span>{p.open_positions} open pos</span>
+                <span>${availableUsd.toFixed(0)} free</span>
+              </div>
+            </div>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div className="text-gray-400">Fills (7d)</div>
               <div className="font-mono text-gray-200 text-right">
                 {p.fills_7d}
+                {p.fill_rate !== null && (
+                  <span className="text-gray-500 ml-1">
+                    ({(p.fill_rate * 100).toFixed(0)}% rate)
+                  </span>
+                )}
               </div>
 
-              <div className="text-gray-400">
-                HR (7d)
-              </div>
-              <div className={`font-mono text-right ${p.hr_7d !== null ? (p.hr_7d >= 0.5 ? "text-green-400" : "text-red-400") : "text-gray-500"}`}>
+              <div className="text-gray-400">Hit Rate (7d)</div>
+              <div
+                className={`font-mono text-right ${
+                  p.hr_7d !== null
+                    ? p.hr_7d >= 0.5
+                      ? "text-green-400"
+                      : "text-red-400"
+                    : "text-gray-500"
+                }`}
+              >
                 {p.hr_7d !== null
-                  ? `${(p.hr_7d * 100).toFixed(0)}% (${p.wins_7d}/${p.resolved_7d})`
-                  : "-"}
+                  ? `${(p.hr_7d * 100).toFixed(0)}% (${p.wins_7d}W/${p.resolved_7d - p.wins_7d}L)`
+                  : "—"}
               </div>
 
-              <div className="text-gray-400">
-                PnL (7d)
-              </div>
-              <div className={`font-mono text-right ${pnlColor(p.pnl_7d)}`}>
-                {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(0)}
-              </div>
-
-              <div className="text-gray-400">
-                Capital
-              </div>
-              <div className="font-mono text-right text-gray-200">
-                {(p.capital_pct * 100).toFixed(0)}% ({p.open_positions} pos)
+              <div className="text-gray-400">Realized PnL (7d)</div>
+              <div
+                className={`font-mono text-right font-semibold ${pnlColor(p.pnl_7d)}`}
+              >
+                {p.pnl_7d >= 0 ? "+" : ""}${p.pnl_7d.toFixed(2)}
               </div>
 
-              <div className="text-gray-400">
-                Fill Rate
-              </div>
-              <div className="font-mono text-right text-gray-200">
-                {p.fill_rate !== null
-                  ? `${(p.fill_rate * 100).toFixed(0)}%`
-                  : "-"}
+              <div className="text-gray-400">Edge estimate</div>
+              <div className="font-mono text-right text-amber-400">
+                {roiHint ?? "—"}
               </div>
 
-              <div className="text-gray-400">
-                Candidates
-              </div>
+              <div className="text-gray-400">Candidates</div>
               <div className="font-mono text-right text-purple-400">
                 {p.candidates}
+              </div>
+
+              <div className="text-gray-400">Rejected</div>
+              <div className="font-mono text-right text-gray-500">
+                {p.risk_rejected_7d} risk / {p.rejected_7d} other
               </div>
             </div>
           </div>

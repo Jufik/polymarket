@@ -89,6 +89,26 @@ def resolutions_query(start_date: str, end_date: str) -> str:
     """
 
 
+def market_tags_query(table_name: str = "_tmp_tag_markets") -> str:
+    """Fetch entire condition_id -> primary_tag mapping from pre-materialized table."""
+    return f"SELECT condition_id, tag FROM {table_name}"
+
+
+async def load_market_tags(
+    backend: ClickHouseBackend,
+    table_name: str = "_tmp_tag_markets",
+) -> dict[str, str]:
+    """Load condition_id -> primary_tag mapping from CH.
+
+    Requires ``materialize_tag_markets_sql()`` to have been executed first.
+    """
+    sql = market_tags_query(table_name)
+    df = await backend._execute(sql)
+    if len(df) == 0:
+        return {}
+    return dict(zip(df["condition_id"].to_list(), df["tag"].to_list()))
+
+
 async def load_period_trades(
     period: str,
     qualified_traders: set[str],

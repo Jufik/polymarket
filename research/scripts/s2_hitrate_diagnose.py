@@ -127,6 +127,7 @@ async def diagnose_period(period: str = "2025-04") -> None:
     strategy.set_token_map(inv_tm)
 
     strat_config = StrategyConfig(
+        name="test",
         enabled=True,
         mode=ExecutionMode.REPLAY,
         capital_usd=50_000,

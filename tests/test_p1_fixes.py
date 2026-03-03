@@ -216,6 +216,7 @@ def test_strategy_config_enabled_field() -> None:
     from polymarket_pipeline.strategies.types import ExecutionMode
 
     cfg = StrategyConfig(
+        name="test",
         enabled=False,
         mode=ExecutionMode.PAPER_DEV,
         capital_usd=1000,

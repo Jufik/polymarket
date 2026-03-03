@@ -46,6 +46,13 @@ class S2Config:
     no_weight: float = 1.0
     max_consensus_window_hours: float | None = None
     max_hold_hours: float | None = None
+    # Gap fixes
+    dedup_per_position: bool = True  # enter once per (trader, market)
+    max_consensus: int | None = 5    # skip markets above this consensus
+    # Tag-aware mode
+    tag_aware: bool = False
+    tag_min_positions: int = 20
+    tag_min_excess_hr: float = 0.10
 
 
 class S2HitRateCopy:
@@ -70,14 +77,52 @@ class S2HitRateCopy:
         self._first_trade_time: dict[str, float] = {}
         # Scale entry times (for hold timeout)
         self._scale_times: dict[str, float] = {}
+        # Position-level dedup: (maker, cid) already processed
+        self._seen: set[tuple[str, str]] = set()
+        # Direction-aware qualified traders: trader -> {"YES"} or {"NO"} or {"YES","NO"}
+        self._qualified_dirs: dict[str, set[str]] = {}
+        # Tag-aware mode data structures
+        self._tag_pools: dict[tuple[str, str], set[str]] = {}
+        self._market_tags: dict[str, str] = {}
 
     def set_qualified_traders(self, traders: set[str]) -> None:
         """Set the qualified trader pool (called by provider or test setup)."""
         self._qualified = {t.lower() for t in traders}
 
+    def set_qualified_traders_directed(
+        self, traders: dict[str, set[str]]
+    ) -> None:
+        """Set qualified traders with direction info.
+
+        Parameters
+        ----------
+        traders:
+            Mapping of trader address -> set of qualified directions.
+            E.g. {"0xabc": {"YES"}, "0xdef": {"NO"}, "0xghi": {"YES", "NO"}}
+        """
+        self._qualified_dirs = {t.lower(): dirs for t, dirs in traders.items()}
+        self._qualified = set(self._qualified_dirs.keys())
+
     def set_token_map(self, token_map: dict[str, dict[str, str]]) -> None:
         """Set asset_id -> {condition_id, outcome} mapping for direction-aware sizing."""
         self._token_map = token_map
+
+    def set_tag_pools(
+        self, pools: dict[tuple[str, str], set[str]]
+    ) -> None:
+        """Set per-(tag, direction) qualified trader pools.
+
+        Also populates the flat _qualified set as the union of all pools
+        (needed for trade pre-filtering in data loading).
+        """
+        self._tag_pools = pools
+        self._qualified = set()
+        for addrs in pools.values():
+            self._qualified |= {a.lower() for a in addrs}
+
+    def set_market_tags(self, tags: dict[str, str]) -> None:
+        """Set condition_id -> primary_tag mapping."""
+        self._market_tags = tags
 
     async def on_trade(
         self,
@@ -88,50 +133,151 @@ class S2HitRateCopy:
         if trade.side != "BUY":
             return None
 
-        # 2. Must be a qualified trader
         maker = (trade.maker or "").lower()
+
+        if self._cfg.tag_aware:
+            return await self._on_trade_tag_aware(trade, ctx, maker)
+        return await self._on_trade_global(trade, ctx, maker)
+
+    async def _on_trade_global(
+        self,
+        trade: NormalizedTrade,
+        ctx: StrategyContext,
+        maker: str,
+    ) -> list[TradeIntent] | None:
+        """Global-pool logic (tag_aware=False) with gap fixes."""
         if maker not in self._qualified:
             return None
 
-        # 3. Filter expensive signals
+        cid = trade.condition_id
+
+        # Resolve outcome from token_map
+        outcome = "YES"
+        token_info = self._token_map.get(trade.asset_id)
+        if token_info:
+            outcome = token_info.get("outcome", "YES")
+
+        # Direction check (if directed pool was set)
+        if self._qualified_dirs:
+            allowed = self._qualified_dirs.get(maker, set())
+            if outcome not in allowed:
+                return None
+
+        # Position-level dedup: one signal per (trader, market)
+        key = (maker, cid)
+        if self._cfg.dedup_per_position and key in self._seen:
+            return None
+
+        # Signal price filter
         if float(trade.price) > self._cfg.max_signal_price:
             return None
 
-        # 4. Already at full position
-        cid = trade.condition_id
         if cid in self._scaled:
             return None
 
-        # 5. Track consensus per condition_id (unique traders)
+        # Mark as seen AFTER passing all filters (not before — a high-price
+        # first trade must not permanently block subsequent good-price trades)
+        if self._cfg.dedup_per_position:
+            self._seen.add(key)
+
+        # Direction-aware consensus
         if cid not in self._consensus:
-            self._consensus[cid] = {"traders": set()}
-        self._consensus[cid]["traders"].add(maker)
-        count = len(self._consensus[cid]["traders"])
+            self._consensus[cid] = {"YES": set(), "NO": set()}
+        self._consensus[cid][outcome].add(maker)
+        count = len(self._consensus[cid][outcome])
 
         now = trade.published_at
         price = float(trade.price)
 
-        # 5b. Track first qualified trade time (for velocity check)
         if cid not in self._first_trade_time:
             self._first_trade_time[cid] = now
 
-        # 6. Resolve outcome from token_map (for direction-aware sizing)
-        outcome = "YES"  # default if no token_map
+        weight = self._cfg.yes_weight if outcome == "YES" else self._cfg.no_weight
+
+        return self._emit_tiered(cid, count, now, price, outcome, weight, trade.asset_id)
+
+    async def _on_trade_tag_aware(
+        self,
+        trade: NormalizedTrade,
+        ctx: StrategyContext,
+        maker: str,
+    ) -> list[TradeIntent] | None:
+        """Tag-aware logic: check tag+direction pool, direction-specific consensus."""
+        cid = trade.condition_id
+
+        # 1. Look up market tag
+        tag = self._market_tags.get(cid)
+        if tag is None:
+            return None
+
+        # 2. Resolve outcome from token_map
+        outcome = "YES"
         token_info = self._token_map.get(trade.asset_id)
         if token_info:
             outcome = token_info.get("outcome", "YES")
+
+        # 3. Check maker is in the correct tag+direction pool
+        pool_key = (tag, outcome)
+        if maker not in self._tag_pools.get(pool_key, set()):
+            return None
+
+        # 3b. Position-level dedup
+        key = (maker, cid)
+        if self._cfg.dedup_per_position and key in self._seen:
+            return None
+
+        # 4. Signal price filter
+        if float(trade.price) > self._cfg.max_signal_price:
+            return None
+
+        # 5. Already at full position
+        if cid in self._scaled:
+            return None
+
+        # Mark as seen AFTER passing all filters (not before — a high-price
+        # first trade must not permanently block subsequent good-price trades)
+        if self._cfg.dedup_per_position:
+            self._seen.add(key)
+
+        # 6. Direction-specific consensus
+        if cid not in self._consensus:
+            self._consensus[cid] = {"YES": set(), "NO": set()}
+        self._consensus[cid][outcome].add(maker)
+        count = len(self._consensus[cid][outcome])
+
+        now = trade.published_at
+        price = float(trade.price)
+
+        if cid not in self._first_trade_time:
+            self._first_trade_time[cid] = now
+
         weight = self._cfg.yes_weight if outcome == "YES" else self._cfg.no_weight
 
-        # 7. Check tiered entry
+        return self._emit_tiered(cid, count, now, price, outcome, weight, trade.asset_id)
+
+    def _emit_tiered(
+        self,
+        cid: str,
+        count: int,
+        now: float,
+        price: float,
+        outcome: str,
+        weight: float,
+        asset_id: str,
+    ) -> list[TradeIntent] | None:
+        """Shared tiered entry logic for both global and tag-aware modes."""
+        # Consensus cap: skip markets with too many qualified traders
+        if self._cfg.max_consensus is not None and count > self._cfg.max_consensus:
+            return None
+
         if count >= self._cfg.scale_threshold and cid not in self._scaled:
-            # Velocity gate: consensus must form within window
+            # Velocity gate
             if self._cfg.max_consensus_window_hours is not None:
                 window_s = self._cfg.max_consensus_window_hours * 3600
                 first = self._first_trade_time.get(cid, now)
                 if now - first > window_s:
-                    return None  # consensus too slow
+                    return None
 
-            # Scale: emit remaining portion
             self._scaled.add(cid)
             self._scale_times[cid] = now
             remaining_pct = 1.0 - self._cfg.seed_pct if cid in self._seeded else 1.0
@@ -147,12 +293,11 @@ class S2HitRateCopy:
                     max_price=min(price + 0.02, 0.95),
                     reason=f"consensus={count} (scale)",
                     signal_time=now,
-                    asset_id=trade.asset_id,
+                    asset_id=asset_id,
                 ),
             ]
 
         if count >= self._cfg.seed_threshold and cid not in self._seeded:
-            # Seed: emit small position
             self._seeded.add(cid)
             self._seed_times[cid] = now
             size = self._cfg.position_size_usd * self._cfg.seed_pct * weight
@@ -167,7 +312,7 @@ class S2HitRateCopy:
                     max_price=min(price + 0.02, 0.95),
                     reason=f"consensus={count} (seed)",
                     signal_time=now,
-                    asset_id=trade.asset_id,
+                    asset_id=asset_id,
                 ),
             ]
 
@@ -386,6 +531,86 @@ class S2HitRateCopy:
               AND m.question NOT LIKE '%up or down%'
               {category_filter}
             GROUP BY trader, p.position
+            HAVING count(*) >= {min_positions}
+               AND excess_hr >= {min_excess_hr}
+            ORDER BY excess_hr DESC
+        """
+
+    @staticmethod
+    def tag_qualified_traders_query(
+        min_positions: int = 20,
+        min_excess_hr: float = 0.10,
+        recency_months: int = 6,
+        direction: str = "BOTH",
+        max_entry_price: float = 0.95,
+        use_bayesian_hr: bool = True,
+        as_of_date: str | None = None,
+        tag_markets_table: str = "_tmp_tag_markets",
+        tag_base_rates_table: str = "_tmp_tag_base_rates",
+        exclude_tags: tuple[str, ...] = ("Sports", "Weather"),
+    ) -> str:
+        """Build CH SQL for tag-aware qualified traders.
+
+        Returns (trader, tag, direction, wins, total, hit_rate, excess_hr).
+        Uses pre-materialized native CH tables for tag mapping and base rates.
+
+        Excess HR = hit_rate - tag_specific_base_rate.
+        Bayesian priors are tag-aware: alpha = tag_base * 10.
+        """
+        date_expr = f"toDate('{as_of_date}')" if as_of_date else "toDate(now())"
+
+        dir_filter = ""
+        if direction == "YES":
+            dir_filter = "AND p.position = 'YES'"
+        elif direction == "NO":
+            dir_filter = "AND p.position = 'NO'"
+
+        price_filter = ""
+        if max_entry_price < 1.0:
+            price_filter = f"""AND (
+                      CASE WHEN position = 'YES' THEN avg_yes_price
+                           ELSE 1.0 - avg_yes_price END
+                  ) < {max_entry_price}"""
+
+        # Tag exclusion
+        tag_excl = ""
+        if exclude_tags:
+            excl_list = ", ".join(f"'{t}'" for t in exclude_tags)
+            tag_excl = f"AND tm.tag NOT IN ({excl_list})"
+
+        # HR formula: tag-aware Bayesian or raw
+        if use_bayesian_hr:
+            hr_expr = (
+                f"(tbr.base_rate * 10 + countIf(p.correct = 1))"
+                f" / (10.0 + count(*))"
+            )
+        else:
+            hr_expr = "countIf(p.correct = 1) / count(*)"
+
+        return f"""
+            SELECT
+                lower(p.trader) AS trader,
+                tm.tag AS tag,
+                p.position AS direction,
+                countIf(p.correct = 1) AS wins,
+                count(*) AS total,
+                any(tbr.base_rate) AS tag_base,
+                {hr_expr} AS hit_rate,
+                {hr_expr} - any(tbr.base_rate) AS excess_hr
+            FROM (
+                SELECT * FROM trader_positions_resolved
+                WHERE position IN ('YES', 'NO')
+                  AND toDate(resolved_at) >= {date_expr} - INTERVAL {recency_months} MONTH
+                  AND toDate(resolved_at) < {date_expr}
+                  {dir_filter}
+                  {price_filter}
+            ) AS p
+            INNER JOIN {tag_markets_table} AS tm ON p.condition_id = tm.condition_id
+            INNER JOIN {tag_base_rates_table} AS tbr
+                ON tm.tag = tbr.tag AND p.position = tbr.direction
+            WHERE 1=1
+              {tag_excl}
+            GROUP BY trader, tm.tag, p.position, tbr.base_rate
             HAVING count(*) >= {min_positions}
                AND excess_hr >= {min_excess_hr}
             ORDER BY excess_hr DESC
