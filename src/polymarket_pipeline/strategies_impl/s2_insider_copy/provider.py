@@ -54,6 +54,10 @@ WITH resolved_susceptible AS (
     WHERE ms.susceptibility != 'LOW'
       AND p.position IN ('YES', 'NO')
       AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
+      AND (CASE WHEN p.position = 'YES'
+                THEN p.avg_yes_price
+                ELSE 1.0 - p.avg_yes_price
+           END) < {max_entry_price}
 ),
 trader_stats AS (
     SELECT
@@ -83,7 +87,11 @@ scored AS (
         greatest(
             (3.81 + yes_wins) / (10.0 + yes_total) - 0.381,
             (6.19 + no_wins) / (10.0 + no_total) - 0.619
-        ) AS hr_excess
+        ) AS hr_excess,
+        greatest(
+            if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
+            if(no_total > 0, no_wins * 1.0 / no_total, 0)
+        ) AS raw_hr
     FROM trader_stats
 )
 SELECT
@@ -92,6 +100,7 @@ SELECT
 FROM scored
 WHERE effective_hr >= {min_hr}
   AND effective_hr < {max_hr}
+  AND raw_hr < {max_raw_hr}
   AND high_pct >= {min_high_pct}
 ORDER BY hr_excess DESC
 """
@@ -119,12 +128,16 @@ class InsiderCopyProvider:
         min_bayesian_hr: float = 0.75,
         min_high_pct: float = 0.20,
         max_hr: float = 0.99,
+        max_pool_entry_price: float = 0.95,
+        max_raw_hr: float = 0.99,
     ) -> None:
         self._lookback_months = lookback_months
         self._min_positions = min_positions
         self._min_bayesian_hr = min_bayesian_hr
         self._min_high_pct = min_high_pct
         self._max_hr = max_hr
+        self._max_pool_entry_price = max_pool_entry_price
+        self._max_raw_hr = max_raw_hr
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
@@ -193,7 +206,9 @@ class InsiderCopyProvider:
             min_positions=self._min_positions,
             min_hr=self._min_bayesian_hr,
             max_hr=self._max_hr,
+            max_raw_hr=self._max_raw_hr,
             min_high_pct=self._min_high_pct,
+            max_entry_price=self._max_pool_entry_price,
         )
         df = await backend.query_custom(sql)
         pool: InsiderPool = {}
