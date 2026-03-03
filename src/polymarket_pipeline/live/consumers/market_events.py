@@ -83,8 +83,21 @@ class MarketEventsConsumer:
         self._schedule_refresh()
 
     async def _handle_new_market(self, condition_id: str, payload: dict[str, Any]) -> None:
-        """Handle a new market -- log only (no PnL impact, no refresh needed)."""
+        """Handle a new market -- schedule immediate + delayed provider refresh.
+
+        Time-sensitive strategies (e.g. S3 NO Sniper with a 5-minute entry
+        window) need the tag_map and token_map updated as soon as PG has the
+        new market metadata.
+
+        Two refreshes are scheduled:
+        1. Immediate (5s debounce) — catches if PG already has the market
+           (Gamma sync may have run between market creation and this event).
+        2. Delayed (75s) — catches after the next periodic Gamma→PG sync
+           (token_map_refresh_interval_s=60s) has landed the new market.
+        """
         log.info("market_events.new_market", condition_id=condition_id)
+        self._schedule_refresh()
+        asyncio.create_task(self._delayed_new_market_refresh())
 
     async def _upsert_resolution(
         self, condition_id: str, payload: dict[str, Any], resolution_value: int = 1
@@ -119,6 +132,16 @@ class MarketEventsConsumer:
         count = self._pending_resolutions
         self._pending_resolutions = 0
         log.info("market_events.triggering_refresh", batched_resolutions=count)
+        self._runner.request_refresh()
+
+    async def _delayed_new_market_refresh(self) -> None:
+        """Wait for PG to likely have the new market, then trigger refresh.
+
+        The periodic Gamma→PG sync runs every 60s. Waiting 75s ensures at
+        least one full sync cycle has completed since the new_market event.
+        """
+        await asyncio.sleep(75.0)
+        log.info("market_events.delayed_new_market_refresh")
         self._runner.request_refresh()
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
@@ -15,7 +14,6 @@ from polymarket_pipeline.strategies_impl.s3_no_sniper.strategy import (
     S3NoSniperStrategy,
     create_s3_no_sniper_strategy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -55,6 +53,7 @@ def _make_ctx(
     tag_map: dict | None = None,
     token_map: dict | None = None,
     known_market_ids: frozenset | None = None,
+    known_markets_loaded: bool = True,
 ) -> AsyncMock:
     """Create a mock StrategyContext with S3 provider features."""
     ctx = AsyncMock()
@@ -72,6 +71,7 @@ def _make_ctx(
             "cid_crypto": {"YES": "asset_yes_4", "NO": "asset_no_4"},
         },
         "known_market_ids": known_market_ids or frozenset(),
+        "known_markets_loaded": known_markets_loaded,
     }
     ctx.get_features.return_value = features
     ctx.get_position.return_value = None
@@ -248,6 +248,35 @@ class TestPriceZone:
 # ---------------------------------------------------------------------------
 
 
+class TestNoPriceCeiling:
+    @pytest.mark.asyncio
+    async def test_no_price_above_ceiling_rejected(self) -> None:
+        """YES=0.10 → NO=0.90, exceeds max_no_price=0.85 → rejected."""
+        strat = _make_strat(min_yes_price=0.05)  # loosen YES floor for this test
+        ctx = _make_ctx()
+        trade = _make_trade("cid_tech", price=0.10, ts=1000.0)
+        result = await strat.on_trade(trade, ctx)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_no_price_at_ceiling_accepted(self) -> None:
+        """YES=0.15 → NO=0.85, exactly at max_no_price=0.85 → accepted."""
+        strat = _make_strat()
+        ctx = _make_ctx()
+        trade = _make_trade("cid_tech", price=0.15, ts=1000.0)
+        result = await strat.on_trade(trade, ctx)
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_custom_no_price_ceiling(self) -> None:
+        """Custom max_no_price=0.70 → YES=0.25 (NO=0.75) rejected."""
+        strat = _make_strat(max_no_price=0.70)
+        ctx = _make_ctx()
+        trade = _make_trade("cid_tech", price=0.25, ts=1000.0)
+        result = await strat.on_trade(trade, ctx)
+        assert result is None
+
+
 class TestNOTokenInversion:
     @pytest.mark.asyncio
     async def test_no_token_trade_price_inverted(self) -> None:
@@ -346,6 +375,19 @@ class TestKnownMarketSkip:
         trade = _make_trade("cid_economy", price=0.35, ts=1000.0, asset_id="asset_yes_3")
         result = await strat.on_trade(trade, ctx)
         assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_failsafe_refuses_when_known_markets_not_loaded(self) -> None:
+        """Strategy refuses ALL trades when known_markets failed to load.
+
+        Without known_market_ids, every market appears new → massive over-trading.
+        Fail-closed (refuse) is safer than fail-open (enter everything).
+        """
+        strat = _make_strat()
+        ctx = _make_ctx(known_markets_loaded=False)
+        trade = _make_trade("cid_tech", price=0.30, ts=1000.0)
+        result = await strat.on_trade(trade, ctx)
+        assert result is None
 
 
 # ---------------------------------------------------------------------------

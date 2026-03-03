@@ -452,11 +452,11 @@ async def insider_health(request: Request) -> dict:
                            AS fills_7d,
                        count(*) FILTER (
                            WHERE si.disposition = 'filled'
-                             AND m.winner_outcome IS NOT NULL
+                             AND coalesce(m.winner_outcome, '') != ''
                        ) AS resolved_7d,
                        count(*) FILTER (
                            WHERE si.disposition = 'filled'
-                             AND m.winner_outcome IS NOT NULL
+                             AND coalesce(m.winner_outcome, '') != ''
                              AND m.winner_outcome = si.outcome
                        ) AS wins_7d,
                        count(*) FILTER (WHERE si.disposition = 'risk_rejected')
@@ -471,16 +471,16 @@ async def insider_health(request: Request) -> dict:
                            AS fees_7d,
                        count(DISTINCT si.condition_id) FILTER (
                            WHERE si.disposition = 'filled'
-                             AND m.winner_outcome IS NULL
+                             AND coalesce(m.winner_outcome, '') = ''
                        ) AS open_positions,
                        coalesce(sum(si.filled_size_usd) FILTER (
                            WHERE si.disposition = 'filled'
-                             AND m.winner_outcome IS NULL
+                             AND coalesce(m.winner_outcome, '') = ''
                        ), 0) AS open_invested_usd,
                        coalesce(sum(
                            CASE
                                WHEN si.disposition = 'filled'
-                                 AND m.winner_outcome IS NOT NULL
+                                 AND coalesce(m.winner_outcome, '') != ''
                                  AND (si.filled_price IS NOT NULL AND si.filled_price > 0)
                                THEN
                                    CASE WHEN m.winner_outcome = si.outcome

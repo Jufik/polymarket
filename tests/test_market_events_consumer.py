@@ -52,8 +52,8 @@ async def test_debounce_batches_events(consumer: MarketEventsConsumer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_new_market_does_not_trigger_refresh(consumer: MarketEventsConsumer) -> None:
-    """new_market events should not trigger pool refresh (no PnL impact)."""
+async def test_new_market_triggers_refresh(consumer: MarketEventsConsumer) -> None:
+    """new_market events trigger immediate + delayed refresh for time-sensitive strategies."""
     event = {
         "type": "new_market",
         "condition_id": "0xnew",
@@ -62,7 +62,7 @@ async def test_new_market_does_not_trigger_refresh(consumer: MarketEventsConsume
     }
     await consumer.handle(json.dumps(event))
     await asyncio.sleep(0.1)
-    consumer._runner.request_refresh.assert_not_called()
+    consumer._runner.request_refresh.assert_called()
 
 
 @pytest.mark.asyncio
