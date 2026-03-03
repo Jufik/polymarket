@@ -37,6 +37,22 @@ SELECT condition_id, primary_category
 FROM market_susceptibility
 """
 
+# Bootstrap: pre-load recent insider BUY trades to seed consensus counters
+# on startup. Without this, the strategy starts cold and needs N unique insiders
+# to trade a market AFTER deployment before consensus is met.
+_BOOTSTRAP_SIGNALS_SQL = """\
+SELECT
+    t.condition_id,
+    lower(t.maker) AS maker,
+    t.asset_id,
+    t.timestamp
+FROM trades_raw AS t
+WHERE t.side = 'BUY'
+  AND t.timestamp >= now() - INTERVAL {hours} HOUR
+  AND lower(t.maker) IN ({pool_addresses})
+ORDER BY t.timestamp ASC
+"""
+
 INSIDER_POOL_SQL = """\
 WITH resolved_susceptible AS (
     SELECT
@@ -282,8 +298,67 @@ class InsiderCopyProvider:
                 pruned=pruned,
             )
 
+        # Bootstrap signals from recent CH trades (cold-start fix).
+        # On first load (no old_pool), seed consensus counters so the strategy
+        # doesn't need to wait for N insiders to trade after deployment.
+        if not old_pool and pool:
+            await self._bootstrap_signals(backend, pool)
+
         logger.info(
             "insider_copy_provider.pool_loaded",
             size=len(pool),
             lookback_months=self._lookback_months,
+            signals=len(self._signals),
+        )
+
+    async def _bootstrap_signals(
+        self, backend: FeatureBackend, pool: InsiderPool
+    ) -> None:
+        """Seed consensus counters from recent CH trades (cold-start fix).
+
+        Queries insider BUY trades from the last 48h and replays them into
+        _signals so the strategy doesn't start with zero consensus everywhere.
+        """
+        addresses = list(pool.keys())
+        pool_in = ", ".join(f"'{a}'" for a in addresses)
+        sql = _BOOTSTRAP_SIGNALS_SQL.format(hours=48, pool_addresses=pool_in)
+        try:
+            df = await backend.query_custom(sql)
+        except Exception:
+            logger.warning("insider_copy_provider.bootstrap_failed")
+            return
+
+        seeded = 0
+        for row in df.iter_rows(named=True):
+            maker = row["maker"]
+            cid = row["condition_id"]
+            if maker not in pool:
+                continue
+
+            info = pool[maker]
+            trade_outcome = self._asset_id_to_outcome.get(row["asset_id"])
+            if trade_outcome is None:
+                trade_outcome = info["direction"]
+
+            if cid not in self._signals:
+                self._signals[cid] = {
+                    "direction": trade_outcome,
+                    "insiders": set(),
+                    "consensus_count": 0,
+                    "first_signal_time": row["timestamp"],
+                    "max_score": info["score"],
+                    "asset_id": row["asset_id"],
+                }
+
+            sig = self._signals[cid]
+            if maker not in sig["insiders"]:
+                sig["insiders"].add(maker)
+                sig["consensus_count"] = len(sig["insiders"])
+                sig["max_score"] = max(sig["max_score"], info["score"])
+                seeded += 1
+
+        logger.info(
+            "insider_copy_provider.bootstrap_complete",
+            markets=len(self._signals),
+            seeded_entries=seeded,
         )

@@ -79,8 +79,9 @@ class Settings(BaseSettings):
     ch_batch_size: int = 100
     ch_flush_interval_s: float = 1.0
 
-    # Token map refresh (periodic re-sync from APIs + PG reload)
-    token_map_refresh_interval_s: int = 300  # 5 minutes
+    # Token map refresh (periodic re-sync from APIs + PG reload).
+    # 60s keeps PG metadata fresh for time-sensitive strategies (S3: 5-min window).
+    token_map_refresh_interval_s: int = 60
 
     # CLOB orderbook ingestor
     clob_orderbook_enabled: bool = False

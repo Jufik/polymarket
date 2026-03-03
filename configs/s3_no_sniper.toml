@@ -19,13 +19,17 @@ subscribe_pending = false
 eligible_tags = ["Economy", "Tech"]
 min_yes_price = 0.15
 max_yes_price = 0.50
+max_no_price = 0.85
 max_market_age_s = 300
 spread_buffer = 0.02
 position_size_usd = 10.0
 
 [provider.s3_data_provider]
 enabled = true
-refresh_interval_s = 3600
+# Must be short — S3 has a 5-minute entry window on new markets.
+# Event-driven refresh (new_market → delayed 75s refresh) handles the fast path.
+# This periodic refresh is the fallback if the event path misses.
+refresh_interval_s = 60
 
 [provider.s3_data_provider.params]
 eligible_tags = ["Economy", "Tech"]

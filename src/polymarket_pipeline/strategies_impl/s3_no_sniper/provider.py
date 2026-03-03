@@ -46,9 +46,16 @@ FROM token_market_map
 """
 
 _KNOWN_MARKETS_SQL = """\
-SELECT DISTINCT condition_id
-FROM trades_raw
-WHERE condition_id IN ({cid_list})
+SELECT DISTINCT tr.condition_id
+FROM trades_raw tr
+WHERE tr.condition_id IN (
+    SELECT m.condition_id
+    FROM markets m
+    JOIN events e ON m.event_id = e.id
+    JOIN event_tags et ON e.id = et.event_id
+    JOIN tags t ON et.tag_id = t.id
+    WHERE t.label IN ({tag_list})
+)
 """
 
 
@@ -73,6 +80,7 @@ class S3DataProvider:
         self._tag_map: dict[str, str] = {}
         self._token_map: dict[str, dict[str, str]] = {}
         self._known_market_ids: frozenset[str] = frozenset()
+        self._known_markets_loaded: bool = False
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Initial load from ClickHouse."""
@@ -98,6 +106,7 @@ class S3DataProvider:
                 "tag_map": self._tag_map,
                 "token_map": self._token_map,
                 "known_market_ids": self._known_market_ids,
+                "known_markets_loaded": self._known_markets_loaded,
             },
         }
 
@@ -138,16 +147,18 @@ class S3DataProvider:
             logger.exception("s3_data_provider.token_map_load_failed")
 
     async def _load_known_markets(self, backend: FeatureBackend) -> None:
-        """Load condition_ids that already have trades — these are NOT new markets."""
-        if not self._tag_map:
-            self._known_market_ids = frozenset()
-            return
-        cid_list = ", ".join(f"'{c}'" for c in self._tag_map)
-        sql = _KNOWN_MARKETS_SQL.format(cid_list=cid_list)
+        """Load condition_ids that already have trades — these are NOT new markets.
+
+        Uses a subquery JOIN instead of an IN clause to avoid HTTP 400 from
+        ClickHouse when the tag_map contains thousands of condition_ids.
+        """
+        tag_list = ", ".join(f"'{t}'" for t in self._eligible_tags)
+        sql = _KNOWN_MARKETS_SQL.format(tag_list=tag_list)
         try:
             df = await backend.query_custom(sql)
             known = frozenset(row["condition_id"] for row in df.iter_rows(named=True))
             self._known_market_ids = known
+            self._known_markets_loaded = True
             logger.info(
                 "s3_data_provider.known_markets_loaded",
                 count=len(known),
@@ -155,3 +166,4 @@ class S3DataProvider:
         except Exception:
             logger.exception("s3_data_provider.known_markets_load_failed")
             self._known_market_ids = frozenset()
+            self._known_markets_loaded = False

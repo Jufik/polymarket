@@ -64,6 +64,7 @@ class S3Config:
     eligible_tags: frozenset[str] = frozenset({"Economy", "Tech"})
     min_yes_price: float = 0.15
     max_yes_price: float = 0.50
+    max_no_price: float = 0.85
     max_market_age_s: int = 300  # 5 minutes
     spread_buffer: float = 0.02
     position_size_usd: float = 10.0
@@ -107,6 +108,12 @@ class S3NoSniperStrategy:
         tag_map: dict[str, str] = feats.get("tag_map", {})
         token_map: dict[str, dict[str, str]] = feats.get("token_map", {})
         known_market_ids: frozenset[str] = feats.get("known_market_ids", frozenset())
+        known_markets_loaded: bool = feats.get("known_markets_loaded", False)
+
+        # --- Fail-safe: refuse to trade if known_markets didn't load ---
+        # Without known_market_ids, ALL markets appear "new" → massive over-trading.
+        if not known_markets_loaded:
+            return None
 
         # --- Market birth safety: pre-populate known markets on first call ---
         if not self._initialized_known:
@@ -160,9 +167,13 @@ class S3NoSniperStrategy:
         if str(trade.side) not in ("BUY", "Side.BUY"):
             return None
 
+        # 8. NO price ceiling — avoid entries with bad risk/reward
+        no_price = 1.0 - yes_price
+        if no_price > self._cfg.max_no_price:
+            return None
+
         # --- Entry ---
         self._positioned.add(cid)
-        no_price = 1.0 - yes_price
         max_price = min(no_price + self._cfg.spread_buffer, 0.99)
 
         # Resolve NO asset_id from token map
@@ -214,6 +225,7 @@ def create_s3_no_sniper_strategy(config: Any) -> S3NoSniperStrategy:
         eligible_tags=frozenset(eligible_tags_raw),
         min_yes_price=params.get("min_yes_price", 0.15),
         max_yes_price=params.get("max_yes_price", 0.50),
+        max_no_price=params.get("max_no_price", 0.85),
         max_market_age_s=params.get("max_market_age_s", 300),
         spread_buffer=params.get("spread_buffer", 0.02),
         position_size_usd=params.get("position_size_usd", 10.0),
