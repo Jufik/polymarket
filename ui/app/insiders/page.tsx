@@ -471,29 +471,29 @@ function SignalsTable({
                   )}
                 </td>
                 <td className="p-3 text-center">
-                  {s.consensus_threshold > 0 ? (
+                  {(s.consensus_threshold ?? 0) > 0 ? (
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-sm ${
                         s.consensus_met
                           ? "bg-green-900/50 text-green-300"
-                          : s.consensus_count >= s.consensus_threshold - 1
+                          : (s.consensus_count ?? 0) >= (s.consensus_threshold ?? 1) - 1
                             ? "bg-yellow-900/50 text-yellow-300"
                             : "bg-gray-800 text-gray-400"
                       }`}
                     >
-                      {s.consensus_count}/{s.consensus_threshold}
+                      {s.consensus_count ?? 0}/{s.consensus_threshold ?? 0}
                     </span>
                   ) : (
                     <span className="text-gray-500 font-mono text-sm">
-                      {s.consensus_count}
+                      {s.consensus_count ?? 0}
                     </span>
                   )}
                 </td>
                 <td className="p-3 text-right font-mono text-gray-300">
-                  {s.trade_count}
+                  {s.trade_count ?? 0}
                 </td>
                 <td className="p-3 text-right font-mono text-gray-200">
-                  ${s.total_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  ${(s.total_usd ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </td>
                 <td className="p-3 text-xs text-gray-400">
                   {timeAgo(s.last_trade)}
@@ -507,12 +507,12 @@ function SignalsTable({
                 </td>
                 <td className="p-3">
                   <div className="flex gap-1 flex-wrap">
-                    {s.intents.slice(0, 3).map((intent, i) => (
+                    {(s.intents ?? []).slice(0, 3).map((intent, i) => (
                       <span key={i}>{dispositionBadge(intent.disposition)}</span>
                     ))}
-                    {s.intents.length > 3 && (
+                    {(s.intents ?? []).length > 3 && (
                       <span className="text-xs text-gray-500">
-                        +{s.intents.length - 3}
+                        +{(s.intents ?? []).length - 3}
                       </span>
                     )}
                   </div>
@@ -527,10 +527,10 @@ function SignalsTable({
                       {/* Insider addresses */}
                       <div className="mb-3">
                         <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">
-                          Insider Addresses ({s.insider_addresses.length})
+                          Insider Addresses ({(s.insider_addresses ?? []).length})
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {s.insider_addresses.map((addr) => (
+                          {(s.insider_addresses ?? []).map((addr) => (
                             <span
                               key={addr}
                               className="font-mono text-xs bg-gray-800 px-2 py-1 rounded text-gray-300"
@@ -542,7 +542,7 @@ function SignalsTable({
                       </div>
 
                       {/* Intent history */}
-                      {s.intents.length > 0 && (
+                      {(s.intents ?? []).length > 0 && (
                         <div>
                           <div className="text-xs text-gray-500 mb-1 uppercase tracking-wider">
                             Strategy Intents
@@ -562,7 +562,7 @@ function SignalsTable({
                               </tr>
                             </thead>
                             <tbody>
-                              {s.intents.map((intent, i) => (
+                              {(s.intents ?? []).map((intent, i) => (
                                 <tr
                                   key={i}
                                   className="border-t border-gray-800/50"
@@ -583,11 +583,11 @@ function SignalsTable({
                                     {intent.outcome}
                                   </td>
                                   <td className="py-1 pr-3 text-right font-mono">
-                                    ${intent.size_usd.toFixed(2)}
+                                    ${(intent.size_usd ?? 0).toFixed(2)}
                                   </td>
                                   <td className="py-1 pr-3 text-right font-mono">
                                     {intent.filled_price != null
-                                      ? `$${intent.filled_price.toFixed(4)}`
+                                      ? `$${(intent.filled_price ?? 0).toFixed(4)}`
                                       : "-"}
                                   </td>
                                   <td className="py-1 pr-3">
@@ -663,7 +663,7 @@ export default function InsidersPage() {
     } else {
       try {
         const d = await fetchInsiderSignals(48);
-        setSignals(d.signals);
+        setSignals(d.signals ?? []);
       } catch {
         /* ignore */
       }
@@ -749,8 +749,8 @@ export default function InsidersPage() {
                 <SignalsTable
                   signals={[...candidates].sort(
                     (a, b) =>
-                      b.consensus_count / Math.max(b.consensus_threshold, 1) -
-                      a.consensus_count / Math.max(a.consensus_threshold, 1)
+                      (b.consensus_count ?? 0) / Math.max(b.consensus_threshold ?? 1, 1) -
+                      (a.consensus_count ?? 0) / Math.max(a.consensus_threshold ?? 1, 1)
                   )}
                   showExcluded={false}
                 />
