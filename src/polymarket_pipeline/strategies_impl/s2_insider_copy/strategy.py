@@ -81,6 +81,8 @@ class InsiderCopyConfig:
     size_usd: float = 50.0
     stop_loss_pct: float = 0.50
     max_entry_price: float = 1.00
+    min_edge: float = 0.05
+    max_price_slippage: float = 0.02
     categories: list[str] = field(default_factory=list)
     take_profit_daily_pct: float = 0.0
     min_days_to_take_profit: int = 7
@@ -131,12 +133,17 @@ class InsiderCopyStrategy:
             pos = await ctx.get_position(cid)
             if pos and (pos.qty_yes > 0 or pos.qty_no > 0):
                 entry = self._entries[cid]
-                entry_price = entry["entry_price"]
                 outcome = entry["outcome"]
+
+                # Entry price from Position (actual fill price from executor)
+                entry_price = (
+                    pos.avg_entry_yes if outcome == "YES" else pos.avg_entry_no
+                )
+                if entry_price <= 0:
+                    return None
 
                 current_price = await ctx.get_price(cid, outcome)
                 if current_price is None:
-                    # No reliable price for our outcome — skip stop-loss check
                     return None
 
                 if current_price < entry_price * (1 - self._cfg.stop_loss_pct):
@@ -241,24 +248,35 @@ class InsiderCopyStrategy:
 
         outcome = effective.get("direction", direction)
 
-        # Resolve outcome-correct price and asset_id.
-        # trade.price is the triggering trade's per-token price — could be
-        # YES or NO side. We need the price for the outcome we're buying.
+        # Resolve outcome-specific asset_id and insider's fill price
         token_map = await self._get_token_map(ctx)
         cid_tokens = token_map.get(cid, {})
+        outcome_asset_id = cid_tokens.get(outcome, trade.asset_id)
 
-        # Determine which token the triggering trade is for
-        trade_outcome = "YES"  # default assumption
+        # Derive what the insider paid for the outcome we're buying
+        trade_outcome = "YES"
         if cid_tokens:
             if trade.asset_id == cid_tokens.get("NO"):
                 trade_outcome = "NO"
             elif trade.asset_id == cid_tokens.get("YES"):
                 trade_outcome = "YES"
-
-        # Normalize to YES-equivalent price, then derive outcome price
         yes_price = price if trade_outcome == "YES" else 1.0 - price
-        outcome_price = yes_price if outcome == "YES" else 1.0 - yes_price
-        outcome_asset_id = cid_tokens.get(outcome, trade.asset_id)
+        insider_price = yes_price if outcome == "YES" else 1.0 - yes_price
+
+        # Two gates, take the tighter one:
+        #  1. Limit order: insider's fill + small slippage (copy their entry)
+        #  2. Edge floor: avg_hr - min_edge (never buy negative EV)
+        limit_price = insider_price + self._cfg.max_price_slippage
+
+        insiders = effective.get("insiders", {maker})
+        hrs = [pool[a]["score"] for a in insiders if a in pool]
+        avg_hr = sum(hrs) / len(hrs) if hrs else 0.70
+        edge_price = avg_hr - self._cfg.min_edge
+
+        max_price = min(limit_price, edge_price, 0.99)
+
+        if max_price <= 0:
+            return None
 
         self._debug_counters["emitted"] += 1
         logger.warning(
@@ -266,13 +284,15 @@ class InsiderCopyStrategy:
             strategy=self.name,
             condition_id=cid,
             consensus=consensus,
-            outcome_price=round(outcome_price, 3),
+            insider_price=round(insider_price, 3),
+            avg_hr=round(avg_hr, 3),
+            max_price=round(max_price, 3),
             outcome=outcome,
         )
 
-        # Record entry for stop-loss / take-profit tracking
+        # Track entry metadata — actual entry price comes from Position
+        # (set by runner after executor fills at orderbook price)
         self._entries[cid] = {
-            "entry_price": outcome_price,
             "outcome": outcome,
             "entry_time": trade.published_at,
             "asset_id": outcome_asset_id,
@@ -286,9 +306,10 @@ class InsiderCopyStrategy:
                 outcome=outcome,
                 size_usd=self._cfg.size_usd,
                 urgency="patient",
-                max_price=min(outcome_price + 0.02, 0.99),
+                max_price=max_price,
                 reason=f"insider copy: {consensus} insiders, "
-                       f"direction={outcome}, entry={outcome_price:.3f}",
+                       f"direction={outcome}, "
+                       f"limit={limit_price:.3f}, edge_cap={edge_price:.3f}",
                 signal_time=trade.published_at,
                 asset_id=outcome_asset_id,
             ),
@@ -320,7 +341,12 @@ class InsiderCopyStrategy:
             if current_price is None:
                 continue
 
-            entry_price = entry["entry_price"]
+            # Entry price from Position (actual fill price from executor)
+            entry_price = (
+                pos.avg_entry_yes if outcome == "YES" else pos.avg_entry_no
+            )
+            if entry_price <= 0:
+                continue
             days_held = (now - entry["entry_time"]) / 86400.0
             if days_held < self._cfg.min_days_to_take_profit:
                 continue
@@ -403,6 +429,8 @@ def create_insider_copy_strategy(config: Any) -> InsiderCopyStrategy:
         size_usd=params.get("size_usd", 50.0),
         stop_loss_pct=params.get("stop_loss_pct", 0.50),
         max_entry_price=params.get("max_entry_price", 1.00),
+        min_edge=params.get("min_edge", 0.05),
+        max_price_slippage=params.get("max_price_slippage", 0.02),
         categories=params.get("categories", []),
         take_profit_daily_pct=params.get("take_profit_daily_pct", 0.0),
         min_days_to_take_profit=params.get("min_days_to_take_profit", 7),

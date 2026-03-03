@@ -46,6 +46,8 @@ min_consensus = 4
 size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
+min_edge = 0.05                      # only buy if avg_hr - price >= 5% edge
+max_price_slippage = 0.02            # limit order: insider's fill + 2¢ slippage
 categories = ["sports"]
 take_profit_daily_pct = 0.0          # hold to resolution (games resolve fast)
 min_days_to_take_profit = 0
@@ -67,6 +69,8 @@ min_consensus = 3
 size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
+min_edge = 0.05                      # only buy if avg_hr - price >= 5% edge
+max_price_slippage = 0.02            # limit order: insider's fill + 2¢ slippage
 categories = ["politics", "other"]
 take_profit_daily_pct = 0.02         # exit at 2%/day return (aggressive recycle)
 min_days_to_take_profit = 1          # check from day 1
@@ -88,6 +92,8 @@ min_consensus = 2
 size_usd = 10
 stop_loss_pct = 0.50
 max_entry_price = 1.00               # no price filter (validated)
+min_edge = 0.05                      # only buy if avg_hr - price >= 5% edge
+max_price_slippage = 0.02            # limit order: insider's fill + 2¢ slippage
 categories = ["culture", "weather", "finance"]
 take_profit_daily_pct = 0.02         # exit at 2%/day return (aggressive recycle)
 min_days_to_take_profit = 1          # check from day 1
