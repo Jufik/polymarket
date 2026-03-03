@@ -179,7 +179,40 @@ ORDER BY hr_excess DESC
 """
 
 # Recent insider trades in the last N hours (for live signals)
+# NOTE: pool is inlined as a CTE to avoid 21K-address IN clause exceeding
+# CH max_query_size (256KB). Same pool SQL as InsiderCopyProvider.
 _RECENT_INSIDER_TRADES_SQL = """\
+WITH insider_pool AS (
+    SELECT lower(trader) AS trader FROM (
+        WITH resolved_susceptible AS (
+            SELECT
+                p.trader, p.position, p.correct, ms.susceptibility
+            FROM (SELECT * FROM trader_positions_resolved) AS p
+            INNER JOIN market_susceptibility AS ms ON p.condition_id = ms.condition_id
+            WHERE ms.susceptibility != 'LOW'
+              AND p.position IN ('YES', 'NO')
+              AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
+        ),
+        trader_stats AS (
+            SELECT trader,
+                countIf(position = 'YES' AND correct = 1) AS yes_wins,
+                countIf(position = 'YES') AS yes_total,
+                countIf(position = 'NO' AND correct = 1) AS no_wins,
+                countIf(position = 'NO') AS no_total,
+                count(*) AS total_positions,
+                countIf(susceptibility = 'HIGH') / count(*) AS high_pct
+            FROM resolved_susceptible GROUP BY trader HAVING count(*) >= {min_positions}
+        ),
+        scored AS (
+            SELECT *, greatest(
+                (3.81 + yes_wins) / (10.0 + yes_total),
+                (6.19 + no_wins) / (10.0 + no_total)
+            ) AS effective_hr FROM trader_stats
+        )
+        SELECT trader FROM scored
+        WHERE effective_hr >= {min_hr} AND effective_hr < {max_hr} AND high_pct >= {min_high_pct}
+    )
+)
 SELECT
     t.condition_id,
     lower(t.maker) AS maker,
@@ -191,11 +224,11 @@ SELECT
     e.slug AS event_slug,
     ms.primary_category
 FROM (SELECT * FROM trades_raw FINAL) AS t
+INNER JOIN insider_pool ip ON lower(t.maker) = ip.trader
 LEFT JOIN markets AS m ON t.condition_id = m.condition_id
 LEFT JOIN events AS e ON m.event_id = e.id
 LEFT JOIN market_susceptibility AS ms ON t.condition_id = ms.condition_id
-WHERE lower(t.maker) IN ({addr_list})
-  AND t.side = 'BUY'
+WHERE t.side = 'BUY'
   AND t.timestamp >= now() - INTERVAL {hours} HOUR
 ORDER BY t.timestamp DESC
 """
@@ -275,26 +308,24 @@ async def insider_signals(
 
     Cross-references with strategy_intents to show which signals triggered.
     """
-    # Step 1: Get live pool addresses from cached CH query
-    try:
-        pool_rows = await _get_cached_pool(request)
-    except Exception:
-        log.exception("insiders.signals_ch_pool_failed")
-        return {"signals": [], "total": 0, "error": "CH pool query failed"}
-
-    addresses = [r["trader"] for r in pool_rows]
-    if not addresses:
-        return {"signals": [], "total": 0, "message": "No insiders in live pool"}
-
-    # Step 2: Query recent insider BUY trades from CH
-    addr_list = ",".join(f"'{a}'" for a in addresses)
-    sql = _RECENT_INSIDER_TRADES_SQL.format(addr_list=addr_list, hours=hours)
+    # Step 1+2: Query recent insider BUY trades from CH (pool inlined as CTE)
+    sql = _RECENT_INSIDER_TRADES_SQL.format(
+        lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
+        min_high_pct=0.20, hours=hours,
+    )
 
     try:
         trade_rows = await _ch_query(request, sql)
     except Exception:
         log.exception("insiders.signals_ch_failed")
         return {"signals": [], "total": 0, "error": "ClickHouse query failed"}
+
+    # Get pool size from cache for the response
+    try:
+        pool_rows = await _get_cached_pool(request)
+        pool_size = len(pool_rows)
+    except Exception:
+        pool_size = 0
 
     # Step 3: Build per-market consensus
     markets: dict[str, dict] = {}
@@ -406,7 +437,7 @@ async def insider_signals(
     return {
         "signals": signals,
         "total": len(signals),
-        "pool_size": len(addresses),
+        "pool_size": pool_size,
         "lookback_hours": hours,
     }
 
@@ -513,12 +544,12 @@ async def insider_health(request: Request) -> dict:
     # Step 2: Count candidates per pool from recent signals (reuse signals logic)
     candidates_per_pool: dict[str, int] = {}
     try:
-        pool_rows = await _get_cached_pool(request)
-        addresses = [r["trader"] for r in pool_rows]
-        if addresses:
-            addr_list = ",".join(f"'{a}'" for a in addresses)
-            sql = _RECENT_INSIDER_TRADES_SQL.format(addr_list=addr_list, hours=48)
-            trade_rows = await _ch_query(request, sql)
+        sql = _RECENT_INSIDER_TRADES_SQL.format(
+            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
+            min_high_pct=0.20, hours=48,
+        )
+        trade_rows = await _ch_query(request, sql)
+        if trade_rows:
 
             # Build per-market consensus, count candidates per pool
             market_consensus: dict[str, dict] = {}
