@@ -85,16 +85,19 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
     price_history: list[dict] = []
     current_price: float | None = None
 
-    # trades_raw.price is always YES-side; flip for NO positions
+    # trades_raw.price is per-token (not always YES-side).
+    # Filter by asset_id to get history for the specific outcome token.
     outcome = row["outcome"] or "YES"
     is_no = outcome == "NO"
 
     # Validate hex IDs before interpolating into CH queries
     cid_valid = bool(_VALID_HEX.match(condition_id)) if condition_id else False
+    aid_valid = bool(_VALID_HEX.match(asset_id)) if asset_id else False
 
     if cid_valid:
         try:
-            # Use median to be robust against taker-side dups (which record 1-price)
+            # Filter by asset_id when available to avoid mixing YES/NO token prices
+            aid_filter = f"AND asset_id = '{asset_id}'" if aid_valid else ""
             price_history = await _ch_query(
                 request,
                 f"""SELECT
@@ -102,13 +105,11 @@ async def intent_detail(request: Request, intent_id: int) -> dict:
                         medianExact(price) AS price
                     FROM trades_raw FINAL
                     WHERE condition_id = '{condition_id}'
+                      {aid_filter}
                       AND timestamp >= now() - INTERVAL 48 HOUR
                     GROUP BY ts
                     ORDER BY ts""",
             )
-            if is_no:
-                for p in price_history:
-                    p["price"] = 1.0 - float(p["price"])
         except Exception:
             log.warning("intent_detail.price_history_failed", intent_id=intent_id)
 

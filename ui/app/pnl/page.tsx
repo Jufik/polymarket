@@ -62,11 +62,15 @@ function LiveTable({ positions }: { positions: PnlLivePosition[] }) {
             <td className="p-3 text-xs font-mono">{p.strategy}</td>
             <td className="p-3 text-right font-mono">
               ${p.entry_price.toFixed(4)}
+              <span className="text-xs text-gray-500 ml-0.5">({p.outcome})</span>
             </td>
             <td className="p-3 text-right font-mono">
               {p.current_price != null
                 ? `$${p.current_price.toFixed(4)}`
                 : "-"}
+              {p.current_price != null && (
+                <span className="text-xs text-gray-500 ml-0.5">({p.outcome})</span>
+              )}
             </td>
             <td className="p-3 text-right font-mono">
               ${p.size_usd.toFixed(2)}
@@ -120,6 +124,7 @@ function ResolvedTable({ positions }: { positions: PnlResolvedPosition[] }) {
             <td className="p-3 text-xs font-mono">{p.strategy}</td>
             <td className="p-3 text-right font-mono">
               ${p.entry_price.toFixed(4)}
+              <span className="text-xs text-gray-500 ml-0.5">({p.outcome})</span>
             </td>
             <td className="p-3 text-right font-mono">
               ${p.size_usd.toFixed(2)}
