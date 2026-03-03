@@ -589,6 +589,9 @@ function SignalsTable({
                                     {intent.filled_price != null
                                       ? `$${(intent.filled_price ?? 0).toFixed(4)}`
                                       : "-"}
+                                    {intent.filled_price != null && (
+                                      <span className="text-gray-500 ml-1">({intent.outcome})</span>
+                                    )}
                                   </td>
                                   <td className="py-1 pr-3">
                                     {dispositionBadge(intent.disposition)}

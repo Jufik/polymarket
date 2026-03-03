@@ -163,25 +163,39 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
         <div className="text-sm text-gray-400 animate-pulse">Loading...</div>
       ) : detail ? (
         <div className="space-y-3">
-          {/* Market question */}
+          {/* Market question + outcome badge */}
           <div className="text-sm font-medium text-gray-200 leading-tight">
             {detail.question || detail.condition_id.slice(0, 16) + "..."}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">{detail.side}</span>
+            <span
+              className={`inline-block px-1.5 py-0.5 text-xs rounded font-medium ${
+                detail.outcome === "YES"
+                  ? "bg-green-900/50 text-green-400"
+                  : "bg-red-900/50 text-red-400"
+              }`}
+            >
+              {detail.outcome}
+            </span>
           </div>
 
           {/* Sparkline */}
           <div>
-            <div className="text-xs text-gray-400 mb-1">48h Price</div>
+            <div className="text-xs text-gray-400 mb-1">
+              48h {detail.outcome} Price
+            </div>
             <Sparkline prices={detail.price_history} />
           </div>
 
           {/* PnL */}
           {detail.pnl ? (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-              <div className="text-gray-400">Entry</div>
+              <div className="text-gray-400">Entry <span className="text-gray-500">({detail.outcome})</span></div>
               <div className="text-right font-mono">
                 ${detail.pnl.entry_price.toFixed(4)}
               </div>
-              <div className="text-gray-400">Current</div>
+              <div className="text-gray-400">Current <span className="text-gray-500">({detail.outcome})</span></div>
               <div className="text-right font-mono">
                 ${detail.pnl.current_price.toFixed(4)}
               </div>
@@ -198,7 +212,7 @@ export default function IntentDetailPanel({ intentId, anchorRect }: Props) {
           ) : (
             detail.current_price != null && (
               <div className="text-xs">
-                <span className="text-gray-400">Current: </span>
+                <span className="text-gray-400">Current ({detail.outcome}): </span>
                 <span className="font-mono">${detail.current_price.toFixed(4)}</span>
               </div>
             )

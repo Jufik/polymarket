@@ -240,22 +240,42 @@ class InsiderCopyStrategy:
             return None
 
         outcome = effective.get("direction", direction)
+
+        # Resolve outcome-correct price and asset_id.
+        # trade.price is the triggering trade's per-token price — could be
+        # YES or NO side. We need the price for the outcome we're buying.
+        token_map = await self._get_token_map(ctx)
+        cid_tokens = token_map.get(cid, {})
+
+        # Determine which token the triggering trade is for
+        trade_outcome = "YES"  # default assumption
+        if cid_tokens:
+            if trade.asset_id == cid_tokens.get("NO"):
+                trade_outcome = "NO"
+            elif trade.asset_id == cid_tokens.get("YES"):
+                trade_outcome = "YES"
+
+        # Normalize to YES-equivalent price, then derive outcome price
+        yes_price = price if trade_outcome == "YES" else 1.0 - price
+        outcome_price = yes_price if outcome == "YES" else 1.0 - yes_price
+        outcome_asset_id = cid_tokens.get(outcome, trade.asset_id)
+
         self._debug_counters["emitted"] += 1
         logger.warning(
             "strategy.INTENT_EMITTED",
             strategy=self.name,
             condition_id=cid,
             consensus=consensus,
-            price=price,
+            outcome_price=round(outcome_price, 3),
             outcome=outcome,
         )
 
         # Record entry for stop-loss / take-profit tracking
         self._entries[cid] = {
-            "entry_price": price,
+            "entry_price": outcome_price,
             "outcome": outcome,
             "entry_time": trade.published_at,
-            "asset_id": trade.asset_id,
+            "asset_id": outcome_asset_id,
         }
 
         return [
@@ -266,11 +286,11 @@ class InsiderCopyStrategy:
                 outcome=outcome,
                 size_usd=self._cfg.size_usd,
                 urgency="patient",
-                max_price=price + 0.02,
+                max_price=min(outcome_price + 0.02, 0.99),
                 reason=f"insider copy: {consensus} insiders, "
-                       f"direction={outcome}, entry={price:.3f}",
+                       f"direction={outcome}, entry={outcome_price:.3f}",
                 signal_time=trade.published_at,
-                asset_id=trade.asset_id,
+                asset_id=outcome_asset_id,
             ),
         ]
 
@@ -361,6 +381,14 @@ class InsiderCopyStrategy:
         feats = await ctx.get_features("insider_copy_provider")
         if isinstance(feats, dict) and "market_categories" in feats:
             return feats["market_categories"]
+        return {}
+
+    async def _get_token_map(
+        self, ctx: StrategyContext
+    ) -> dict[str, dict[str, str]]:
+        feats = await ctx.get_features("insider_copy_provider")
+        if isinstance(feats, dict) and "token_map" in feats:
+            return feats["token_map"]
         return {}
 
 

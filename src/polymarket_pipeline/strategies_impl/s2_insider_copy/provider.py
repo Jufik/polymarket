@@ -173,6 +173,8 @@ class InsiderCopyProvider:
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
         self._asset_id_to_outcome: dict[str, str] = {}  # asset_id → "YES"/"NO"
+        # condition_id → {"YES": asset_id, "NO": asset_id}
+        self._token_map: dict[str, dict[str, str]] = {}
 
     async def compute(self, backend: FeatureBackend) -> None:
         """Initial pool load from ClickHouse."""
@@ -228,6 +230,7 @@ class InsiderCopyProvider:
                 "insider_signals": self._signals,
                 "pool_size": len(self._pool),
                 "market_categories": self._market_categories,
+                "token_map": self._token_map,
             },
         }
 
@@ -270,12 +273,15 @@ class InsiderCopyProvider:
         # Load asset_id → outcome mapping from token_market_map (PG-replicated)
         try:
             token_df = await backend.query_custom(
-                "SELECT asset_id, outcome FROM token_market_map"
+                "SELECT asset_id, condition_id, outcome FROM token_market_map"
             )
             asset_map: dict[str, str] = {}
+            tok_map: dict[str, dict[str, str]] = {}
             for row in token_df.iter_rows(named=True):
                 asset_map[row["asset_id"]] = row["outcome"]
+                tok_map.setdefault(row["condition_id"], {})[row["outcome"]] = row["asset_id"]
             self._asset_id_to_outcome = asset_map
+            self._token_map = tok_map
             logger.info(
                 "insider_copy_provider.token_map_loaded",
                 count=len(asset_map),

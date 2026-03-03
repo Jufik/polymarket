@@ -524,6 +524,9 @@ export default function Dashboard() {
                       : i.max_price != null
                         ? `≤$${i.max_price.toFixed(4)}`
                         : "-"}
+                    {(i.filled_price != null || i.max_price != null) && (
+                      <span className="text-xs text-gray-500 ml-1">({i.outcome})</span>
+                    )}
                   </td>
                   <td className="p-3">
                     <span className={dispositionColor(i.disposition)}>
