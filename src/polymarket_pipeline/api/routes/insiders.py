@@ -16,6 +16,11 @@ import time
 import structlog
 from fastapi import APIRouter, Request
 
+from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import (
+    INSIDER_POOL_SQL,
+    POOL_DEFAULTS,
+)
+
 router = APIRouter(tags=["insiders"])
 log = structlog.get_logger()
 
@@ -77,10 +82,7 @@ async def _get_cached_pool(request: Request) -> list[dict]:
         # Double-check after acquiring lock
         if now - _pool_cache_ts < _POOL_CACHE_TTL and _pool_cache:
             return _pool_cache
-        sql = _INSIDER_POOL_SQL.format(
-            lookback=12, min_positions=3, min_hr=0.75, max_hr=0.99,
-            max_raw_hr=0.99, min_high_pct=0.20, max_entry_price=0.95,
-        )
+        sql = INSIDER_POOL_SQL.format(**POOL_DEFAULTS)
         rows = await _ch_query(request, sql)
         _pool_cache = rows
         _pool_cache_ts = time.monotonic()
@@ -104,89 +106,6 @@ async def _ch_query(request: Request, query: str) -> list[dict]:
         return []
     return [json.loads(line) for line in text.split("\n") if line.strip()]
 
-
-# ---------------------------------------------------------------------------
-# SQL: insider pool scored (same as InsiderCopyProvider._INSIDER_POOL_SQL
-# but returns richer columns for the UI)
-# ---------------------------------------------------------------------------
-
-_INSIDER_POOL_SQL = """\
-WITH resolved_susceptible AS (
-    SELECT
-        p.trader,
-        p.condition_id,
-        p.position,
-        p.correct,
-        p.realized_pnl,
-        p.market_volume,
-        p.avg_yes_price,
-        p.resolved_at,
-        ms.susceptibility
-    FROM (SELECT * FROM trader_positions_resolved) AS p
-    INNER JOIN market_susceptibility AS ms ON p.condition_id = ms.condition_id
-    WHERE ms.susceptibility != 'LOW'
-      AND p.position IN ('YES', 'NO')
-      AND toDate(p.resolved_at) >= toDate(now()) - INTERVAL {lookback} MONTH
-      AND (CASE WHEN p.position = 'YES'
-                THEN p.avg_yes_price
-                ELSE 1.0 - p.avg_yes_price
-           END) < {max_entry_price}
-),
-trader_stats AS (
-    SELECT
-        trader,
-        countIf(position = 'YES' AND correct = 1) AS yes_wins,
-        countIf(position = 'YES') AS yes_total,
-        countIf(position = 'NO' AND correct = 1) AS no_wins,
-        countIf(position = 'NO') AS no_total,
-        count(*) AS total_positions,
-        countIf(susceptibility = 'HIGH') / count(*) AS high_pct,
-        sum(realized_pnl) AS total_pnl,
-        avg(market_volume) AS avg_volume
-    FROM resolved_susceptible
-    GROUP BY trader
-    HAVING count(*) >= {min_positions}
-),
-scored AS (
-    SELECT
-        *,
-        greatest(
-            (3.81 + yes_wins) / (10.0 + yes_total),
-            (6.19 + no_wins) / (10.0 + no_total)
-        ) AS effective_hr,
-        if(
-            (3.81 + yes_wins) / (10.0 + yes_total)
-                >= (6.19 + no_wins) / (10.0 + no_total),
-            'YES', 'NO'
-        ) AS best_direction,
-        greatest(
-            (3.81 + yes_wins) / (10.0 + yes_total) - 0.381,
-            (6.19 + no_wins) / (10.0 + no_total) - 0.619
-        ) AS hr_excess,
-        greatest(
-            if(yes_total > 0, yes_wins * 1.0 / yes_total, 0),
-            if(no_total > 0, no_wins * 1.0 / no_total, 0)
-        ) AS raw_hr
-    FROM trader_stats
-)
-SELECT
-    lower(trader) AS trader,
-    effective_hr,
-    best_direction,
-    hr_excess,
-    high_pct,
-    total_positions,
-    yes_wins, yes_total,
-    no_wins, no_total,
-    total_pnl,
-    avg_volume
-FROM scored
-WHERE effective_hr >= {min_hr}
-  AND effective_hr < {max_hr}
-  AND raw_hr < {max_raw_hr}
-  AND high_pct >= {min_high_pct}
-ORDER BY hr_excess DESC
-"""
 
 # Recent insider trades in the last N hours, pre-aggregated per market.
 # Uses pre-computed pool addresses (passed as IN clause) instead of inline CTE.
@@ -228,18 +147,21 @@ async def insider_pool(
     Mirrors the InsiderCopyProvider query but returns richer data for the UI.
     """
     # Use cache when default params match the provider config
+    d = POOL_DEFAULTS
     is_default = (
-        lookback_months == 12 and min_positions == 3
-        and min_hr == 0.75 and max_hr == 0.99 and min_high_pct == 0.20
+        lookback_months == d["lookback"] and min_positions == d["min_positions"]
+        and min_hr == d["min_hr"] and max_hr == d["max_hr"]
+        and min_high_pct == d["min_high_pct"]
     )
     try:
         if is_default:
             rows = await _get_cached_pool(request)
         else:
-            sql = _INSIDER_POOL_SQL.format(
+            sql = INSIDER_POOL_SQL.format(
                 lookback=lookback_months, min_positions=min_positions,
-                min_hr=min_hr, max_hr=max_hr, max_raw_hr=0.99,
-                min_high_pct=min_high_pct, max_entry_price=0.95,
+                min_hr=min_hr, max_hr=max_hr,
+                max_raw_hr=d["max_raw_hr"], min_high_pct=min_high_pct,
+                max_entry_price=d["max_entry_price"],
             )
             rows = await _ch_query(request, sql)
     except Exception:
