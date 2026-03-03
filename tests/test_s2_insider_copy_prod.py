@@ -242,15 +242,76 @@ class TestStrategy:
         assert intents is None
 
     @pytest.mark.asyncio
+    async def test_max_price_limit_order(self, ctx: AsyncMock) -> None:
+        """max_price = min(insider_price + slippage, edge_cap)."""
+        # Pool: alice=0.9, bob=0.8, charlie=0.7 → avg = 0.8
+        # edge_cap = 0.8 - 0.05 = 0.75
+        # limit = 0.30 + 0.02 = 0.32 (tighter than edge_cap)
+        cfg = InsiderCopyConfig(
+            min_consensus=1, max_entry_price=1.00,
+            min_edge=0.05, max_price_slippage=0.02,
+        )
+        strategy = InsiderCopyStrategy(cfg)
+
+        trade = _make_trade(maker="alice", price=0.30)
+        intents = await strategy.on_trade(trade, ctx)
+
+        assert intents is not None
+        assert intents[0].max_price == pytest.approx(0.32, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_edge_cap_overrides_when_tighter(self, ctx: AsyncMock) -> None:
+        """Edge cap wins when it's tighter than limit order."""
+        # limit = 0.70 + 0.10 = 0.80
+        # edge_cap = 0.8 - 0.05 = 0.75 (tighter)
+        cfg = InsiderCopyConfig(
+            min_consensus=1, max_entry_price=1.00,
+            min_edge=0.05, max_price_slippage=0.10,
+        )
+        strategy = InsiderCopyStrategy(cfg)
+
+        trade = _make_trade(maker="alice", price=0.70)
+        intents = await strategy.on_trade(trade, ctx)
+
+        assert intents is not None
+        assert intents[0].max_price == pytest.approx(0.75, abs=0.01)
+
+    @pytest.mark.asyncio
+    async def test_rejects_when_no_edge(self, ctx: AsyncMock) -> None:
+        """Intent not emitted if edge_cap <= 0."""
+        cfg = InsiderCopyConfig(
+            min_consensus=1, max_entry_price=1.00, min_edge=0.95,
+        )
+        strategy = InsiderCopyStrategy(cfg)
+
+        trade = _make_trade(maker="alice", price=0.40)
+        intents = await strategy.on_trade(trade, ctx)
+
+        # avg_hr = 0.8, 0.8 - 0.95 = -0.15 → no intent
+        assert intents is None
+
+    @pytest.mark.asyncio
+    async def test_entry_price_not_in_entries(self, ctx: AsyncMock) -> None:
+        """Strategy does not track entry_price — Position has it."""
+        cfg = InsiderCopyConfig(min_consensus=1, max_entry_price=1.00)
+        strategy = InsiderCopyStrategy(cfg)
+
+        trade = _make_trade(maker="alice", price=0.30)
+        await strategy.on_trade(trade, ctx)
+
+        assert "entry_price" not in strategy._entries["cid_1"]
+
+    @pytest.mark.asyncio
     async def test_stop_loss(self, ctx: AsyncMock) -> None:
         from polymarket_pipeline.strategies.types import Position
 
         cfg = InsiderCopyConfig(stop_loss_pct=0.50, max_entry_price=0.65)
         strategy = InsiderCopyStrategy(cfg)
         strategy._entries["cid_1"] = {
-            "entry_price": 0.30, "outcome": "YES", "entry_time": 1700000000.0,
+            "outcome": "YES", "entry_time": 1700000000.0,
         }
 
+        # Entry price comes from Position (actual fill), not _entries
         ctx.get_position.return_value = Position(
             condition_id="cid_1", strategy="s2_insider_copy",
             qty_yes=50.0, avg_entry_yes=0.30,
@@ -270,9 +331,10 @@ class TestStrategy:
         cfg = InsiderCopyConfig(stop_loss_pct=0.50, max_entry_price=0.65)
         strategy = InsiderCopyStrategy(cfg)
         strategy._entries["cid_1"] = {
-            "entry_price": 0.30, "outcome": "YES", "entry_time": 1700000000.0,
+            "outcome": "YES", "entry_time": 1700000000.0,
         }
 
+        # Entry price comes from Position (actual fill), not _entries
         ctx.get_position.return_value = Position(
             condition_id="cid_1", strategy="s2_insider_copy",
             qty_yes=50.0, avg_entry_yes=0.30,
@@ -304,11 +366,11 @@ class TestTakeProfit:
         )
         strategy = InsiderCopyStrategy(cfg)
         strategy._entries["cid_1"] = {
-            "entry_price": 0.20,
             "outcome": "YES",
             "entry_time": 1700000000.0,
         }
 
+        # Entry price comes from Position (actual fill)
         ctx.get_position.return_value = Position(
             condition_id="cid_1", strategy="s2_insider_copy",
             qty_yes=50.0, avg_entry_yes=0.20,
@@ -351,7 +413,7 @@ class TestTakeProfit:
         cfg = InsiderCopyConfig(take_profit_daily_pct=0.0)
         strategy = InsiderCopyStrategy(cfg)
         strategy._entries["cid_1"] = {
-            "entry_price": 0.20, "outcome": "YES", "entry_time": 1700000000.0,
+            "outcome": "YES", "entry_time": 1700000000.0,
         }
 
         intents = await strategy.on_timer(1700000000.0 + 30 * 86400, ctx)
