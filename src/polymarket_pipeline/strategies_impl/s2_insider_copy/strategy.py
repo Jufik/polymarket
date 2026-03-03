@@ -136,10 +136,12 @@ class InsiderCopyStrategy:
 
                 current_price = await ctx.get_price(cid, outcome)
                 if current_price is None:
-                    current_price = price
+                    # No reliable price for our outcome — skip stop-loss check
+                    return None
 
                 if current_price < entry_price * (1 - self._cfg.stop_loss_pct):
                     qty = pos.qty_yes if outcome == "YES" else pos.qty_no
+                    entry_asset_id = entry.get("asset_id")
                     del self._entries[cid]
                     return [
                         TradeIntent(
@@ -154,7 +156,7 @@ class InsiderCopyStrategy:
                                    f"{entry_price:.3f} * "
                                    f"{1 - self._cfg.stop_loss_pct:.2f}",
                             signal_time=trade.published_at,
-                            asset_id=trade.asset_id,
+                            asset_id=entry_asset_id,
                         ),
                     ]
             return None
@@ -253,6 +255,7 @@ class InsiderCopyStrategy:
             "entry_price": price,
             "outcome": outcome,
             "entry_time": trade.published_at,
+            "asset_id": trade.asset_id,
         }
 
         return [
@@ -320,7 +323,7 @@ class InsiderCopyStrategy:
                                f"over {days_held:.0f}d "
                                f"(threshold {self._cfg.take_profit_daily_pct:.1%})",
                         signal_time=now,
-                        asset_id=None,
+                        asset_id=entry.get("asset_id"),
                     ),
                 )
 
@@ -332,6 +335,12 @@ class InsiderCopyStrategy:
     async def on_market_update(
         self, update: object, ctx: StrategyContext
     ) -> list[TradeIntent] | None:
+        # Clean up internal state when a market resolves
+        if isinstance(update, dict) and update.get("type") == "resolution":
+            cid = update.get("condition_id")
+            if cid:
+                self._entries.pop(cid, None)
+                self._signals.pop(cid, None)
         return None
 
     # --- helpers ---

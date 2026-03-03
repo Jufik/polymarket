@@ -465,6 +465,35 @@ class LiveRunner:
             realized_pnl=round(new_pos.realized_pnl, 4),
         )
 
+        # Notify strategies so they can clean up internal state
+        self._notify_resolution(condition_id, winner)
+
+    def _notify_resolution(self, condition_id: str, winner: str) -> None:
+        """Fire on_market_update with resolution info for all strategies."""
+        if not hasattr(self, "strategies"):
+            return
+        update = {"type": "resolution", "condition_id": condition_id, "winner": winner}
+        for strategy, config in self.strategies:
+            if not config.enabled:
+                continue
+            try:
+                import asyncio
+
+                coro = strategy.on_market_update(update, self.ctx)
+                # We're in a sync method; schedule the coroutine if a loop is running
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(coro)
+                except RuntimeError:
+                    # No running loop — call synchronously (e.g. in tests)
+                    asyncio.run(coro)
+            except Exception:
+                logger.warning(
+                    "strategy.resolution_notify_error",
+                    strategy=strategy.name,
+                    condition_id=condition_id,
+                )
+
     def settle_voided_market(self, condition_id: str, payout_per_token: float = 0.5) -> None:
         """50/50 resolution: each token redeems for payout_per_token ($0.50)."""
         from dataclasses import replace
@@ -495,6 +524,9 @@ class LiveRunner:
             pnl_delta=round(pnl_delta, 4),
             payout=payout_per_token,
         )
+
+        # Notify strategies so they can clean up internal state
+        self._notify_resolution(condition_id, "VOID")
 
     def request_refresh(self) -> None:
         """Signal the refresh loop to run immediately (non-blocking)."""

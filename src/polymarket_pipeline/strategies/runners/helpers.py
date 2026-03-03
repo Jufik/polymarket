@@ -69,9 +69,11 @@ def apply_fill_to_position(old: Position | None, fill: Fill) -> Position:
                          outcome=fill.outcome)
         new_qty = max(old_qty - sold_qty, 0.0)
         pnl_delta = (fill.filled_price - old.avg_entry_yes) * sold_qty - fill.fee_usd
+        cost_released = min(sold_qty, old_qty) * old.avg_entry_yes
         return replace(
             old,
             qty_yes=new_qty,
+            cost_basis=max(0.0, old.cost_basis - cost_released),
             realized_pnl=old.realized_pnl + pnl_delta,
         )
     # SELL NO
@@ -82,9 +84,11 @@ def apply_fill_to_position(old: Position | None, fill: Fill) -> Position:
                      outcome=fill.outcome)
     new_qty = max(old_qty - sold_qty, 0.0)
     pnl_delta = (fill.filled_price - old.avg_entry_no) * sold_qty - fill.fee_usd
+    cost_released = min(sold_qty, old_qty) * old.avg_entry_no
     return replace(
         old,
         qty_no=new_qty,
+        cost_basis=max(0.0, old.cost_basis - cost_released),
         realized_pnl=old.realized_pnl + pnl_delta,
     )
 
