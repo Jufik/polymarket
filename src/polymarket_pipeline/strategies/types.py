@@ -125,3 +125,4 @@ class Fill:
     status: FillStatus
     filled_at: float
     error: str | None = None
+    order_id: str | None = None

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import structlog
@@ -14,6 +16,15 @@ from polymarket_pipeline.execution.position_tracker import PositionTracker
 from polymarket_pipeline.strategies.types import Fill, FillStatus, TradeIntent
 
 logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class OrderConfig:
+    """Configuration for order lifecycle management."""
+
+    patient_timeout_s: float = 30.0
+    patient_poll_interval_s: float = 2.0
+    immediate_cancel_delay_s: float = 0.5
 
 
 class LiveExecutor:
@@ -39,6 +50,7 @@ class LiveExecutor:
         token_market_map: dict[str, tuple[str, str]] | None = None,
         max_position_usd: float = 100.0,
         max_total_exposure_usd: float = 500.0,
+        order_config: OrderConfig | None = None,
     ) -> None:
         self._clob = clob
         self._tracker = tracker
@@ -49,9 +61,15 @@ class LiveExecutor:
                 self._asset_lookup[(cid, outcome)] = asset_id
         self._max_position_usd = max_position_usd
         self._max_total_exposure_usd = max_total_exposure_usd
+        self._order_config = order_config or OrderConfig()
 
     async def execute(self, intent: TradeIntent) -> Fill:
-        """Execute a trade intent with position limit checks."""
+        """Execute a trade intent with position limit checks.
+
+        Dispatches to urgency-specific handlers:
+        - ``immediate`` → FOK: submit, cancel if not instantly filled
+        - ``patient`` → resting: submit, poll until filled or timeout
+        """
         intent_id = uuid.uuid4().hex[:12]
         now = time.time()
 
@@ -133,38 +151,226 @@ class LiveExecutor:
                 status=FillStatus.REJECTED,
                 filled_at=now,
                 error=result.error or "order failed",
+                order_id=result.order_id or None,
             )
 
-        # Require a confirmed fill price — never guess.  If the CLOB API
-        # returns success but no ``filled_price``, the order is likely still
-        # sitting on the book (unfilled limit).  Recording a fabricated price
-        # corrupts position avg_entry and budget tracking.
+        # Instant fill — CLOB returned a fill price
         filled_price = result.filled_price
-        if filled_price is None or filled_price <= 0:
-            logger.warning(
-                "live.no_fill_price",
+        if filled_price is not None and filled_price > 0:
+            return await self._record_fill(
                 intent_id=intent_id,
-                condition_id=intent.condition_id,
+                intent=intent,
+                asset_id=asset_id,
+                filled_price=filled_price,
+                filled_size=result.filled_size or intent.size_usd,
                 order_id=result.order_id,
-                hint="order may be resting on book, not yet filled",
             )
-            return Fill(
+
+        # No instant fill — dispatch based on urgency
+        if intent.urgency == "patient":
+            return await self._execute_patient(
                 intent_id=intent_id,
-                strategy=intent.strategy,
-                condition_id=intent.condition_id,
-                side=intent.side,
-                outcome=intent.outcome,
-                filled_price=0.0,
-                filled_size_usd=0.0,
-                fee_usd=0.0,
-                status=FillStatus.REJECTED,
-                filled_at=now,
-                error=f"no confirmed fill price (order_id={result.order_id})",
+                intent=intent,
+                asset_id=asset_id,
+                order_id=result.order_id,
+            )
+        else:
+            return await self._execute_immediate(
+                intent_id=intent_id,
+                intent=intent,
+                asset_id=asset_id,
+                order_id=result.order_id,
             )
 
-        filled_size = result.filled_size or intent.size_usd
+    async def _execute_immediate(
+        self,
+        *,
+        intent_id: str,
+        intent: TradeIntent,
+        asset_id: str,
+        order_id: str,
+    ) -> Fill:
+        """FOK behavior: brief wait, then cancel if not filled."""
+        now = time.time()
 
-        # Record fill in position tracker
+        # Brief delay to allow fill to propagate
+        await asyncio.sleep(self._order_config.immediate_cancel_delay_s)
+
+        # Check if order is still open
+        open_orders = await self._clob.get_open_orders(intent.condition_id)
+        still_open = any(o.order_id == order_id for o in open_orders)
+
+        if not still_open:
+            # Order gone from open list → filled between submit and check
+            logger.info(
+                "live.immediate_late_fill",
+                intent_id=intent_id,
+                order_id=order_id,
+                condition_id=intent.condition_id,
+            )
+            return await self._record_fill(
+                intent_id=intent_id,
+                intent=intent,
+                asset_id=asset_id,
+                filled_price=intent.max_price or 0.50,
+                filled_size=intent.size_usd,
+                order_id=order_id,
+            )
+
+        # Still resting — cancel it (FOK semantics)
+        await self._clob.cancel_order(order_id)
+        logger.info(
+            "live.immediate_cancelled",
+            intent_id=intent_id,
+            order_id=order_id,
+            condition_id=intent.condition_id,
+        )
+        return Fill(
+            intent_id=intent_id,
+            strategy=intent.strategy,
+            condition_id=intent.condition_id,
+            side=intent.side,
+            outcome=intent.outcome,
+            filled_price=0.0,
+            filled_size_usd=0.0,
+            fee_usd=0.0,
+            status=FillStatus.REJECTED,
+            filled_at=now,
+            error=f"FOK: order not filled, cancelled (order_id={order_id})",
+            order_id=order_id,
+        )
+
+    async def _execute_patient(
+        self,
+        *,
+        intent_id: str,
+        intent: TradeIntent,
+        asset_id: str,
+        order_id: str,
+    ) -> Fill:
+        """Resting limit: poll until filled or timeout, cancel remainder."""
+        cfg = self._order_config
+        deadline = time.monotonic() + cfg.patient_timeout_s
+
+        while time.monotonic() < deadline:
+            await asyncio.sleep(cfg.patient_poll_interval_s)
+
+            open_orders = await self._clob.get_open_orders(intent.condition_id)
+            matching = [o for o in open_orders if o.order_id == order_id]
+
+            if not matching:
+                # Order gone from open list → fully filled
+                logger.info(
+                    "live.patient_filled",
+                    intent_id=intent_id,
+                    order_id=order_id,
+                    condition_id=intent.condition_id,
+                )
+                return await self._record_fill(
+                    intent_id=intent_id,
+                    intent=intent,
+                    asset_id=asset_id,
+                    filled_price=intent.max_price or 0.50,
+                    filled_size=intent.size_usd,
+                    order_id=order_id,
+                )
+
+            order = matching[0]
+            if order.size_matched > 0:
+                logger.debug(
+                    "live.patient_progress",
+                    intent_id=intent_id,
+                    order_id=order_id,
+                    size_matched=order.size_matched,
+                    size_total=order.size,
+                )
+                # Check if fully matched
+                if order.size_matched >= order.size:
+                    return await self._record_fill(
+                        intent_id=intent_id,
+                        intent=intent,
+                        asset_id=asset_id,
+                        filled_price=intent.max_price or 0.50,
+                        filled_size=intent.size_usd,
+                        order_id=order_id,
+                    )
+
+        # Timeout — check final state
+        open_orders = await self._clob.get_open_orders(intent.condition_id)
+        matching = [o for o in open_orders if o.order_id == order_id]
+
+        if not matching:
+            # Filled during final check
+            return await self._record_fill(
+                intent_id=intent_id,
+                intent=intent,
+                asset_id=asset_id,
+                filled_price=intent.max_price or 0.50,
+                filled_size=intent.size_usd,
+                order_id=order_id,
+            )
+
+        order = matching[0]
+        await self._clob.cancel_order(order_id)
+
+        if order.size_matched > 0:
+            # Partial fill — record what we got
+            fill_fraction = order.size_matched / order.size if order.size > 0 else 0.0
+            partial_size = intent.size_usd * fill_fraction
+            logger.info(
+                "live.patient_partial",
+                intent_id=intent_id,
+                order_id=order_id,
+                size_matched=order.size_matched,
+                size_total=order.size,
+                partial_size_usd=round(partial_size, 2),
+            )
+            return await self._record_fill(
+                intent_id=intent_id,
+                intent=intent,
+                asset_id=asset_id,
+                filled_price=intent.max_price or 0.50,
+                filled_size=partial_size,
+                order_id=order_id,
+                status=FillStatus.PARTIAL,
+            )
+
+        # Nothing matched — fully rejected
+        logger.info(
+            "live.patient_timeout",
+            intent_id=intent_id,
+            order_id=order_id,
+            condition_id=intent.condition_id,
+        )
+        return Fill(
+            intent_id=intent_id,
+            strategy=intent.strategy,
+            condition_id=intent.condition_id,
+            side=intent.side,
+            outcome=intent.outcome,
+            filled_price=0.0,
+            filled_size_usd=0.0,
+            fee_usd=0.0,
+            status=FillStatus.REJECTED,
+            filled_at=time.time(),
+            error=f"patient timeout: no fills after {cfg.patient_timeout_s}s (order_id={order_id})",
+            order_id=order_id,
+        )
+
+    async def _record_fill(
+        self,
+        *,
+        intent_id: str,
+        intent: TradeIntent,
+        asset_id: str,
+        filled_price: float,
+        filled_size: float,
+        order_id: str,
+        status: FillStatus = FillStatus.FILLED,
+    ) -> Fill:
+        """Record a fill in position tracker and return Fill."""
+        now = time.time()
+
         fill_record = FillRecord(
             intent_id=intent_id,
             strategy=intent.strategy,
@@ -185,6 +391,8 @@ class LiveExecutor:
             condition_id=intent.condition_id,
             price=filled_price,
             size=filled_size,
+            status=status.value,
+            order_id=order_id,
         )
 
         return Fill(
@@ -196,8 +404,9 @@ class LiveExecutor:
             filled_price=filled_price,
             filled_size_usd=filled_size,
             fee_usd=0.0,
-            status=FillStatus.FILLED,
+            status=status,
             filled_at=now,
+            order_id=order_id,
         )
 
     # Maximum age (seconds) for a cached orderbook to be used in MTM.

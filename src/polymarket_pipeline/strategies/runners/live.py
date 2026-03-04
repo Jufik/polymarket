@@ -96,6 +96,10 @@ class LiveRunner:
         self._market_volumes: dict[str, float] = {}
         self._intent_cb = intent_cb
         self._pool_refresh_cb: PoolRefreshCallback | None = None
+        # Rate tracking — reset each paper_stats log
+        self._trades_at_last_stats: int = 0
+        self._stats_last_time: float = time.monotonic()
+        self._unique_markets: set[str] = set()
 
     def _sync_markets_from_features(self) -> None:
         """Bridge MarketInfo from provider features into ctx markets store.
@@ -147,7 +151,13 @@ class LiveRunner:
         for provider in self.providers:
             await provider.compute(self.backend)
             self.ctx.update_features(provider.get_features())
-            logger.info("provider.initialized", provider=provider.name)
+            feature_sizes = {}
+            for _key, val in provider.get_features().items():
+                if isinstance(val, dict):
+                    for k, v in val.items():
+                        if isinstance(v, (dict, set, frozenset, list)):
+                            feature_sizes[k] = len(v)
+            logger.info("provider.initialized", provider=provider.name, **feature_sizes)
 
         # Bridge provider market metadata into ctx.get_market() store
         self._sync_markets_from_features()
@@ -195,8 +205,8 @@ class LiveRunner:
                     bids = book.get("bids") or []
                     asks = book.get("asks") or []
                     if bids and asks:
-                        best_bid = float(bids[0]["price"])
-                        best_ask = float(asks[0]["price"])
+                        best_bid = max(float(b["price"]) for b in bids)
+                        best_ask = min(float(a["price"]) for a in asks)
                         metadata["orderbook"] = {
                             "best_bid": round(best_bid, 4),
                             "best_ask": round(best_ask, 4),
@@ -261,6 +271,8 @@ class LiveRunner:
         if self._dedup.is_duplicate(trade.trade_id):
             self._drops_dedup += 1
             return
+
+        self._unique_markets.add(trade.condition_id)
 
         # 1. Providers first — update features
         for provider in self.providers:
@@ -338,8 +350,8 @@ class LiveRunner:
                         metadata=metadata,
                     )
 
-                    # Position tracking (only for successful fills)
-                    if fill.status == FillStatus.FILLED:
+                    # Position tracking (filled or partial fills)
+                    if fill.status in (FillStatus.FILLED, FillStatus.PARTIAL):
                         old_pos = await self.ctx.get_position(fill.condition_id)
                         new_pos = apply_fill_to_position(old_pos, fill)
                         self.ctx.set_position(fill.condition_id, new_pos)
@@ -403,6 +415,9 @@ class LiveRunner:
         self._intents_submitted = 0
         self._drops_dedup = 0
         self._drops_stale = 0
+        self._unique_markets.clear()
+        self._trades_at_last_stats = 0
+        self._stats_last_time = time.monotonic()
 
         logger.warning(
             "live_runner.reset",
@@ -548,9 +563,20 @@ class LiveRunner:
             total_cost = sum(p.cost_basis for p in open_positions.values())
             total_realized = sum(p.realized_pnl for p in positions.values())
             budget_spent = dict(self.gateway._strategy_spent)
+
+            # Compute trade rate since last stats log
+            now_mono = time.monotonic()
+            elapsed = now_mono - self._stats_last_time
+            trades_delta = self._trades_processed - self._trades_at_last_stats
+            trades_per_sec = round(trades_delta / elapsed, 1) if elapsed > 0 else 0.0
+            self._trades_at_last_stats = self._trades_processed
+            self._stats_last_time = now_mono
+
             logger.warning(
                 "paper_stats",
                 trades_processed=self._trades_processed,
+                trades_per_sec=trades_per_sec,
+                unique_markets=len(self._unique_markets),
                 intents_submitted=self._intents_submitted,
                 open_positions=len(open_positions),
                 total_cost_basis=round(total_cost, 2),
@@ -594,8 +620,8 @@ class LiveRunner:
                             intent, disposition, fill=fill, rejection_reason=fill.error or ""
                         )
 
-                        # Position tracking (only for successful fills)
-                        if fill.status == FillStatus.FILLED:
+                        # Position tracking (filled or partial fills)
+                        if fill.status in (FillStatus.FILLED, FillStatus.PARTIAL):
                             old_pos = await self.ctx.get_position(fill.condition_id)
                             new_pos = apply_fill_to_position(old_pos, fill)
                             self.ctx.set_position(fill.condition_id, new_pos)
@@ -614,9 +640,23 @@ class LiveRunner:
 
             for provider in self.providers:
                 logger.info("provider.refresh_start", provider=provider.name)
+                t0 = time.monotonic()
                 await provider.refresh(self.backend)
                 self.ctx.update_features(provider.get_features())
-                logger.info("provider.refresh_done", provider=provider.name)
+                elapsed_ms = round((time.monotonic() - t0) * 1000)
+                # Log feature sizes for observability
+                feature_sizes = {}
+                for _key, val in provider.get_features().items():
+                    if isinstance(val, dict):
+                        for k, v in val.items():
+                            if isinstance(v, (dict, set, frozenset, list)):
+                                feature_sizes[k] = len(v)
+                logger.info(
+                    "provider.refresh_done",
+                    provider=provider.name,
+                    elapsed_ms=elapsed_ms,
+                    **feature_sizes,
+                )
                 # Publish pool contents to PG (if callback wired)
                 if self._pool_refresh_cb is not None:
                     try:

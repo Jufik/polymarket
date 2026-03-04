@@ -15,6 +15,7 @@ import structlog
 import typer
 
 from polymarket_pipeline.strategies.config import (
+    load_execution_config,
     load_provider_configs,
     load_strategy_configs,
 )
@@ -158,6 +159,12 @@ def _build_runner(
         else:
             logger.warning("strategy.unknown", name=sname)
 
+    # Load execution config (OrderConfig)
+    from polymarket_pipeline.strategies.execution.live import OrderConfig
+
+    exec_raw = load_execution_config(config_path)
+    order_config = OrderConfig(**exec_raw) if exec_raw else OrderConfig()
+
     # Assemble
     ctx = InMemoryContext()
     # ClobClient for CLOB REST API price verification (public, no auth needed)
@@ -165,7 +172,7 @@ def _build_runner(
 
     clob_client = ClobClient()  # default base_url, no auth for /book
     # token_map loaded async at startup — placeholder here, filled in _run()
-    executor = PaperExecutor(ctx=ctx, clob_client=clob_client)
+    executor = PaperExecutor(ctx=ctx, clob_client=clob_client, order_config=order_config)
     log_path = (log_dir / "intents.jsonl") if log_dir else None
     # Use delay_s from first strategy's params (if any)
     delay_s = 0.0
@@ -440,6 +447,7 @@ def run(
                     apply_fill_to_position,
                     check_risk_gate,
                 )
+                from polymarket_pipeline.strategies.types import FillStatus
 
                 data = json.loads(msg)
                 trade = NormalizedTrade(**data)
@@ -470,11 +478,14 @@ def run(
 
                             fill = await runner.gateway.submit(intent)
 
-                            # Position tracking
-                            old_pos = await runner.ctx.get_position(fill.condition_id)
-                            new_pos = apply_fill_to_position(old_pos, fill)
-                            runner.ctx.set_position(fill.condition_id, new_pos)
-                            runner._last_trade_times[intent.strategy] = fill.filled_at
+                            # Position tracking (filled or partial fills)
+                            if fill.status in (
+                                FillStatus.FILLED, FillStatus.PARTIAL,
+                            ):
+                                old_pos = await runner.ctx.get_position(fill.condition_id)
+                                new_pos = apply_fill_to_position(old_pos, fill)
+                                runner.ctx.set_position(fill.condition_id, new_pos)
+                                runner._last_trade_times[intent.strategy] = fill.filled_at
 
                             await runner._fire_intent(
                                 intent,
