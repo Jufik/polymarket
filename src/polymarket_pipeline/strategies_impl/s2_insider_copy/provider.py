@@ -237,6 +237,7 @@ class InsiderCopyProvider:
         max_pool_entry_price: float = 0.95,
         max_raw_hr: float = 0.99,
         category_pools: list[str] | None = None,
+        bootstrap_hours: int = 168,
     ) -> None:
         self._lookback_months = lookback_months
         self._min_positions = min_positions
@@ -246,6 +247,7 @@ class InsiderCopyProvider:
         self._max_pool_entry_price = max_pool_entry_price
         self._max_raw_hr = max_raw_hr
         self._category_pools = category_pools or []
+        self._bootstrap_hours = bootstrap_hours
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
@@ -444,7 +446,9 @@ class InsiderCopyProvider:
         """
         addresses = list(pool.keys())
         pool_in = ", ".join(f"'{a}'" for a in addresses)
-        sql = _BOOTSTRAP_SIGNALS_SQL.format(hours=48, pool_addresses=pool_in)
+        sql = _BOOTSTRAP_SIGNALS_SQL.format(
+            hours=self._bootstrap_hours, pool_addresses=pool_in
+        )
         try:
             df = await backend.query_custom(sql)
         except Exception:
@@ -482,6 +486,7 @@ class InsiderCopyProvider:
 
         logger.info(
             "insider_copy_provider.bootstrap_complete",
+            bootstrap_hours=self._bootstrap_hours,
             markets=len(self._signals),
             seeded_entries=seeded,
         )

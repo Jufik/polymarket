@@ -212,12 +212,20 @@ def _build_runner(
         database=settings.ch_database,
     )
 
+    # Determine refresh interval from provider config (if any)
+    refresh_interval_s = 900.0  # default
+    for pcfg in provider_configs.values():
+        if pcfg.refresh_interval_s > 0:
+            refresh_interval_s = pcfg.refresh_interval_s
+            break
+
     return LiveRunner(
         strategies=strategies,
         providers=providers,
         gateway=gateway,
         ctx=ctx,
         backend=backend,
+        refresh_interval_s=refresh_interval_s,
         intent_cb=None,  # wired at runtime when broker is available
     )
 

@@ -653,6 +653,8 @@ class LiveRunner:
 
     async def _refresh_loop(self) -> None:
         """Periodic provider refresh, with support for on-demand triggers."""
+        min_refresh_cooldown_s = 120.0  # never refresh more often than every 2 min
+        last_refresh = 0.0
         while True:
             # Wait for either the timer or an explicit refresh request
             try:
@@ -662,6 +664,15 @@ class LiveRunner:
                 pass  # timer expired — normal periodic refresh
             self._refresh_event.clear()
 
+            # Enforce minimum cooldown between refreshes
+            now = time.monotonic()
+            elapsed = now - last_refresh
+            if last_refresh > 0 and elapsed < min_refresh_cooldown_s:
+                remaining = min_refresh_cooldown_s - elapsed
+                logger.debug("refresh.cooldown", wait_s=round(remaining, 1))
+                await asyncio.sleep(remaining)
+
+            last_refresh = time.monotonic()
             for provider in self.providers:
                 logger.info("provider.refresh_start", provider=provider.name)
                 t0 = time.monotonic()
