@@ -42,7 +42,8 @@ QUESTION_RESOLVED_SIG = "0x566c3fbd0982e206be981f8d7a42e3e436525258ecc0adc044023
 
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
-_QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
+_QUEUE_MAXSIZE = 5000  # backpressure bound between WS read and publish
+_PUBLISH_WORKERS = 4  # concurrent publish coroutines draining the queue
 _STALE_TIMEOUT = 120.0  # Force reconnect if no messages for 2 minutes
 _DEDUP_TTL_S = 60.0  # TTL for cross-endpoint trade dedup
 
@@ -150,8 +151,8 @@ class RPCIngestor(BaseIngestor):
         self._last_block = trade.block_number or self._last_block
         self._trade_count += 1
 
-    async def _publish_loop(self) -> None:
-        """Drain the backpressure queue and publish to Redpanda."""
+    async def _publish_worker(self) -> None:
+        """Single publish worker — drains items from the shared queue."""
         while True:
             cid, trade_json = await self._queue.get()
             await safe_publish(
@@ -184,8 +185,10 @@ class RPCIngestor(BaseIngestor):
         )
         tasks = [
             asyncio.create_task(self._heartbeat_loop()),
-            asyncio.create_task(self._publish_loop()),
         ]
+        # Concurrent publish workers to keep up with multi-endpoint inflow
+        for _ in range(_PUBLISH_WORKERS):
+            tasks.append(asyncio.create_task(self._publish_worker()))
         # One connection loop per endpoint
         for url in self._ws_urls:
             tasks.append(asyncio.create_task(self._connection_loop(url)))

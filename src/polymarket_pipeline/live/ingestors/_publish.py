@@ -44,7 +44,13 @@ async def safe_publish(
         if circuit_breaker is not None:
             circuit_breaker.record_failure()
         return False
-    except Exception:
+    except Exception as exc:
+        # FastStream raises IncorrectState when the broker producer isn't ready
+        # at startup.  Don't trip the circuit breaker for this — it's transient.
+        exc_name = type(exc).__name__
+        if exc_name == "IncorrectState":
+            log.warning("publish.broker_not_ready", source=source, topic=topic)
+            return False
         log.exception("publish.unexpected_error", source=source, topic=topic)
         if circuit_breaker is not None:
             circuit_breaker.record_failure()
