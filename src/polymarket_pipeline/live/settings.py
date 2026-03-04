@@ -19,10 +19,11 @@ class Settings(BaseSettings):
     redpanda_url: str = "localhost:19092"
 
     # Polygon RPC WebSocket (eth_subscribe logs for OrderFilled events)
-    # Free public endpoints — override via PM_RPC_WS_URL (or legacy PM_ALCHEMY_WS_URL)
-    rpc_ws_url: str = Field(
-        default="wss://polygon-bor-rpc.publicnode.com",
-        validation_alias=AliasChoices("PM_RPC_WS_URL", "PM_ALCHEMY_WS_URL"),
+    # Comma-separated list of WS URLs — races all endpoints for redundancy
+    # Override via PM_RPC_WS_URLS (or legacy PM_RPC_WS_URL / PM_ALCHEMY_WS_URL)
+    rpc_ws_urls: str = Field(
+        default="wss://polygon-bor-rpc.publicnode.com,wss://polygon.drpc.org,wss://polygon.gateway.tenderly.co",
+        validation_alias=AliasChoices("PM_RPC_WS_URLS", "PM_RPC_WS_URL", "PM_ALCHEMY_WS_URL"),
     )
 
     # On-chain resolution detection via UMA CTF Adapter QuestionResolved events
