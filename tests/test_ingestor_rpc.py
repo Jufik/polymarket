@@ -91,7 +91,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             topic="trades.raw",
             token_market_map={"12345": ("cond_12345", "YES")},
         )
@@ -106,13 +106,31 @@ class TestRPCIngestor:
 
         assert mock_broker.publish.call_count == 1
 
+    async def test_cross_endpoint_dedup(self, mock_broker):
+        """Same trade from two endpoints should only be queued once."""
+        from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
+
+        ingestor = RPCIngestor(
+            broker=mock_broker,
+            ws_urls=["wss://a.example.com", "wss://b.example.com"],
+            topic="trades.raw",
+            token_market_map={"12345": ("cond_12345", "YES")},
+        )
+        msg = json.dumps(_make_subscription_result())
+        # Simulate same event arriving from two endpoints
+        await ingestor._handle_message(msg)
+        await ingestor._handle_message(msg)
+
+        assert ingestor._queue.qsize() == 1
+        assert ingestor._drops_dedup == 1
+
     async def test_taker_duplicate_not_published(self, mock_broker):
         """Taker-perspective events should be dropped."""
         from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             topic="trades.raw",
         )
         msg = _make_subscription_result(
@@ -129,7 +147,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             topic="trades.raw",
         )
         confirm = json.dumps({"jsonrpc": "2.0", "id": 1, "result": "0xabc123"})
@@ -143,7 +161,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             token_market_map={"12345": ("cond_12345", "YES")},
         )
         # Fill the queue to capacity
@@ -163,7 +181,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
         )
         # Taker = exchange address -> normalizer returns None
         msg = _make_subscription_result(
@@ -179,7 +197,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
         )
         ingestor._drops_queue_full = 5
         ingestor._drops_taker_dedup = 10
@@ -198,7 +216,7 @@ class TestRPCIngestor:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
         )
         assert ingestor.source_name == "alchemy"
 
@@ -217,7 +235,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             markets_events_topic="markets.events",
         )
         msg = _make_resolution_result(settled_price=10**18)
@@ -238,7 +256,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             markets_events_topic="markets.events",
         )
         msg = _make_resolution_result(settled_price=0)
@@ -255,7 +273,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             markets_events_topic="markets.events",
         )
         msg = _make_resolution_result()
@@ -270,7 +288,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
         )
         confirm = json.dumps({"jsonrpc": "2.0", "id": 2, "result": "0xdef456"})
         await ingestor._handle_resolution_message(confirm)
@@ -284,7 +302,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
         )
         msg = _make_resolution_result()
         data = json.loads(json.dumps(msg))
@@ -299,7 +317,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             resolution_enabled=True,
         )
         ingestor._resolution_count = 3
@@ -313,7 +331,7 @@ class TestResolutionLoop:
 
         ingestor = RPCIngestor(
             broker=mock_broker,
-            ws_url="wss://test.example.com",
+            ws_urls=["wss://test.example.com"],
             resolution_enabled=False,
         )
         fields = ingestor._heartbeat_fields()

@@ -1,7 +1,8 @@
 """RPC eth_subscribe ingestor -- Polygon RPC logs for OrderFilled events.
 
-A bounded asyncio.Queue decouples the WS read loop from Redpanda publishing so
-that a slow broker never stalls log ingestion.
+Races multiple public RPC WebSocket endpoints in parallel for redundancy.
+Each endpoint runs its own ``_connection_loop``, all feeding a shared queue.
+Duplicates across endpoints are dropped via TTL-based ``TradeDedup``.
 
 Also runs an optional resolution detection loop that listens for the UMA CTF
 Adapter's ``QuestionResolved`` event on-chain and publishes resolution events
@@ -19,6 +20,7 @@ import structlog
 import websockets
 
 from polymarket_pipeline.constants import NEGRISK_UMA_ADAPTER, UMA_CTF_ADAPTER_V3
+from polymarket_pipeline.live.dedup import TradeDedup
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.base import BaseIngestor
 from polymarket_pipeline.live.normalizers.decode.resolution import decode_settled_price
@@ -31,9 +33,9 @@ from polymarket_pipeline.live.normalizers.validate import validate
 
 log = structlog.get_logger()
 
-# Both CTF Exchange contracts
-CTF_EXCHANGE = "0x4bfb41d5b3570defd03c39a9a4d8de6bd8b8982e"
-NEGRISK_EXCHANGE = "0xc5d563a36ae78145c45a50134d48a1215220f80a"
+# Both CTF Exchange contracts (checksummed — publicnode WS requires mixed-case)
+CTF_EXCHANGE = "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"
+NEGRISK_EXCHANGE = "0xC5d563A36AE78145C45a50134d48A1215220f80a"
 
 # keccak256("QuestionResolved(bytes32,int256)")
 QUESTION_RESOLVED_SIG = "0x566c3fbd0982e206be981f8d7a42e3e436525258ecc0adc044023b81ab281d0e"
@@ -42,10 +44,14 @@ RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 _QUEUE_MAXSIZE = 1000  # backpressure bound between WS read and publish
 _STALE_TIMEOUT = 120.0  # Force reconnect if no messages for 2 minutes
+_DEDUP_TTL_S = 60.0  # TTL for cross-endpoint trade dedup
 
 
 class RPCIngestor(BaseIngestor):
-    """Subscribes to Polygon OrderFilled logs via public RPC WebSocket.
+    """Subscribes to Polygon OrderFilled logs via multiple public RPC WebSockets.
+
+    Races all endpoints in parallel — whichever delivers first wins.
+    Duplicates across endpoints are dropped via TTL-based dedup.
 
     Optionally runs a parallel resolution detection loop that listens for
     ``QuestionResolved`` events from the UMA CTF Adapter and publishes
@@ -57,7 +63,7 @@ class RPCIngestor(BaseIngestor):
     def __init__(
         self,
         broker: Any,
-        ws_url: str,
+        ws_urls: list[str],
         topic: str = "trades.raw",
         status_topic: str = "pipeline.status",
         token_market_map: dict[str, tuple[str, str]] | None = None,
@@ -65,11 +71,13 @@ class RPCIngestor(BaseIngestor):
         resolution_enabled: bool = True,
     ) -> None:
         super().__init__(broker=broker, topic=topic, status_topic=status_topic)
-        self._ws_url = ws_url
+        self._ws_urls = ws_urls
         self._token_map = TokenMap(token_market_map or {})
         self._last_block: int = 0
         self._queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue(maxsize=_QUEUE_MAXSIZE)
+        self._dedup = TradeDedup(ttl_s=_DEDUP_TTL_S)
         self._drops_taker_dedup: int = 0
+        self._drops_dedup: int = 0
         self._markets_events_topic = markets_events_topic
         self._resolution_enabled = resolution_enabled
         self._resolution_count: int = 0
@@ -120,6 +128,11 @@ class RPCIngestor(BaseIngestor):
         if isinstance(trade, Rejection):
             return
 
+        # Cross-endpoint dedup — first endpoint to deliver wins
+        if self._dedup.is_duplicate(trade.trade_id):
+            self._drops_dedup += 1
+            return
+
         trade = trade.model_copy(update={"published_at": time.time()})
         trade_json = trade.model_dump_json()
 
@@ -155,6 +168,8 @@ class RPCIngestor(BaseIngestor):
         fields: dict[str, Any] = {
             "last_block": self._last_block,
             "drops_taker_dedup": self._drops_taker_dedup,
+            "drops_dedup": self._drops_dedup,
+            "endpoints": len(self._ws_urls),
         }
         if self._resolution_enabled:
             fields["resolution_count"] = self._resolution_count
@@ -162,13 +177,21 @@ class RPCIngestor(BaseIngestor):
 
     async def run(self) -> None:
         """Run the RPC ingestor with auto-reconnect + optional resolution loop."""
+        log.info(
+            "rpc.starting",
+            endpoints=len(self._ws_urls),
+            urls=[u.split("//")[-1].split("/")[0] for u in self._ws_urls],
+        )
         tasks = [
             asyncio.create_task(self._heartbeat_loop()),
             asyncio.create_task(self._publish_loop()),
-            asyncio.create_task(self._connection_loop()),
         ]
+        # One connection loop per endpoint
+        for url in self._ws_urls:
+            tasks.append(asyncio.create_task(self._connection_loop(url)))
+        # Resolution on first endpoint only (events are rare)
         if self._resolution_enabled:
-            tasks.append(asyncio.create_task(self._resolution_loop()))
+            tasks.append(asyncio.create_task(self._resolution_loop(self._ws_urls[0])))
         try:
             # Wait for any task to crash — they all run forever normally
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
@@ -179,15 +202,16 @@ class RPCIngestor(BaseIngestor):
             for task in tasks:
                 task.cancel()
 
-    async def _connection_loop(self) -> None:
-        """Reconnect loop for the RPC OrderFilled WebSocket."""
+    async def _connection_loop(self, ws_url: str) -> None:
+        """Reconnect loop for a single RPC OrderFilled WebSocket endpoint."""
+        endpoint = ws_url.split("//")[-1].split("/")[0]  # short name for logs
         backoff = RECONNECT_BASE
         while True:
             try:
-                log.info("rpc.connecting")
-                async with websockets.connect(self._ws_url, ping_interval=30) as ws:
+                log.info("rpc.connecting", endpoint=endpoint)
+                async with websockets.connect(ws_url, ping_interval=30) as ws:
                     backoff = RECONNECT_BASE
-                    log.info("rpc.connected")
+                    log.info("rpc.connected", endpoint=endpoint)
 
                     subscribe = json.dumps(
                         {
@@ -213,6 +237,7 @@ class RPCIngestor(BaseIngestor):
                         except TimeoutError:
                             log.warning(
                                 "rpc.stale",
+                                endpoint=endpoint,
                                 last_block=self._last_block,
                                 timeout_s=_STALE_TIMEOUT,
                             )
@@ -220,28 +245,29 @@ class RPCIngestor(BaseIngestor):
                         await self._handle_message(str(raw))
 
             except websockets.ConnectionClosed as e:
-                log.warning("rpc.disconnected", reason=str(e), backoff=backoff)
+                log.warning("rpc.disconnected", endpoint=endpoint, reason=str(e), backoff=backoff)
             except Exception:
-                log.exception("rpc.error", backoff=backoff)
+                log.exception("rpc.error", endpoint=endpoint, backoff=backoff)
 
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, RECONNECT_MAX)
 
     # ── Resolution detection loop ────────────────────────────────────────
 
-    async def _resolution_loop(self) -> None:
+    async def _resolution_loop(self, ws_url: str) -> None:
         """Subscribe to UMA CTF Adapter QuestionResolved events on-chain.
 
         Publishes resolution events to the ``markets.events`` Kafka topic
         in the same format as the CLOB WS ``market_resolved`` event.
         """
+        endpoint = ws_url.split("//")[-1].split("/")[0]
         backoff = RECONNECT_BASE
         while True:
             try:
-                log.info("rpc.resolution.connecting")
-                async with websockets.connect(self._ws_url, ping_interval=30) as ws:
+                log.info("rpc.resolution.connecting", endpoint=endpoint)
+                async with websockets.connect(ws_url, ping_interval=30) as ws:
                     backoff = RECONNECT_BASE
-                    log.info("rpc.resolution.connected")
+                    log.info("rpc.resolution.connected", endpoint=endpoint)
 
                     subscribe = json.dumps(
                         {
@@ -267,15 +293,19 @@ class RPCIngestor(BaseIngestor):
                         except TimeoutError:
                             log.warning(
                                 "rpc.resolution.stale",
+                                endpoint=endpoint,
                                 timeout_s=_STALE_TIMEOUT,
                             )
                             break  # Force reconnect
                         await self._handle_resolution_message(str(raw))
 
             except websockets.ConnectionClosed as e:
-                log.warning("rpc.resolution.disconnected", reason=str(e), backoff=backoff)
+                log.warning(
+                    "rpc.resolution.disconnected",
+                    endpoint=endpoint, reason=str(e), backoff=backoff,
+                )
             except Exception:
-                log.exception("rpc.resolution.error", backoff=backoff)
+                log.exception("rpc.resolution.error", endpoint=endpoint, backoff=backoff)
 
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, RECONNECT_MAX)
