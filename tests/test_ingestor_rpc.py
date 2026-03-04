@@ -98,9 +98,9 @@ class TestRPCIngestor:
         msg = _make_subscription_result()
         await ingestor._handle_message(json.dumps(msg))
 
-        # Message is now in the backpressure queue — drain it via _publish_loop
+        # Message is now in the backpressure queue — drain it via _publish_worker
         assert ingestor._queue.qsize() == 1
-        task = asyncio.create_task(ingestor._publish_loop())
+        task = asyncio.create_task(ingestor._publish_worker())
         await asyncio.sleep(0.05)  # let the loop process one item
         task.cancel()
 
@@ -157,7 +157,7 @@ class TestRPCIngestor:
 
     async def test_queue_full_increments_drop_counter(self, mock_broker):
         """Queue full should increment _drops_queue_full counter."""
-        from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
+        from polymarket_pipeline.live.ingestors.rpc import RPCIngestor, _QUEUE_MAXSIZE
 
         ingestor = RPCIngestor(
             broker=mock_broker,
@@ -165,7 +165,7 @@ class TestRPCIngestor:
             token_market_map={"12345": ("cond_12345", "YES")},
         )
         # Fill the queue to capacity
-        for i in range(1000):
+        for i in range(_QUEUE_MAXSIZE):
             ingestor._queue.put_nowait(("cid", f"trade_{i}"))
 
         # Now send a valid message — should hit QueueFull
@@ -173,7 +173,7 @@ class TestRPCIngestor:
         await ingestor._handle_message(json.dumps(msg))
 
         assert ingestor._drops_queue_full == 1
-        assert ingestor._queue.qsize() == 1000  # unchanged
+        assert ingestor._queue.qsize() == _QUEUE_MAXSIZE  # unchanged
 
     async def test_taker_dedup_increments_drop_counter(self, mock_broker):
         """Taker duplicate should increment _drops_taker_dedup counter."""
