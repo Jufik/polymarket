@@ -653,7 +653,10 @@ class LiveRunner:
 
     async def _refresh_loop(self) -> None:
         """Periodic provider refresh, with support for on-demand triggers."""
-        min_refresh_cooldown_s = 120.0  # never refresh more often than every 2 min
+        # Cooldown = half the configured interval. Prevents new_market event spam
+        # from triggering 40s refresh cycles, while still allowing resolution-
+        # triggered refreshes within a reasonable window.
+        min_refresh_cooldown_s = max(self.refresh_interval_s / 2, 120.0)
         last_refresh = 0.0
         while True:
             # Wait for either the timer or an explicit refresh request

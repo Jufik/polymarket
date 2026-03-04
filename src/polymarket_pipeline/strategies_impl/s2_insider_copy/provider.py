@@ -37,20 +37,23 @@ SELECT condition_id, primary_category
 FROM market_susceptibility
 """
 
-# Bootstrap: pre-load recent insider BUY trades to seed consensus counters
-# on startup. Without this, the strategy starts cold and needs N unique insiders
-# to trade a market AFTER deployment before consensus is met.
+# Bootstrap: pre-load insider BUY consensus from the full lookback period.
+# Returns unique (condition_id, maker, asset_id) triples — aggregated at CH level
+# to keep result set small (~200K rows for 12 months, vs millions of raw trades).
+# Without this, the strategy starts cold and needs N unique insiders to trade
+# a market AFTER deployment before consensus is met.
 _BOOTSTRAP_SIGNALS_SQL = """\
 SELECT
     t.condition_id,
     lower(t.maker) AS maker,
-    t.asset_id,
-    t.timestamp
+    any(t.asset_id) AS asset_id,
+    min(t.timestamp) AS timestamp
 FROM trades_raw AS t
 WHERE t.side = 'BUY'
-  AND t.timestamp >= now() - INTERVAL {hours} HOUR
+  AND t.timestamp >= now() - INTERVAL {lookback_months} MONTH
   AND lower(t.maker) IN ({pool_addresses})
-ORDER BY t.timestamp ASC
+GROUP BY t.condition_id, lower(t.maker)
+ORDER BY min(t.timestamp) ASC
 """
 
 INSIDER_POOL_SQL = """\
@@ -237,7 +240,6 @@ class InsiderCopyProvider:
         max_pool_entry_price: float = 0.95,
         max_raw_hr: float = 0.99,
         category_pools: list[str] | None = None,
-        bootstrap_hours: int = 168,
     ) -> None:
         self._lookback_months = lookback_months
         self._min_positions = min_positions
@@ -247,7 +249,6 @@ class InsiderCopyProvider:
         self._max_pool_entry_price = max_pool_entry_price
         self._max_raw_hr = max_raw_hr
         self._category_pools = category_pools or []
-        self._bootstrap_hours = bootstrap_hours
         self._pool: InsiderPool = {}
         self._signals: dict[str, dict[str, Any]] = {}
         self._market_categories: dict[str, str] = {}  # condition_id → primary_category
@@ -439,15 +440,16 @@ class InsiderCopyProvider:
     async def _bootstrap_signals(
         self, backend: FeatureBackend, pool: InsiderPool
     ) -> None:
-        """Seed consensus counters from recent CH trades (cold-start fix).
+        """Seed consensus counters from the full lookback period.
 
-        Queries insider BUY trades from the last 48h and replays them into
-        _signals so the strategy doesn't start with zero consensus everywhere.
+        Queries unique (condition_id, maker) pairs from the same lookback
+        window used to build the pool, so consensus matches the research
+        backtests which accumulate over the full history.
         """
         addresses = list(pool.keys())
         pool_in = ", ".join(f"'{a}'" for a in addresses)
         sql = _BOOTSTRAP_SIGNALS_SQL.format(
-            hours=self._bootstrap_hours, pool_addresses=pool_in
+            lookback_months=self._lookback_months, pool_addresses=pool_in
         )
         try:
             df = await backend.query_custom(sql)
@@ -486,7 +488,7 @@ class InsiderCopyProvider:
 
         logger.info(
             "insider_copy_provider.bootstrap_complete",
-            bootstrap_hours=self._bootstrap_hours,
+            lookback_months=self._lookback_months,
             markets=len(self._signals),
             seeded_entries=seeded,
         )

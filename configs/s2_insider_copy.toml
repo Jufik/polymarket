@@ -106,8 +106,7 @@ enabled = true
 refresh_interval_s = 3600            # hourly pool refresh
 
 [provider.insider_copy_provider.params]
-bootstrap_hours = 168                    # 7 days — sports needs days to build C>=4 consensus
-lookback_months = 12
+lookback_months = 12                     # bootstrap uses same window as pool construction
 min_positions = 3
 min_bayesian_hr = 0.75               # strict tier
 min_high_pct = 0.20                  # at least 20% HIGH-susceptibility markets
