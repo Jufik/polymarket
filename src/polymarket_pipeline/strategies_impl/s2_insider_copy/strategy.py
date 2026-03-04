@@ -86,6 +86,7 @@ class InsiderCopyConfig:
     categories: list[str] = field(default_factory=list)
     take_profit_daily_pct: float = 0.0
     min_days_to_take_profit: int = 7
+    max_positions: int = 100  # capacity guard — stop emitting above this
 
 
 # Categories that must NEVER be traded — hardcoded safety net on top of
@@ -116,7 +117,7 @@ class InsiderCopyStrategy:
         self._debug_counters: dict[str, int] = {
             "total": 0, "not_buy": 0, "price_gate": 0, "no_pool": 0,
             "not_insider": 0, "low_consensus": 0, "dup_position": 0,
-            "category_blocked": 0, "emitted": 0,
+            "category_blocked": 0, "capacity_full": 0, "emitted": 0,
         }
         self._debug_last_log: float = 0.0
 
@@ -127,6 +128,7 @@ class InsiderCopyStrategy:
     ) -> list[TradeIntent] | None:
         cid = trade.condition_id
         price = float(trade.price)
+        now_mono = _time.monotonic()
 
         # --- Stop-loss check on existing positions ---
         if cid in self._entries:
@@ -166,11 +168,17 @@ class InsiderCopyStrategy:
                             asset_id=entry_asset_id,
                         ),
                     ]
+            else:
+                # No position — clean up stale entries (rejected/unfilled intents)
+                # so they don't permanently consume capacity slots.
+                entry = self._entries[cid]
+                created = entry.get("_created_mono", 0.0)
+                if created > 0 and now_mono - created > 300.0:
+                    del self._entries[cid]
             return None
 
         # --- Debug: periodic summary every 60s ---
         self._debug_counters["total"] += 1
-        now_mono = _time.monotonic()
         if now_mono - self._debug_last_log > 60.0:
             self._debug_last_log = now_mono
             logger.warning(
@@ -246,6 +254,13 @@ class InsiderCopyStrategy:
             self._debug_counters["dup_position"] += 1
             return None
 
+        # Capacity guard: stop emitting when entries dict is full.
+        # _entries holds both active positions and pending/rejected intents.
+        # Stale rejected entries are cleaned up after 5min in stop-loss path.
+        if len(self._entries) >= self._cfg.max_positions:
+            self._debug_counters["capacity_full"] += 1
+            return None
+
         outcome = effective.get("direction", direction)
 
         # Resolve outcome-specific asset_id and insider's fill price
@@ -296,6 +311,7 @@ class InsiderCopyStrategy:
             "outcome": outcome,
             "entry_time": trade.published_at,
             "asset_id": outcome_asset_id,
+            "_created_mono": now_mono,
         }
 
         return [
@@ -424,6 +440,8 @@ def create_insider_copy_strategy(config: Any) -> InsiderCopyStrategy:
     Reads [strategy.*.params] from TOML and constructs InsiderCopyStrategy.
     """
     params = config.params if hasattr(config, "params") else {}
+    # max_positions defaults to TOML max_open_positions (capacity guard)
+    max_positions = getattr(config, "max_open_positions", 100)
     cfg = InsiderCopyConfig(
         min_consensus=params.get("min_consensus", 3),
         size_usd=params.get("size_usd", 50.0),
@@ -434,5 +452,6 @@ def create_insider_copy_strategy(config: Any) -> InsiderCopyStrategy:
         categories=params.get("categories", []),
         take_profit_daily_pct=params.get("take_profit_daily_pct", 0.0),
         min_days_to_take_profit=params.get("min_days_to_take_profit", 7),
+        max_positions=max_positions,
     )
     return InsiderCopyStrategy(cfg, name=config.name)
