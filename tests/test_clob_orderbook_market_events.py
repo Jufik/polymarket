@@ -70,7 +70,19 @@ async def test_new_market_broadcast_published(
 async def test_price_change_publishes_orderbook(
     ingestor: CLOBOrderbookIngestor, broker: AsyncMock
 ) -> None:
-    """price_changes messages (real WS format) go to orderbooks.raw."""
+    """price_changes messages (real WS format) go to orderbooks.raw with L2 depth."""
+    # Seed with a snapshot first so both sides are populated
+    snapshot = json.dumps([{
+        "market": "0xcond_abc",
+        "asset_id": "tok123",
+        "bids": [{"price": "0.54", "size": "50"}],
+        "asks": [{"price": "0.57", "size": "80"}],
+    }])
+    await ingestor._handle_message(snapshot)
+    broker.publish.assert_called_once()
+    broker.publish.reset_mock()
+
+    # Apply a BUY price_change
     msg = json.dumps({
         "market": "0xcond_abc",
         "price_changes": [{
@@ -78,8 +90,6 @@ async def test_price_change_publishes_orderbook(
             "price": "0.55",
             "size": "100",
             "side": "BUY",
-            "best_bid": "0.55",
-            "best_ask": "0.57",
         }],
     })
     await ingestor._handle_message(msg)
@@ -91,6 +101,7 @@ async def test_price_change_publishes_orderbook(
     assert payload["condition_id"] == "cond_abc"
     assert payload["best_bid"] == 0.55
     assert payload["best_ask"] == 0.57
+    assert len(payload["bids"]) == 2  # 0.55 + 0.54
 
 
 @pytest.mark.asyncio

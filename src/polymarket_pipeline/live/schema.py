@@ -63,26 +63,39 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS trades_kafka_mv TO trades_raw AS
 SELECT * FROM trades_kafka
 """
 
-ORDERBOOK_SNAPSHOTS_TABLE = """
-CREATE TABLE IF NOT EXISTS orderbook_snapshots (
-    condition_id    String,
-    asset_id        String,
-    best_bid        Float64,
-    best_ask        Float64,
-    timestamp       DateTime64(3, 'UTC'),
-    ingested_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
+# ======================================================================
+# Orderbook L2 (replaces old orderbook_snapshots)
+# ======================================================================
+
+ORDERBOOK_L2_TABLE = """
+CREATE TABLE IF NOT EXISTS orderbook_l2 (
+    condition_id    LowCardinality(String)              CODEC(ZSTD(9)),
+    asset_id        LowCardinality(String)              CODEC(ZSTD(9)),
+    best_bid        Float64                             CODEC(Delta, ZSTD(9)),
+    best_ask        Float64                             CODEC(Delta, ZSTD(9)),
+    bids            Array(Tuple(Float64, Float64))      CODEC(ZSTD(9)),
+    asks            Array(Tuple(Float64, Float64))      CODEC(ZSTD(9)),
+    bid_depth_usd   Float64                             CODEC(Delta, ZSTD(9)),
+    ask_depth_usd   Float64                             CODEC(Delta, ZSTD(9)),
+    timestamp       DateTime64(3, 'UTC')                CODEC(DoubleDelta, ZSTD(3)),
+    ingested_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC') CODEC(DoubleDelta, ZSTD(3))
 ) ENGINE = ReplacingMergeTree(timestamp)
-ORDER BY (condition_id, timestamp)
-PARTITION BY toYYYYMMDD(timestamp)
-TTL toDateTime(timestamp) + INTERVAL 7 DAY
+ORDER BY (condition_id, asset_id, timestamp)
+PARTITION BY toYYYYMM(timestamp)
+TTL toDateTime(timestamp) + INTERVAL 1 YEAR
 """
 
+# Kafka engine: bids/asks arrive as JSON arrays — read as String, parse in MV
 ORDERBOOK_KAFKA_TABLE = """
 CREATE TABLE IF NOT EXISTS orderbook_kafka (
     condition_id    String,
     asset_id        String,
     best_bid        Float64,
     best_ask        Float64,
+    bids            String,
+    asks            String,
+    bid_depth_usd   Float64,
+    ask_depth_usd   Float64,
     timestamp       Float64
 ) ENGINE = Kafka
 SETTINGS
@@ -95,16 +108,112 @@ SETTINGS
 """
 
 ORDERBOOK_KAFKA_MV = """
-CREATE MATERIALIZED VIEW IF NOT EXISTS orderbook_kafka_mv TO orderbook_snapshots AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS orderbook_kafka_mv TO orderbook_l2 AS
 SELECT
     condition_id,
     asset_id,
     best_bid,
     best_ask,
+    JSONExtract(bids, 'Array(Tuple(Float64, Float64))') AS bids,
+    JSONExtract(asks, 'Array(Tuple(Float64, Float64))') AS asks,
+    bid_depth_usd,
+    ask_depth_usd,
     toDateTime64(timestamp, 3, 'UTC') AS timestamp
 FROM orderbook_kafka
 """
 
+# ======================================================================
+# Orderbook aggregation bars
+# ======================================================================
+
+ORDERBOOK_BARS_1M_TABLE = """
+CREATE TABLE IF NOT EXISTS orderbook_bars_1m (
+    condition_id    LowCardinality(String),
+    asset_id        LowCardinality(String),
+    ts              DateTime64(0, 'UTC'),
+    bid_open        AggregateFunction(argMin, Float64, DateTime64(3)),
+    bid_close       AggregateFunction(argMax, Float64, DateTime64(3)),
+    bid_high        SimpleAggregateFunction(max, Float64),
+    bid_low         SimpleAggregateFunction(min, Float64),
+    ask_open        AggregateFunction(argMin, Float64, DateTime64(3)),
+    ask_close       AggregateFunction(argMax, Float64, DateTime64(3)),
+    ask_high        SimpleAggregateFunction(max, Float64),
+    ask_low         SimpleAggregateFunction(min, Float64),
+    avg_spread      AggregateFunction(avg, Float64),
+    avg_bid_depth   AggregateFunction(avg, Float64),
+    avg_ask_depth   AggregateFunction(avg, Float64),
+    samples         SimpleAggregateFunction(sum, UInt64)
+) ENGINE = AggregatingMergeTree()
+ORDER BY (condition_id, asset_id, ts)
+PARTITION BY toYYYYMM(ts)
+TTL toDateTime(ts) + INTERVAL 90 DAY
+"""
+
+ORDERBOOK_BARS_1M_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS orderbook_bars_1m_mv TO orderbook_bars_1m AS
+SELECT
+    condition_id,
+    asset_id,
+    toStartOfMinute(timestamp) AS ts,
+    argMinState(best_bid, timestamp) AS bid_open,
+    argMaxState(best_bid, timestamp) AS bid_close,
+    max(best_bid)                    AS bid_high,
+    min(best_bid)                    AS bid_low,
+    argMinState(best_ask, timestamp) AS ask_open,
+    argMaxState(best_ask, timestamp) AS ask_close,
+    max(best_ask)                    AS ask_high,
+    min(best_ask)                    AS ask_low,
+    avgState(best_ask - best_bid)    AS avg_spread,
+    avgState(bid_depth_usd)          AS avg_bid_depth,
+    avgState(ask_depth_usd)          AS avg_ask_depth,
+    toUInt64(count())                AS samples
+FROM orderbook_l2
+GROUP BY condition_id, asset_id, ts
+"""
+
+ORDERBOOK_BARS_1H_TABLE = """
+CREATE TABLE IF NOT EXISTS orderbook_bars_1h (
+    condition_id    LowCardinality(String),
+    asset_id        LowCardinality(String),
+    ts              DateTime64(0, 'UTC'),
+    bid_open        AggregateFunction(argMin, Float64, DateTime64(3)),
+    bid_close       AggregateFunction(argMax, Float64, DateTime64(3)),
+    bid_high        SimpleAggregateFunction(max, Float64),
+    bid_low         SimpleAggregateFunction(min, Float64),
+    ask_open        AggregateFunction(argMin, Float64, DateTime64(3)),
+    ask_close       AggregateFunction(argMax, Float64, DateTime64(3)),
+    ask_high        SimpleAggregateFunction(max, Float64),
+    ask_low         SimpleAggregateFunction(min, Float64),
+    avg_spread      AggregateFunction(avg, Float64),
+    avg_bid_depth   AggregateFunction(avg, Float64),
+    avg_ask_depth   AggregateFunction(avg, Float64),
+    samples         SimpleAggregateFunction(sum, UInt64)
+) ENGINE = AggregatingMergeTree()
+ORDER BY (condition_id, asset_id, ts)
+PARTITION BY toYYYYMM(ts)
+"""
+
+ORDERBOOK_BARS_1H_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS orderbook_bars_1h_mv TO orderbook_bars_1h AS
+SELECT
+    condition_id,
+    asset_id,
+    toStartOfHour(timestamp) AS ts,
+    argMinState(best_bid, timestamp) AS bid_open,
+    argMaxState(best_bid, timestamp) AS bid_close,
+    max(best_bid)                    AS bid_high,
+    min(best_bid)                    AS bid_low,
+    argMinState(best_ask, timestamp) AS ask_open,
+    argMaxState(best_ask, timestamp) AS ask_close,
+    max(best_ask)                    AS ask_high,
+    min(best_ask)                    AS ask_low,
+    avgState(best_ask - best_bid)    AS avg_spread,
+    avgState(bid_depth_usd)          AS avg_bid_depth,
+    avgState(ask_depth_usd)          AS avg_ask_depth,
+    toUInt64(count())                AS samples
+FROM orderbook_l2
+GROUP BY condition_id, asset_id, ts
+"""
 
 # ======================================================================
 # Derived feature tables (live-updating from trades_raw)
@@ -295,6 +404,17 @@ WHERE NOT (p.net_yes <= 0.01 AND p.net_no <= 0.01)
 """
 
 
+# ======================================================================
+# Statements to drop old orderbook tables before creating new ones
+# ======================================================================
+
+_DROP_OLD_ORDERBOOK = [
+    "DROP VIEW IF EXISTS orderbook_kafka_mv",
+    "DROP TABLE IF EXISTS orderbook_kafka",
+    "DROP TABLE IF EXISTS orderbook_snapshots",
+]
+
+
 def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> None:
     """Create all Kafka engine tables and materialized views.
 
@@ -305,11 +425,21 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
     clickhouse.execute(TRADES_RAW_TABLE)  # type: ignore[attr-defined]
     clickhouse.execute(TRADES_KAFKA_TABLE.format(broker_list=broker_list))  # type: ignore[attr-defined]
     clickhouse.execute(TRADES_KAFKA_MV)  # type: ignore[attr-defined]
-    clickhouse.execute(ORDERBOOK_SNAPSHOTS_TABLE)  # type: ignore[attr-defined]
+
+    # Drop old orderbook tables (safe — IF EXISTS)
+    for stmt in _DROP_OLD_ORDERBOOK:
+        clickhouse.execute(stmt)  # type: ignore[attr-defined]
+
+    # New L2 orderbook tables
+    clickhouse.execute(ORDERBOOK_L2_TABLE)  # type: ignore[attr-defined]
     clickhouse.execute(  # type: ignore[attr-defined]
         ORDERBOOK_KAFKA_TABLE.format(broker_list=broker_list)
     )
     clickhouse.execute(ORDERBOOK_KAFKA_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(ORDERBOOK_BARS_1M_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(ORDERBOOK_BARS_1M_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(ORDERBOOK_BARS_1H_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(ORDERBOOK_BARS_1H_MV)  # type: ignore[attr-defined]
 
     # Derived feature tables (must come after trades_raw)
     clickhouse.execute(TRADER_VOLUMES_TABLE)  # type: ignore[attr-defined]

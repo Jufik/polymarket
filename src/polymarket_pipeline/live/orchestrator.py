@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from polymarket_pipeline.live.ingestors._publish import safe_publish
-from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
 from polymarket_pipeline.live.ingestors.mempool import MempoolIngestor
 from polymarket_pipeline.live.ingestors.pending_block import PendingBlockIngestor
+from polymarket_pipeline.live.ingestors.rpc import RPCIngestor
 from polymarket_pipeline.live.ingestors.rtds import RTDSIngestor
 from polymarket_pipeline.live.quality.state import PipelineState
 
@@ -96,6 +96,14 @@ async def create_ingestors(
             ch_database=settings.ch_database,
             limit=settings.clob_orderbook_max_connections * 500,
         )
+
+        # Optional Redis orderbook cache
+        redis_client = None
+        if settings.redis_orderbook_enabled:
+            from polymarket_pipeline.live.redis_orderbook import create_redis_client
+
+            redis_client = await create_redis_client(settings.redis_url)
+
         clob_ob = CLOBOrderbookIngestor(
             broker=broker,
             ws_url=settings.clob_orderbook_ws_url,
@@ -105,6 +113,8 @@ async def create_ingestors(
             markets_events_topic=settings.clob_markets_events_topic,
             max_orderbook_connections=settings.clob_orderbook_max_connections,
             subscribe_asset_ids=open_assets,
+            redis_client=redis_client,
+            redis_orderbook_ttl_s=settings.redis_orderbook_ttl_s,
         )
         tasks.append(asyncio.create_task(clob_ob.run()))
 

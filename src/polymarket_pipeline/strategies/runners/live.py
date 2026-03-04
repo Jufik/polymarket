@@ -186,7 +186,10 @@ class LiveRunner:
                 if tokens:
                     asset_id = tokens.get(intent.outcome)
         if asset_id and hasattr(self.ctx, "get_orderbook_by_asset"):
-            ob = self.ctx.get_orderbook_by_asset(asset_id)
+            import asyncio
+
+            _result = self.ctx.get_orderbook_by_asset(asset_id)
+            ob = await _result if asyncio.iscoroutine(_result) else _result
         if ob is None:
             ob = self.ctx._orderbooks.get(intent.condition_id)  # noqa: SLF001 — runner owns ctx
 
@@ -377,13 +380,34 @@ class LiveRunner:
         if best_bid is None or best_ask is None:
             return
 
+        raw_bids = data.get("bids")
+        raw_asks = data.get("asks")
+        bids = (
+            tuple((float(lvl[0]), float(lvl[1])) for lvl in raw_bids)
+            if raw_bids
+            else ()
+        )
+        asks = (
+            tuple((float(lvl[0]), float(lvl[1])) for lvl in raw_asks)
+            if raw_asks
+            else ()
+        )
+        bid_depth = float(data["bid_depth_usd"]) if "bid_depth_usd" in data else sum(
+            p * s for p, s in bids
+        )
+        ask_depth = float(data["ask_depth_usd"]) if "ask_depth_usd" in data else sum(
+            p * s for p, s in asks
+        )
+
         ob = OrderbookSnapshot(
             condition_id=condition_id,
             best_bid=float(best_bid),
             best_ask=float(best_ask),
-            bid_depth=0.0,
-            ask_depth=0.0,
+            bid_depth=bid_depth,
+            ask_depth=ask_depth,
             timestamp=data.get("timestamp", time.time()),
+            bids=bids,
+            asks=asks,
         )
         asset_id = data.get("asset_id")
         self.ctx.set_orderbook(condition_id, ob, asset_id=asset_id)

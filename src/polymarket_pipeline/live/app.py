@@ -39,7 +39,7 @@ class _NullRunner:
 # Settings loaded at import time — overridable via PM_ env vars
 settings = Settings()
 
-broker = KafkaBroker(settings.redpanda_url)
+broker = KafkaBroker(settings.redpanda_url, compression_type="lz4", linger_ms=50)
 app = FastStream(broker)
 
 

@@ -103,6 +103,8 @@ class OrderbookSnapshot:
     bid_depth: float
     ask_depth: float
     timestamp: float
+    bids: tuple[tuple[float, float], ...] = ()  # [(price, size), ...] descending
+    asks: tuple[tuple[float, float], ...] = ()  # [(price, size), ...] ascending
 
     @property
     def spread(self) -> float:

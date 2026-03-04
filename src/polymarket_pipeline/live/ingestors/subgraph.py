@@ -190,7 +190,16 @@ class SubgraphPoller:
                 err_str = str(exc)
                 is_transient = any(
                     s in err_str
-                    for s in ("502", "503", "504", "timeout", "Timeout", "ConnectionError")
+                    for s in (
+                        "502",
+                        "503",
+                        "504",
+                        "timeout",
+                        "Timeout",
+                        "ConnectionError",
+                        "TransportConnectionFailed",
+                        "payload is not completed",
+                    )
                 )
                 if not is_transient or attempt == MAX_RETRIES - 1:
                     raise

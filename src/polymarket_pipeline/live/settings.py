@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # 60s keeps PG metadata fresh for time-sensitive strategies (S3: 5-min window).
     token_map_refresh_interval_s: int = 60
 
+    # Redis orderbook cache
+    redis_url: str = "redis://localhost:6379/0"
+    redis_orderbook_enabled: bool = False
+    redis_orderbook_ttl_s: int = 300
+
     # CLOB orderbook ingestor
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
