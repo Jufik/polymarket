@@ -102,6 +102,18 @@ def load_promotion_thresholds(path: Path) -> dict[str, Any]:
     return dict(raw.get("promotion", {}))
 
 
+def load_execution_config(path: Path) -> dict[str, Any]:
+    """Load execution config from the ``[execution]`` TOML section.
+
+    Returns a dict that can be unpacked into ``OrderConfig(**values)``.
+    If the section is missing, returns an empty dict (all defaults apply).
+    """
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+
+    return dict(raw.get("execution", {}))
+
+
 def load_provider_configs(
     path: Path,
     *,

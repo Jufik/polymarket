@@ -116,6 +116,14 @@ max_raw_hr = 0.99                    # exclude bots (raw HR — catches small-sa
 category_pools = ["sports"]          # sports-specific pool (no high_pct filter)
 
 # ---------------------------------------------------------------------------
+# Order lifecycle (patient resting limits for copy entries)
+# ---------------------------------------------------------------------------
+[execution]
+patient_timeout_s = 30
+patient_poll_interval_s = 2
+immediate_cancel_delay_s = 0.5
+
+# ---------------------------------------------------------------------------
 # Promotion gates (for pm-strategy promote)
 # ---------------------------------------------------------------------------
 [promotion]

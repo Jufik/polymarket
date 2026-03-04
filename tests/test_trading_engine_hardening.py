@@ -90,6 +90,12 @@ class MockClobClient:
         self.submitted.append(kwargs)
         return self._result
 
+    async def cancel_order(self, order_id: str) -> bool:
+        return True
+
+    async def get_open_orders(self, condition_id: str | None = None) -> list[Any]:
+        return []
+
 
 class MockPositionTracker:
     """Fake position tracker."""
@@ -190,7 +196,15 @@ async def test_budget_refunded_on_executor_exception() -> None:
 
 @pytest.mark.asyncio
 async def test_live_executor_rejects_when_no_fill_price() -> None:
-    """CLOB returns success=True but filled_price=None -> REJECTED (not 0.50)."""
+    """CLOB returns success=True but filled_price=None.
+
+    With urgency-based execution, this now dispatches to _execute_immediate.
+    If the order is still resting (returned by get_open_orders), it gets
+    cancelled → REJECTED (FOK semantics).
+    """
+    from polymarket_pipeline.execution.clob_client import OpenOrder
+    from polymarket_pipeline.strategies.execution.live import OrderConfig
+
     no_price_result = OrderResult(
         order_id="order-123",
         success=True,
@@ -198,14 +212,28 @@ async def test_live_executor_rejects_when_no_fill_price() -> None:
         filled_size=None,
     )
     clob = MockClobClient(result=no_price_result)
+    # Make get_open_orders return the order (still resting)
+    resting = OpenOrder(
+        order_id="order-123",
+        condition_id="0xabc123",
+        asset_id="asset_yes_abc123",
+        side="BUY",
+        price=0.60,
+        size=10.0,
+        size_matched=0.0,
+    )
+    clob.get_open_orders = AsyncMock(return_value=[resting])  # type: ignore[method-assign]
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker, token_market_map=_TEST_TOKEN_MAP)
+    executor = LiveExecutor(
+        clob, tracker, token_market_map=_TEST_TOKEN_MAP,
+        order_config=OrderConfig(immediate_cancel_delay_s=0.01),
+    )
 
     intent = _intent(size_usd=10.0, max_price=0.60)
     fill = await executor.execute(intent)
 
     assert fill.status == FillStatus.REJECTED
-    assert "no confirmed fill price" in (fill.error or "")
+    assert "FOK" in (fill.error or "")
     assert fill.filled_price == 0.0
     # No fill should be recorded in tracker
     assert len(tracker.recorded_fills) == 0
@@ -213,7 +241,13 @@ async def test_live_executor_rejects_when_no_fill_price() -> None:
 
 @pytest.mark.asyncio
 async def test_live_executor_rejects_zero_fill_price() -> None:
-    """CLOB returns filled_price=0.0 -> REJECTED."""
+    """CLOB returns filled_price=0.0 → dispatches to _execute_immediate.
+
+    Order still resting → cancelled → REJECTED.
+    """
+    from polymarket_pipeline.execution.clob_client import OpenOrder
+    from polymarket_pipeline.strategies.execution.live import OrderConfig
+
     zero_price_result = OrderResult(
         order_id="order-456",
         success=True,
@@ -221,14 +255,27 @@ async def test_live_executor_rejects_zero_fill_price() -> None:
         filled_size=10.0,
     )
     clob = MockClobClient(result=zero_price_result)
+    resting = OpenOrder(
+        order_id="order-456",
+        condition_id="0xabc123",
+        asset_id="asset_yes_abc123",
+        side="BUY",
+        price=0.60,
+        size=10.0,
+        size_matched=0.0,
+    )
+    clob.get_open_orders = AsyncMock(return_value=[resting])  # type: ignore[method-assign]
     tracker = MockPositionTracker()
-    executor = LiveExecutor(clob, tracker, token_market_map=_TEST_TOKEN_MAP)
+    executor = LiveExecutor(
+        clob, tracker, token_market_map=_TEST_TOKEN_MAP,
+        order_config=OrderConfig(immediate_cancel_delay_s=0.01),
+    )
 
     intent = _intent(size_usd=10.0, max_price=0.60)
     fill = await executor.execute(intent)
 
     assert fill.status == FillStatus.REJECTED
-    assert "no confirmed fill price" in (fill.error or "")
+    assert "FOK" in (fill.error or "")
 
 
 # ============================================================================

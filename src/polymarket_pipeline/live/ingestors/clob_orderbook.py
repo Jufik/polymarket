@@ -92,8 +92,10 @@ class CLOBOrderbookIngestor(BaseIngestor):
             return
         bids = entry.get("bids") or []
         asks = entry.get("asks") or []
-        best_bid = _safe_float(bids[0].get("price")) if bids and isinstance(bids[0], dict) else None
-        best_ask = _safe_float(asks[0].get("price")) if asks and isinstance(asks[0], dict) else None
+        bid_prices = [p for b in bids if isinstance(b, dict) and (p := _safe_float(b.get("price"))) is not None]
+        ask_prices = [p for a in asks if isinstance(a, dict) and (p := _safe_float(a.get("price"))) is not None]
+        best_bid = max(bid_prices) if bid_prices else None
+        best_ask = min(ask_prices) if ask_prices else None
         if best_bid is None or best_ask is None:
             return
         mapping = self._token_map.get(asset_id)

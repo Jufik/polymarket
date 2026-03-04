@@ -175,7 +175,7 @@ class ExecutionGateway:
 
         # Adjust budget: we reserved above; refund if not filled.
         async with self._budget_lock:
-            if fill.status == FillStatus.FILLED:
+            if fill.status in (FillStatus.FILLED, FillStatus.PARTIAL):
                 # Correct reservation to actual fill size (may differ from intent)
                 reserved = intent.size_usd
                 actual = fill.filled_size_usd

@@ -468,9 +468,9 @@ export default function Dashboard() {
                 <th className="p-3 text-left">Time</th>
                 <th className="p-3 text-left">Strategy</th>
                 <th className="p-3 text-left">Market</th>
-                <th className="p-3 text-left">Action</th>
+                <th className="p-3 text-center">Bet</th>
                 <th className="p-3 text-right">Size</th>
-                <th className="p-3 text-right">Price</th>
+                <th className="p-3 text-right">Entry</th>
                 <th className="p-3 text-left">Status</th>
                 <th className="p-3 text-left">Countdown</th>
                 <th className="p-3 text-left">Reason</th>
@@ -505,15 +505,19 @@ export default function Dashboard() {
                       i.question || i.condition_id.slice(0, 10) + "..."
                     )}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 text-center">
                     <span
-                      className={
-                        i.side === "BUY" ? "text-green-400" : "text-red-400"
-                      }
+                      className={`inline-block px-1.5 py-0.5 text-xs rounded font-semibold ${
+                        i.outcome === "YES"
+                          ? "bg-green-900/50 text-green-400"
+                          : "bg-red-900/50 text-red-400"
+                      }`}
                     >
-                      {i.side}
-                    </span>{" "}
-                    <span className="text-gray-400">{i.outcome}</span>
+                      {i.outcome}
+                    </span>
+                    {i.side === "SELL" && (
+                      <span className="text-[10px] text-gray-500 ml-1">EXIT</span>
+                    )}
                   </td>
                   <td className="p-3 text-right font-mono">
                     ${i.size_usd.toFixed(2)}
@@ -522,11 +526,8 @@ export default function Dashboard() {
                     {i.filled_price != null
                       ? `$${i.filled_price.toFixed(4)}`
                       : i.max_price != null
-                        ? `≤$${i.max_price.toFixed(4)}`
+                        ? `\u2264$${i.max_price.toFixed(4)}`
                         : "-"}
-                    {(i.filled_price != null || i.max_price != null) && (
-                      <span className="text-xs text-gray-500 ml-1">({i.outcome})</span>
-                    )}
                   </td>
                   <td className="p-3">
                     <span className={dispositionColor(i.disposition)}>

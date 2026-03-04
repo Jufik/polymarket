@@ -296,8 +296,8 @@ class ClobClient:
                     )
                     return None
 
-                best_bid = float(bids[0]["price"])
-                best_ask = float(asks[0]["price"])
+                best_bid = max(float(b["price"]) for b in bids)
+                best_ask = min(float(a["price"]) for a in asks)
                 ob = ClobOrderbook(
                     best_bid=best_bid,
                     best_ask=best_ask,

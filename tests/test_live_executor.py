@@ -28,6 +28,12 @@ class MockClobClient:
         self.submitted.append(kwargs)
         return self._result
 
+    async def cancel_order(self, order_id: str) -> bool:
+        return True
+
+    async def get_open_orders(self, condition_id: str | None = None) -> list[Any]:
+        return []
+
 
 class MockPositionTracker:
     """Fake position tracker that records fills in memory."""

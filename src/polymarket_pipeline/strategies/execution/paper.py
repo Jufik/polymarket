@@ -48,6 +48,7 @@ class PaperExecutor:
         clob_client: ClobClient | None = None,
         token_map: dict[str, dict[str, str]] | None = None,
         fee_pct: float = 0.0,
+        order_config: Any | None = None,
     ) -> None:
         self._ctx = ctx
         self._clob = clob_client
