@@ -43,7 +43,7 @@ QUESTION_RESOLVED_SIG = "0x566c3fbd0982e206be981f8d7a42e3e436525258ecc0adc044023
 RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 _QUEUE_MAXSIZE = 5000  # backpressure bound between WS read and publish
-_PUBLISH_WORKERS = 4  # concurrent publish coroutines draining the queue
+_PUBLISH_WORKERS = 8  # concurrent publish coroutines draining the queue
 _STALE_TIMEOUT = 120.0  # Force reconnect if no messages for 2 minutes
 _DEDUP_TTL_S = 60.0  # TTL for cross-endpoint trade dedup
 
