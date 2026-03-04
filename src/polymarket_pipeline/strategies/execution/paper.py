@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -81,7 +82,8 @@ class PaperExecutor:
 
         # --- Source 1: WS orderbook snapshot (by asset_id) ---
         if asset_id is not None and hasattr(self._ctx, "get_orderbook_by_asset"):
-            ob = self._ctx.get_orderbook_by_asset(asset_id)
+            _result = self._ctx.get_orderbook_by_asset(asset_id)
+            ob = await _result if asyncio.iscoroutine(_result) else _result
             if ob is not None:
                 price_val = ob.best_ask if intent.side == "BUY" else ob.best_bid
                 if price_val > 0:

@@ -165,8 +165,21 @@ def _build_runner(
     exec_raw = load_execution_config(config_path)
     order_config = OrderConfig(**exec_raw) if exec_raw else OrderConfig()
 
-    # Assemble
-    ctx = InMemoryContext()
+    # Assemble — optionally use Redis-backed context for orderbook reads
+    from polymarket_pipeline.live.settings import Settings as _LiveSettings
+
+    _live_settings = _LiveSettings()
+    if _live_settings.redis_orderbook_enabled:
+        import redis.asyncio as aioredis
+
+        from polymarket_pipeline.strategies.context.redis import RedisContext
+
+        _redis_client = aioredis.from_url(
+            _live_settings.redis_url, decode_responses=False
+        )
+        ctx = RedisContext(redis=_redis_client, inner=InMemoryContext())
+    else:
+        ctx = InMemoryContext()
     # ClobClient for CLOB REST API price verification (public, no auth needed)
     from polymarket_pipeline.execution.clob_client import ClobClient
 
@@ -263,7 +276,7 @@ def run(
         from polymarket_pipeline.live.settings import Settings
 
         settings = Settings()
-        broker = KafkaBroker(settings.redpanda_url)
+        broker = KafkaBroker(settings.redpanda_url, compression_type="lz4", linger_ms=50)
 
         # SIGUSR1 → reset all paper state (positions, budgets, counters)
         loop = asyncio.get_running_loop()

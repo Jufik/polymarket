@@ -8,8 +8,9 @@ Runs two kinds of WebSocket connections:
 
 2. **Targeted** (batches of ≤500 asset IDs):
    Receives ``price_change`` events and initial orderbook snapshots for
-   subscribed assets, publishing best_bid/best_ask to ``orderbooks.raw``.
-   Multiple connections are spawned to cover more assets.
+   subscribed assets.  Maintains an in-memory L2 orderbook per asset via the
+   ``order-book`` C library, publishing top-10 depth to ``orderbooks.raw``
+   **only when the top-10 levels change** (95%+ dedup).
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from typing import Any
 
 import structlog
 import websockets
+from order_book import OrderBook
 
 from polymarket_pipeline.live.ingestors._publish import safe_publish
 from polymarket_pipeline.live.ingestors.base import BaseIngestor
@@ -31,6 +33,8 @@ RECONNECT_BASE = 1.0
 RECONNECT_MAX = 60.0
 _MAX_ASSETS_PER_WS = 500
 _FIREHOSE_STALE_TIMEOUT = 120.0  # Force reconnect if firehose silent for 2 min
+_OB_MAX_DEPTH = 15  # C lib depth (keep a few extra beyond published 10)
+_PUBLISH_DEPTH = 10  # Levels published to Kafka
 
 
 class CLOBOrderbookIngestor(BaseIngestor):
@@ -48,6 +52,8 @@ class CLOBOrderbookIngestor(BaseIngestor):
         markets_events_topic: str = "markets.events",
         max_orderbook_connections: int = 4,
         subscribe_asset_ids: list[str] | None = None,
+        redis_client: Any | None = None,
+        redis_orderbook_ttl_s: int = 300,
     ) -> None:
         super().__init__(broker=broker, topic=topic, status_topic=status_topic)
         self._ws_url = ws_url
@@ -57,6 +63,42 @@ class CLOBOrderbookIngestor(BaseIngestor):
         self._subscribe_assets = subscribe_asset_ids or []
         self._update_count: int = 0
         self._market_event_count: int = 0
+        # L2 orderbook state
+        self._books: dict[str, OrderBook] = {}
+        self._prev_tops: dict[str, tuple[Any, ...]] = {}
+        self._skipped_unchanged: int = 0
+        # Redis orderbook cache
+        self._redis = redis_client
+        self._redis_ttl_s = redis_orderbook_ttl_s
+        self._redis_writes: int = 0
+
+    # ── L2 book helpers ───────────────────────────────────────────────
+
+    def _get_or_create_book(self, asset_id: str) -> OrderBook:
+        book = self._books.get(asset_id)
+        if book is None:
+            book = OrderBook(max_depth=_OB_MAX_DEPTH)
+            self._books[asset_id] = book
+        return book
+
+    @staticmethod
+    def _clear_book(book: OrderBook) -> None:
+        """Remove all levels from a book (truncate() segfaults in C lib)."""
+        for price in list(book.bids.keys()):
+            del book.bids[price]
+        for price in list(book.asks.keys()):
+            del book.asks[price]
+
+    @staticmethod
+    def _extract_top_n(
+        book: OrderBook, n: int = _PUBLISH_DEPTH
+    ) -> tuple[list[list[float]], list[list[float]]]:
+        """Extract top-N bid/ask levels. Uses list() to avoid C lib iteration crash."""
+        bid_prices = list(book.bids.keys())[:n]
+        bids = [[p, float(book.bids[p])] for p in bid_prices]
+        ask_prices = list(book.asks.keys())[:n]
+        asks = [[p, float(book.asks[p])] for p in ask_prices]
+        return bids, asks
 
     # ── message handling ─────────────────────────────────────────────
 
@@ -86,44 +128,115 @@ class CLOBOrderbookIngestor(BaseIngestor):
             await self._process_market_event(msg)
 
     async def _process_orderbook_snapshot(self, entry: dict[str, Any]) -> None:
-        """Extract best_bid/best_ask from an initial orderbook snapshot."""
+        """Apply a full orderbook snapshot into the C book, then publish."""
         asset_id = entry.get("asset_id")
         if not asset_id:
             return
-        bids = entry.get("bids") or []
-        asks = entry.get("asks") or []
-        bid_prices = [p for b in bids if isinstance(b, dict) and (p := _safe_float(b.get("price"))) is not None]
-        ask_prices = [p for a in asks if isinstance(a, dict) and (p := _safe_float(a.get("price"))) is not None]
-        best_bid = max(bid_prices) if bid_prices else None
-        best_ask = min(ask_prices) if ask_prices else None
-        if best_bid is None or best_ask is None:
-            return
+
+        book = self._get_or_create_book(asset_id)
+        self._clear_book(book)
+
+        for b in entry.get("bids") or []:
+            if not isinstance(b, dict):
+                continue
+            price = _safe_float(b.get("price"))
+            size = _safe_float(b.get("size"))
+            if price is not None and size is not None and size > 0:
+                book.bids[price] = size
+
+        for a in entry.get("asks") or []:
+            if not isinstance(a, dict):
+                continue
+            price = _safe_float(a.get("price"))
+            size = _safe_float(a.get("size"))
+            if price is not None and size is not None and size > 0:
+                book.asks[price] = size
+
         mapping = self._token_map.get(asset_id)
         condition_id = mapping[0] if mapping else entry.get("market", asset_id)
-        await self._publish_snapshot(condition_id, asset_id, best_bid, best_ask)
+        await self._maybe_publish(condition_id, asset_id, book, force=True)
 
     async def _process_price_change(self, event: dict[str, Any]) -> None:
-        """Extract best_bid/best_ask from a price_change event and publish."""
+        """Apply incremental price changes to the C book, then publish if changed."""
         for change in event.get("price_changes") or []:
             asset_id = change.get("asset_id")
             if not asset_id:
                 continue
-            best_bid = _safe_float(change.get("best_bid"))
-            best_ask = _safe_float(change.get("best_ask"))
-            if best_bid is None or best_ask is None:
-                continue
+
+            price = _safe_float(change.get("price"))
+            size = _safe_float(change.get("size"))
+            side = change.get("side")
+
+            book = self._get_or_create_book(asset_id)
+
+            if price is not None and side is not None:
+                # Incremental L2 update
+                if side == "BUY":
+                    if size is not None and size > 0:
+                        book.bids[price] = size
+                    elif price in book.bids:
+                        del book.bids[price]
+                elif side == "SELL":
+                    if size is not None and size > 0:
+                        book.asks[price] = size
+                    elif price in book.asks:
+                        del book.asks[price]
+            else:
+                # Old-style event with only best_bid/best_ask (no level detail)
+                best_bid = _safe_float(change.get("best_bid"))
+                best_ask = _safe_float(change.get("best_ask"))
+                if best_bid is None or best_ask is None:
+                    continue
+                # Seed a 1-level book from the provided BBO
+                self._clear_book(book)
+                book.bids[best_bid] = 1.0
+                book.asks[best_ask] = 1.0
+
             mapping = self._token_map.get(asset_id)
             condition_id = mapping[0] if mapping else event.get("market", asset_id)
-            await self._publish_snapshot(condition_id, asset_id, best_bid, best_ask)
+            await self._maybe_publish(condition_id, asset_id, book)
 
-    async def _publish_snapshot(
-        self, condition_id: str, asset_id: str, best_bid: float, best_ask: float
+    async def _maybe_publish(
+        self,
+        condition_id: str,
+        asset_id: str,
+        book: OrderBook,
+        force: bool = False,
     ) -> None:
+        """Publish top-N depth to Kafka, skipping if unchanged."""
+        bids, asks = self._extract_top_n(book)
+
+        if not bids and not asks:
+            return
+
+        # Build hashable fingerprint for change detection
+        fingerprint = (
+            tuple(tuple(lvl) for lvl in bids),
+            tuple(tuple(lvl) for lvl in asks),
+        )
+
+        if not force:
+            prev = self._prev_tops.get(asset_id)
+            if prev == fingerprint:
+                self._skipped_unchanged += 1
+                return
+
+        self._prev_tops[asset_id] = fingerprint
+
+        best_bid = bids[0][0] if bids else 0.0
+        best_ask = asks[0][0] if asks else 0.0
+        bid_depth_usd = sum(p * s for p, s in bids)
+        ask_depth_usd = sum(p * s for p, s in asks)
+
         snapshot = {
             "condition_id": condition_id,
             "asset_id": asset_id,
             "best_bid": best_bid,
             "best_ask": best_ask,
+            "bids": bids,
+            "asks": asks,
+            "bid_depth_usd": bid_depth_usd,
+            "ask_depth_usd": ask_depth_usd,
             "timestamp": time.time(),
         }
         await safe_publish(
@@ -134,6 +247,14 @@ class CLOBOrderbookIngestor(BaseIngestor):
             source="clob_orderbook",
         )
         self._update_count += 1
+
+        if self._redis is not None:
+            from polymarket_pipeline.live.redis_orderbook import write_orderbook
+
+            await write_orderbook(
+                self._redis, condition_id, asset_id, snapshot, self._redis_ttl_s
+            )
+            self._redis_writes += 1
 
     async def _process_new_market(self, event: dict[str, Any]) -> None:
         """Forward new market broadcast to the events topic."""
@@ -175,6 +296,9 @@ class CLOBOrderbookIngestor(BaseIngestor):
         return {
             "update_count": self._update_count,
             "market_event_count": self._market_event_count,
+            "books_tracked": len(self._books),
+            "skipped_unchanged": self._skipped_unchanged,
+            "redis_writes": self._redis_writes,
         }
 
     # ── connection management ────────────────────────────────────────
