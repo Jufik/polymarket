@@ -30,12 +30,12 @@ The table is a materialized cache of function outputs, tagged with `as_of`.
 
 ```sql
 -- Both tables have the same shape:
--- (entity_id, label, tier, score, as_of, rule_version, computed_at)
--- as_of: Date — data cutoff used to derive this row (point-in-time correctness)
+-- (entity_id, label, tier, score, rule_version, computed_at)
 -- tier: 1=strongest signal, 5=weakest
 -- score: optional continuous value for ranking within a label
 -- rule_version: bump when classification logic changes
--- ORDER BY (label, as_of, entity_id)
+-- ORDER BY (label, entity_id)
+-- Table is a CACHE — repopulated by running rule functions before use
 ```
 
 ### Rule file convention
@@ -73,7 +73,7 @@ WHERE timestamp <= toDateTime('{cutoff}')
 2. Move promoted rules to production directory
 3. Set up scheduled refresh (cron-driven `populate_all(cutoff=today)`)
 4. Manage schema migrations (009+)
-5. Ensure point-in-time correctness (`as_of` always present)
+5. Ensure point-in-time correctness (rules use `{cutoff}` parameter)
 
 ## Modification Rules
 

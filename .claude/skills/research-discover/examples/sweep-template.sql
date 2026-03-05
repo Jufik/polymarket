@@ -13,15 +13,14 @@
 WITH filtered_traders AS (
     SELECT trader
     FROM (SELECT trader FROM trader_classifications FINAL
-          WHERE label = 'bot' AND as_of = toDate('{cutoff}')) bots
+          WHERE label = 'bot') bots
     -- Example: exclude bots. Adapt to your needs.
     -- For inclusion: WHERE label = 'insider_score' AND tier <= 2 AND as_of = toDate('{cutoff}')
 ),
 filtered_markets AS (
     SELECT condition_id
     FROM (SELECT condition_id, tier FROM market_classifications FINAL
-          WHERE label = 'susceptibility'
-            AND as_of = toDate('{cutoff}')) mc
+          WHERE label = 'susceptibility') mc
     WHERE mc.tier >= 2  -- exclude gambling (tier=1)
 ),
 
