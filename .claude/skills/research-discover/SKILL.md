@@ -34,30 +34,31 @@ classification tables and views. Each query should be <50 lines.
 
 ### TEMPORAL CLASSIFICATIONS (MANDATORY)
 
-Classifications are **functions** `f(cutoff) → rows`. Every query MUST use `as_of` filtering
-to ensure point-in-time correctness. The `{cutoff}` placeholder is substituted at runtime.
+Classifications are **functions** `f(cutoff) → rows`. The table is a **cache** — repopulated
+before each use. Temporal correctness lives in the function, not the table.
 
-**NEVER query classifications without `as_of`** — that leaks future data into backtests.
+**Before any sweep or backtest**, repopulate classifications with the correct cutoff:
+```python
+populate_all(cutoff=backtest_date)  # or fold_train_end for walk-forward
+```
 
 #### Classification tables (taxonomy layer):
 
 ```sql
--- Exclude bots (point-in-time)
+-- Exclude bots
 LEFT JOIN (SELECT trader FROM trader_classifications FINAL
-           WHERE label = 'bot' AND as_of = toDate('{cutoff}')) bots
+           WHERE label = 'bot') bots
     ON t.maker = bots.trader
 WHERE bots.trader IS NULL
 
--- Only insider-susceptible markets (point-in-time)
+-- Only insider-susceptible markets
 INNER JOIN (SELECT condition_id FROM market_classifications FINAL
-            WHERE label = 'susceptibility' AND tier >= 2
-              AND as_of = toDate('{cutoff}')) mkt
+            WHERE label = 'susceptibility' AND tier >= 2) mkt
     ON t.condition_id = mkt.condition_id
 
--- Score-based filtering (point-in-time)
+-- Score-based filtering
 INNER JOIN (SELECT trader, score FROM trader_classifications FINAL
-            WHERE label = 'insider_score' AND tier <= 2
-              AND as_of = toDate('{cutoff}')) insiders
+            WHERE label = 'insider_score' AND tier <= 2) insiders
     ON t.maker = insiders.trader
 ```
 
@@ -70,7 +71,7 @@ INNER JOIN (SELECT trader, score FROM trader_classifications FINAL
    -- schedule: manual
    -- description: Traders with avg BUY price > 0.90 across > 20 markets before cutoff
    INSERT INTO trader_classifications
-   SELECT maker, 'sure_trader', tier, avg_price, toDate('{cutoff}'), 1, now64(3, 'UTC')
+   SELECT maker, 'sure_trader', tier, avg_price, 1, now64(3, 'UTC')
    FROM (
        SELECT maker,
               avg(price) AS avg_price,
@@ -108,14 +109,14 @@ Score: avg(price) as continuous score
 | `markets_resolved` | VIEW | Resolution data (condition_id, asset_id, outcome, token_won) |
 | `trader_trade_agg` | SummingMergeTree | Per (trader, condition_id, asset_id) aggregation |
 | `trader_volumes` | SummingMergeTree | maker_vol, taker_vol per trader |
-| `trader_classifications` | ReplacingMergeTree | Trader taxonomy — temporal, use `as_of` filter |
-| `market_classifications` | ReplacingMergeTree | Market taxonomy — temporal, use `as_of` filter |
+| `trader_classifications` | ReplacingMergeTree | Trader taxonomy — cache, repopulate before use |
+| `market_classifications` | ReplacingMergeTree | Market taxonomy — cache, repopulate before use |
 
 ### SQL conventions:
 - Always use `FROM (SELECT * FROM table FINAL) alias` NOT `FROM table FINAL AS alias`
 - Compare hit rates against base: NO 62%, YES 38%
 - SELL handling is a research parameter — test BUY-only vs directional SELL mapping (see `pitfalls/sell_is_exit.md`)
-- **JOIN classification tables with `as_of`** — never re-derive inline, never omit temporal filter
+- **JOIN classification tables** — never re-derive inline; repopulate with correct cutoff before use
 - Keep queries under 50 lines by composing building blocks
 
 ## Step 2: Parameter Sweep

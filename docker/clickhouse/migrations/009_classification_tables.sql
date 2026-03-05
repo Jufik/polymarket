@@ -1,26 +1,24 @@
--- Migration 009: Temporal classification tables for trader and market taxonomy
+-- Migration 009: Classification tables for trader and market taxonomy
 --
 -- Classifications are FUNCTIONS: f(cutoff) → rows.
--- Each row is tagged with `as_of` — the data cutoff date used to derive it.
--- This ensures point-in-time correctness for backtesting.
+-- Each rule is a parameterized .sql file with a {cutoff} placeholder.
+-- The table is a materialized cache — repopulated before each use.
 --
--- "Migration" means: create a rule .sql file and schedule its refresh.
--- The table is a materialized cache of function outputs.
+-- Temporal correctness lives in the FUNCTION, not the table.
+-- Before a backtest: populate(cutoff=backtest_date)
+-- Before paper trading: populate(cutoff=today) on schedule
 --
 -- Usage:
---   -- Bots as of a specific date (point-in-time)
---   SELECT trader FROM trader_classifications FINAL
---   WHERE label = 'bot' AND as_of = toDate('2025-09-01')
+--   SELECT trader FROM trader_classifications FINAL WHERE label = 'bot'
 --
---   -- Compose: non-bot traders in non-gambling markets (temporal)
+--   -- Compose: non-bot traders in non-gambling markets
 --   SELECT t.maker, t.condition_id
 --   FROM (SELECT * FROM trades_raw FINAL) t
 --   LEFT JOIN (SELECT trader FROM trader_classifications FINAL
---              WHERE label = 'bot' AND as_of = toDate('{cutoff}')) bots
+--              WHERE label = 'bot') bots
 --       ON t.maker = bots.trader
 --   INNER JOIN (SELECT condition_id FROM market_classifications FINAL
---               WHERE label = 'susceptibility' AND tier >= 2
---                 AND as_of = toDate('{cutoff}')) mkt
+--               WHERE label = 'susceptibility' AND tier >= 2) mkt
 --       ON t.condition_id = mkt.condition_id
 --   WHERE bots.trader IS NULL
 
@@ -29,19 +27,17 @@ CREATE TABLE IF NOT EXISTS trader_classifications (
     label           String,
     tier            UInt8,
     score           Float64 DEFAULT 0,
-    as_of           Date,
     rule_version    UInt16 DEFAULT 1,
     computed_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
 ) ENGINE = ReplacingMergeTree(rule_version)
-ORDER BY (label, as_of, trader);
+ORDER BY (label, trader);
 
 CREATE TABLE IF NOT EXISTS market_classifications (
     condition_id    String,
     label           String,
     tier            UInt8,
     score           Float64 DEFAULT 0,
-    as_of           Date,
     rule_version    UInt16 DEFAULT 1,
     computed_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
 ) ENGINE = ReplacingMergeTree(rule_version)
-ORDER BY (label, as_of, condition_id);
+ORDER BY (label, condition_id);
