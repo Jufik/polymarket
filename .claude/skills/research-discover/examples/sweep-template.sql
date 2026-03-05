@@ -1,23 +1,27 @@
--- Vectorized signal sweep template (composable pattern)
+-- Vectorized signal sweep template (composable, temporal)
 --
--- RULE: JOIN classification tables, never re-derive inline.
--- If a classification you need doesn't exist, propose it in notes.md.
+-- RULES:
+--   1. JOIN classification tables, never re-derive inline.
+--   2. ALWAYS use as_of = toDate('{cutoff}') for point-in-time correctness.
+--   3. If a classification you need doesn't exist, write a rule .sql file.
 --
--- Replace {SIGNAL_COLUMN}, {THRESHOLD} with hypothesis-specific values.
+-- Replace {SIGNAL_COLUMN}, {THRESHOLD}, {cutoff} with hypothesis-specific values.
 -- Required output: condition_id, signal_value, outcome, resolved_at
 -- Compare hit rate against base rate: NO wins 62%, YES wins 38%
 
--- Step 1: Filter entities via classification tables
+-- Step 1: Filter entities via classification tables (point-in-time)
 WITH filtered_traders AS (
     SELECT trader
-    FROM (SELECT trader FROM trader_classifications FINAL WHERE label = 'bot') bots
+    FROM (SELECT trader FROM trader_classifications FINAL
+          WHERE label = 'bot' AND as_of = toDate('{cutoff}')) bots
     -- Example: exclude bots. Adapt to your needs.
-    -- For inclusion: WHERE label = 'insider_score' AND tier <= 2
+    -- For inclusion: WHERE label = 'insider_score' AND tier <= 2 AND as_of = toDate('{cutoff}')
 ),
 filtered_markets AS (
     SELECT condition_id
     FROM (SELECT condition_id, tier FROM market_classifications FINAL
-          WHERE label = 'susceptibility') mc
+          WHERE label = 'susceptibility'
+            AND as_of = toDate('{cutoff}')) mc
     WHERE mc.tier >= 2  -- exclude gambling (tier=1)
 ),
 
