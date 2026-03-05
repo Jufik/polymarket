@@ -13,26 +13,67 @@ may modify them. All changes must be generic improvements, not strategy-specific
 | `src/polymarket_pipeline/strategies/config.py` | StrategyConfig, HarnessConfig, TOML loaders |
 | `src/polymarket_pipeline/cli/harness.py` | pm-harness CLI entry point |
 | `docker/clickhouse/migrations/009+` | Classification table migrations (taxonomy layer) |
+| `docker/clickhouse/classifications/` | Production classification rule `.sql` files |
 
-## Classification Tables (Taxonomy Layer)
+## Classification-as-Function (Taxonomy Layer)
 
-The Architect owns `trader_classifications` and `market_classifications` in ClickHouse.
-When the Researcher proposes a new classification in their `notes.md`, the Architect:
+The Architect owns `trader_classifications` and `market_classifications` in ClickHouse,
+plus the production classification rule files.
 
-1. Reviews the proposed rule and SQL sketch
-2. Writes a new numbered migration (`010_classify_bots.sql`, `011_classify_sure_traders.sql`, etc.)
-3. The migration INSERTs into the appropriate classification table
-4. Uses `rule_version` to allow future updates (ReplacingMergeTree deduplicates on version bump)
-5. Runs the migration on remote CH (`192.168.0.148:18123`)
+### Core concept
 
-### Classification table schema:
+A classification is a **function** `f(cutoff) → rows`, not a static row dump.
+Each rule is a parameterized `.sql` file with a `{cutoff}` placeholder.
+The table is a materialized cache of function outputs, tagged with `as_of`.
+
+### Schema
+
 ```sql
 -- Both tables have the same shape:
--- (entity_id, label, tier, score, rule_version, computed_at)
+-- (entity_id, label, tier, score, as_of, rule_version, computed_at)
+-- as_of: Date — data cutoff used to derive this row (point-in-time correctness)
 -- tier: 1=strongest signal, 5=weakest
 -- score: optional continuous value for ranking within a label
 -- rule_version: bump when classification logic changes
+-- ORDER BY (label, as_of, entity_id)
 ```
+
+### Rule file convention
+
+```sql
+-- file: classifications/{entity}_{label}.sql
+-- label: {label} | entity: trader|market | version: {N}
+-- schedule: daily|weekly|manual
+-- description: Human-readable description
+INSERT INTO {entity}_classifications
+SELECT ..., toDate('{cutoff}') AS as_of, {version} AS rule_version, now64(3, 'UTC')
+FROM (...)
+WHERE timestamp <= toDateTime('{cutoff}')
+```
+
+### Rule storage
+
+| Location | Purpose | Who writes |
+|----------|---------|------------|
+| `docker/clickhouse/classifications/` | Production rules (reviewed, scheduled) | Architect |
+| `research/hypotheses/{slug}/classifications/` | Hypothesis-local rules (testing) | Researcher |
+
+### Promotion workflow
+
+1. Researcher writes rule in hypothesis `classifications/` folder, tests via `populate()`
+2. Researcher proposes in `discovery/notes.md` when rule proves useful
+3. Lead routes to Architect
+4. Architect reviews rule, moves to `docker/clickhouse/classifications/`
+5. Architect sets up scheduled refresh
+6. Production rule available to all future research
+
+### Architect responsibilities
+
+1. Review proposed rules for correctness and performance
+2. Move promoted rules to production directory
+3. Set up scheduled refresh (cron-driven `populate_all(cutoff=today)`)
+4. Manage schema migrations (009+)
+5. Ensure point-in-time correctness (`as_of` always present)
 
 ## Modification Rules
 

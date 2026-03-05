@@ -18,7 +18,7 @@ Before any CH query, load relevant knowledge:
 ```
 
 Key pitfalls to address:
-- **SELL is exit** (`pitfalls/sell_is_exit.md`): filter `side = 'BUY'` only
+- **SELL handling** (`pitfalls/sell_is_exit.md`): SELL is directional (SELL YES = bearish, SELL NO = bullish) but ambiguous (exit vs split-entry). Include/exclude is a research parameter — test both.
 - **Consensus dedup** (`pitfalls/consensus_dedup.md`): count unique traders, not trades
 - **Resolution** (`data/resolution_mechanics.md`): use asset_id, never string matching
 - **Base rates** (`data/market_base_rates.md`): NO wins 62%, YES wins 38%
@@ -32,40 +32,72 @@ Connect to remote ClickHouse: `192.168.0.148:18123`, database `polymarket`.
 **NEVER write monolithic 150+ line CTEs.** Build queries by JOINing against existing
 classification tables and views. Each query should be <50 lines.
 
+### TEMPORAL CLASSIFICATIONS (MANDATORY)
+
+Classifications are **functions** `f(cutoff) → rows`. Every query MUST use `as_of` filtering
+to ensure point-in-time correctness. The `{cutoff}` placeholder is substituted at runtime.
+
+**NEVER query classifications without `as_of`** — that leaks future data into backtests.
+
 #### Classification tables (taxonomy layer):
 
 ```sql
--- Exclude bots
-LEFT JOIN (SELECT trader FROM trader_classifications FINAL WHERE label = 'bot') bots
+-- Exclude bots (point-in-time)
+LEFT JOIN (SELECT trader FROM trader_classifications FINAL
+           WHERE label = 'bot' AND as_of = toDate('{cutoff}')) bots
     ON t.maker = bots.trader
 WHERE bots.trader IS NULL
 
--- Only insider-susceptible markets
+-- Only insider-susceptible markets (point-in-time)
 INNER JOIN (SELECT condition_id FROM market_classifications FINAL
-            WHERE label = 'susceptibility' AND tier >= 2) mkt
+            WHERE label = 'susceptibility' AND tier >= 2
+              AND as_of = toDate('{cutoff}')) mkt
     ON t.condition_id = mkt.condition_id
 
--- Score-based filtering
+-- Score-based filtering (point-in-time)
 INNER JOIN (SELECT trader, score FROM trader_classifications FINAL
-            WHERE label = 'insider_score' AND tier <= 2) insiders
+            WHERE label = 'insider_score' AND tier <= 2
+              AND as_of = toDate('{cutoff}')) insiders
     ON t.maker = insiders.trader
 ```
 
-#### If a classification you need does NOT exist:
+#### Creating new classifications (fast iteration):
 
-1. **Do NOT re-derive it as an inline CTE** — that's the old pattern we're replacing
-2. **Propose it** in `discovery/notes.md` under a `## Proposed Classification` section:
-   ```markdown
-   ## Proposed Classification: sure_trader
-   Entity: trader
-   Rule: traders whose BUY trades have avg price > 0.90 across > 20 markets
-   SQL sketch: SELECT maker AS trader, avg(price) FROM trades_raw FINAL
-               WHERE side = 'BUY' GROUP BY maker HAVING avg(price) > 0.90 AND count(DISTINCT condition_id) > 20
-   Tier mapping: tier=1 (avg > 0.95), tier=2 (avg > 0.90)
-   Score: avg(price) as continuous score
+1. **Write a rule** as a `.sql` file in your hypothesis `classifications/` folder:
+   ```sql
+   -- file: classifications/trader_sure.sql
+   -- label: sure_trader | entity: trader | version: 1
+   -- schedule: manual
+   -- description: Traders with avg BUY price > 0.90 across > 20 markets before cutoff
+   INSERT INTO trader_classifications
+   SELECT maker, 'sure_trader', tier, avg_price, toDate('{cutoff}'), 1, now64(3, 'UTC')
+   FROM (
+       SELECT maker,
+              avg(price) AS avg_price,
+              if(avg(price) > 0.95, 1, 2) AS tier
+       FROM (SELECT * FROM trades_raw FINAL)
+       WHERE side = 'BUY' AND timestamp <= toDateTime('{cutoff}')
+       GROUP BY maker
+       HAVING avg_price > 0.90 AND count(DISTINCT condition_id) > 20
+   )
    ```
-3. **Lead routes to Architect** who creates a numbered migration and populates the table
-4. **Then use the classification** via JOIN in your next query iteration
+2. **Populate it** by running the rule with your test cutoff date
+3. **Use it** immediately via JOIN with `as_of = toDate('{cutoff}')`
+4. **Iterate** — tweak the rule, re-populate, re-test
+5. **Promote** — when proven useful, propose for production in `discovery/notes.md`
+
+#### If a classification you need does NOT exist and you don't want to create it yet:
+
+Propose it in `discovery/notes.md` under a `## Proposed Classification` section:
+```markdown
+## Proposed Classification: sure_trader
+Entity: trader
+Rule: traders whose BUY trades have avg price > 0.90 across > 20 markets
+SQL sketch: SELECT maker AS trader, avg(price) FROM trades_raw FINAL
+            WHERE side = 'BUY' GROUP BY maker HAVING avg(price) > 0.90 AND count(DISTINCT condition_id) > 20
+Tier mapping: tier=1 (avg > 0.95), tier=2 (avg > 0.90)
+Score: avg(price) as continuous score
+```
 
 #### Available building blocks:
 
@@ -76,14 +108,14 @@ INNER JOIN (SELECT trader, score FROM trader_classifications FINAL
 | `markets_resolved` | VIEW | Resolution data (condition_id, asset_id, outcome, token_won) |
 | `trader_trade_agg` | SummingMergeTree | Per (trader, condition_id, asset_id) aggregation |
 | `trader_volumes` | SummingMergeTree | maker_vol, taker_vol per trader |
-| `trader_classifications` | ReplacingMergeTree | Trader taxonomy labels (bot, insider, etc.) |
-| `market_classifications` | ReplacingMergeTree | Market taxonomy labels (susceptibility, etc.) |
+| `trader_classifications` | ReplacingMergeTree | Trader taxonomy — temporal, use `as_of` filter |
+| `market_classifications` | ReplacingMergeTree | Market taxonomy — temporal, use `as_of` filter |
 
 ### SQL conventions:
 - Always use `FROM (SELECT * FROM table FINAL) alias` NOT `FROM table FINAL AS alias`
 - Compare hit rates against base: NO 62%, YES 38%
-- Filter `side = 'BUY'` early in the pipeline
-- **JOIN classification tables** — never re-derive inline
+- SELL handling is a research parameter — test BUY-only vs directional SELL mapping (see `pitfalls/sell_is_exit.md`)
+- **JOIN classification tables with `as_of`** — never re-derive inline, never omit temporal filter
 - Keep queries under 50 lines by composing building blocks
 
 ## Step 2: Parameter Sweep
@@ -99,6 +131,7 @@ Vary signal thresholds systematically. For each combo compute:
 Use walk-forward windows when possible:
 - Train: 12 months (default from config)
 - Test: 1 month (default from config)
+- **Re-populate classifications per fold** using `cutoff = fold_train_end`
 
 ## Step 3: Create Marimo Notebook
 
@@ -110,12 +143,13 @@ import marimo as mo
 import clickhouse_connect
 ch = clickhouse_connect.get_client(host="192.168.0.148", port=18123, database="polymarket")
 
-# Cell 1: Universe definition (qualified traders, market filters)
-# Cell 2: Signal computation SQL
-# Cell 3: Parameter sweep results table
-# Cell 4: Hit rate vs base rate chart
-# Cell 5: Compounding score heatmap
-# Cell 6: Hold time distribution
+# Cell 1: Classification population (populate rules with cutoff)
+# Cell 2: Universe definition (qualified traders, market filters — via classification JOINs)
+# Cell 3: Signal computation SQL
+# Cell 4: Parameter sweep results table
+# Cell 5: Hit rate vs base rate chart
+# Cell 6: Compounding score heatmap
+# Cell 7: Hold time distribution
 ```
 
 ## Step 4: Populate config.toml
@@ -132,6 +166,7 @@ Write observations to `discovery/notes.md`:
 - Surprising findings (flag for knowledge capture)
 - Spawned ideas (for backlog)
 - Parameter sensitivity analysis
+- **Classification proposals** for rules that proved useful
 
 ## Output Requirements
 
@@ -144,3 +179,4 @@ Return to Lead:
 4. Universe size (trades/month)
 5. Spawned ideas (for backlog)
 6. Surprising findings (for knowledge capture)
+7. Classification rules created/proposed
