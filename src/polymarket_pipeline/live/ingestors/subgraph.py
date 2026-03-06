@@ -353,9 +353,27 @@ class SubgraphPoller:
                     )
 
                     if len(events) < self._batch_size:
-                        break
+                        # Partial batch from sticky query: exhausted this timestamp,
+                        # advance to next via timestamp_gt.
+                        # Partial batch from normal query: subgraph may still be
+                        # indexing — do NOT break, let the next iteration's empty
+                        # result (line 292) be the true exit condition.
+                        cursor_id = ""
 
                 total_wall = time.monotonic() - recovery_start
+
+                # Warn if subgraph data ended far before target
+                remaining_s = target_ts - int(cursor_ts)
+                progress_pct = (1 - remaining_s / total_gap) * 100 if total_gap > 0 else 100
+                if remaining_s > 300:  # >5 min gap = subgraph is lagging
+                    log.warning(
+                        "subgraph.data_exhausted",
+                        last_cursor_ts=int(cursor_ts),
+                        target_ts=target_ts,
+                        remaining_hours=round(remaining_s / 3600, 1),
+                        progress=f"{progress_pct:.1f}%",
+                        hint="Goldsky subgraph is behind — data ends before target",
+                    )
 
                 # Final checkpoint before marking complete
                 await self._checkpoint(int(cursor_ts), total, cursor_id)
