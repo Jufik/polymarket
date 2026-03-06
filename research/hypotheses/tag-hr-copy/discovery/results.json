@@ -1,0 +1,598 @@
+{
+  "hypothesis": "tag-hr-copy",
+  "round": 3,
+  "timestamp": "2026-03-05T17:04:24.822144",
+  "max_hold_hours": 48,
+  "cs_formula": "excess_hr_pp * median_pnl_usd / median_hold_days",
+  "fixes_applied": [
+    "R2->R3: first_trade >= test_start in market agg (Skeptic audit)",
+    "R1->R2: median_pnl not avg_pnl in CS formula",
+    "R1->R2: hold in days not hours in CS denominator",
+    "R1->R2: added max_avg_entry_price filter [0.75-1.0]"
+  ],
+  "note": "UPPER BOUNDS ONLY \u2014 vectorized sweep. Expect 20-40pp degradation in tick-by-tick replay.",
+  "verdict": "PROCEED_TO_VALIDATION",
+  "promoted_tags": [
+    "Esports",
+    "1H"
+  ],
+  "parked_tags": [
+    "Tennis"
+  ],
+  "dropped_tags": [
+    "Basketball",
+    "NCAA"
+  ],
+  "r2_vs_r3_delta": {
+    "Esports": {
+      "r2_cs": 73.7031,
+      "r3_cs": 34.866,
+      "delta_pct": -52.7,
+      "r2_hr": 0.7956,
+      "r3_hr": 0.6716,
+      "delta_hr_pp": -12.4,
+      "note": "HR dropped 12.4pp \u2014 phantom early-mover entries were higher quality. CS halved (-52.7%)."
+    },
+    "Tennis": {
+      "r2_cs": 10.9395,
+      "r3_cs": 9.6658,
+      "delta_pct": -11.6,
+      "r2_hr": 0.467,
+      "r3_hr": 0.7238,
+      "delta_hr_pp": 25.7,
+      "note": "HR went UP +25.7pp (46.7%->72.4%) \u2014 test-period fresh entries are higher quality. CS -11.6%."
+    },
+    "1H": {
+      "r2_cs": 22.0659,
+      "r3_cs": 19.7074,
+      "delta_pct": -10.7,
+      "r2_hr": 0.7984,
+      "r3_hr": 0.7799,
+      "delta_hr_pp": -1.8,
+      "note": "Minimal change \u2014 HR -1.8pp, CS -10.7%. 1H signal robust to early-entry contamination."
+    }
+  },
+  "summary": {
+    "Esports": {
+      "best_params": {
+        "min_trades": 50,
+        "excess_hr_pp": 15,
+        "max_avg_entry_price": 0.75
+      },
+      "avg_hr": 0.6716,
+      "base_rate": 0.3426,
+      "excess_hr_pp": 35.74,
+      "median_pnl_usd": 8.13,
+      "avg_hold_hours": 2.0,
+      "signals_per_fold": 1192.2,
+      "compounding_score": 34.866,
+      "variant": "BUY-only"
+    },
+    "1H": {
+      "best_params": {
+        "min_trades": 50,
+        "excess_hr_pp": 15,
+        "max_avg_entry_price": 0.75
+      },
+      "avg_hr": 0.7799,
+      "base_rate": 0.4973,
+      "excess_hr_pp": 27.33,
+      "median_pnl_usd": 4.01,
+      "avg_hold_hours": 1.33,
+      "signals_per_fold": 1669.7,
+      "compounding_score": 19.7074,
+      "variant": "BUY-only"
+    },
+    "Tennis": {
+      "best_params": {
+        "min_trades": 20,
+        "excess_hr_pp": 15,
+        "max_avg_entry_price": 0.8
+      },
+      "avg_hr": 0.7238,
+      "base_rate": 0.2239,
+      "excess_hr_pp": 33.58,
+      "median_pnl_usd": 2.4,
+      "avg_hold_hours": 2.0,
+      "signals_per_fold": 1431.2,
+      "compounding_score": 9.6658,
+      "variant": "BUY-only",
+      "note": "Parked \u2014 CS=9.7 below threshold. However Tennis DIR CS=6.8 is notable \u2014 spawned."
+    }
+  },
+  "top5_per_tag": {
+    "Esports": {
+      "buy_only": [
+        {
+          "rank": 1,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.6716,
+          "exc_pp": 35.74,
+          "med_pnl": 8.13,
+          "hold_h": 2.0,
+          "sigs": 4769,
+          "cs": 34.866
+        },
+        {
+          "rank": 2,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.8,
+          "hr": 0.662,
+          "exc_pp": 34.78,
+          "med_pnl": 7.86,
+          "hold_h": 2.12,
+          "sigs": 4875,
+          "cs": 30.8816
+        },
+        {
+          "rank": 3,
+          "mt": 50,
+          "ep": 10,
+          "pc": 0.8,
+          "hr": 0.6378,
+          "exc_pp": 32.36,
+          "med_pnl": 7.32,
+          "hold_h": 2.12,
+          "sigs": 5229,
+          "cs": 26.736
+        },
+        {
+          "rank": 4,
+          "mt": 50,
+          "ep": 10,
+          "pc": 0.75,
+          "hr": 0.6422,
+          "exc_pp": 32.8,
+          "med_pnl": 7.6,
+          "hold_h": 2.25,
+          "sigs": 5156,
+          "cs": 26.5968
+        },
+        {
+          "rank": 5,
+          "mt": 50,
+          "ep": 8,
+          "pc": 0.75,
+          "hr": 0.6325,
+          "exc_pp": 31.83,
+          "med_pnl": 7.26,
+          "hold_h": 2.25,
+          "sigs": 5323,
+          "cs": 24.645
+        }
+      ],
+      "directional": [
+        {
+          "rank": 1,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.5217,
+          "exc_pp": 24.37,
+          "med_pnl": 0.2,
+          "hold_h": 2.6,
+          "sigs": 3551,
+          "cs": 0.4548
+        },
+        {
+          "rank": 2,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.8,
+          "hr": 0.5195,
+          "exc_pp": 24.15,
+          "med_pnl": 0.2,
+          "hold_h": 2.6,
+          "sigs": 3573,
+          "cs": 0.437
+        },
+        {
+          "rank": 3,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.9,
+          "hr": 0.5182,
+          "exc_pp": 24.02,
+          "med_pnl": 0.19,
+          "hold_h": 2.6,
+          "sigs": 3585,
+          "cs": 0.4235
+        },
+        {
+          "rank": 4,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.85,
+          "hr": 0.5175,
+          "exc_pp": 23.95,
+          "med_pnl": 0.19,
+          "hold_h": 2.6,
+          "sigs": 3581,
+          "cs": 0.4188
+        },
+        {
+          "rank": 5,
+          "mt": 50,
+          "ep": 15,
+          "pc": 1.0,
+          "hr": 0.5108,
+          "exc_pp": 23.28,
+          "med_pnl": 0.19,
+          "hold_h": 2.6,
+          "sigs": 3637,
+          "cs": 0.4045
+        }
+      ]
+    },
+    "Tennis": {
+      "buy_only": [
+        {
+          "rank": 1,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.8,
+          "hr": 0.7238,
+          "exc_pp": 33.58,
+          "med_pnl": 2.4,
+          "hold_h": 2.0,
+          "sigs": 5725,
+          "cs": 9.6658
+        },
+        {
+          "rank": 2,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.7248,
+          "exc_pp": 33.69,
+          "med_pnl": 2.39,
+          "hold_h": 2.0,
+          "sigs": 5626,
+          "cs": 9.6431
+        },
+        {
+          "rank": 3,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.85,
+          "hr": 0.723,
+          "exc_pp": 33.5,
+          "med_pnl": 2.39,
+          "hold_h": 2.0,
+          "sigs": 5743,
+          "cs": 9.6116
+        },
+        {
+          "rank": 4,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.9,
+          "hr": 0.7196,
+          "exc_pp": 33.16,
+          "med_pnl": 2.35,
+          "hold_h": 2.0,
+          "sigs": 5946,
+          "cs": 9.3666
+        },
+        {
+          "rank": 5,
+          "mt": 20,
+          "ep": 10,
+          "pc": 0.75,
+          "hr": 0.7197,
+          "exc_pp": 33.17,
+          "med_pnl": 2.32,
+          "hold_h": 2.0,
+          "sigs": 5706,
+          "cs": 9.2455
+        }
+      ],
+      "directional": [
+        {
+          "rank": 1,
+          "mt": 20,
+          "ep": 10,
+          "pc": 0.75,
+          "hr": 0.6639,
+          "exc_pp": 30.52,
+          "med_pnl": 2.43,
+          "hold_h": 2.6,
+          "sigs": 8815,
+          "cs": 6.8449
+        },
+        {
+          "rank": 2,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.6639,
+          "exc_pp": 30.52,
+          "med_pnl": 2.43,
+          "hold_h": 2.6,
+          "sigs": 8759,
+          "cs": 6.8445
+        },
+        {
+          "rank": 3,
+          "mt": 20,
+          "ep": 8,
+          "pc": 0.75,
+          "hr": 0.6638,
+          "exc_pp": 30.51,
+          "med_pnl": 2.43,
+          "hold_h": 2.6,
+          "sigs": 8867,
+          "cs": 6.8431
+        },
+        {
+          "rank": 4,
+          "mt": 20,
+          "ep": 3,
+          "pc": 0.75,
+          "hr": 0.6635,
+          "exc_pp": 30.48,
+          "med_pnl": 2.43,
+          "hold_h": 2.6,
+          "sigs": 8913,
+          "cs": 6.8348
+        },
+        {
+          "rank": 5,
+          "mt": 20,
+          "ep": 5,
+          "pc": 0.75,
+          "hr": 0.6635,
+          "exc_pp": 30.48,
+          "med_pnl": 2.43,
+          "hold_h": 2.6,
+          "sigs": 8913,
+          "cs": 6.8348
+        }
+      ]
+    },
+    "1H": {
+      "buy_only": [
+        {
+          "rank": 1,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.7799,
+          "exc_pp": 27.33,
+          "med_pnl": 4.01,
+          "hold_h": 1.33,
+          "sigs": 5009,
+          "cs": 19.7074
+        },
+        {
+          "rank": 2,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.8,
+          "hr": 0.7778,
+          "exc_pp": 27.13,
+          "med_pnl": 3.98,
+          "hold_h": 1.33,
+          "sigs": 5031,
+          "cs": 19.4495
+        },
+        {
+          "rank": 3,
+          "mt": 30,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.7817,
+          "exc_pp": 27.52,
+          "med_pnl": 3.91,
+          "hold_h": 1.33,
+          "sigs": 5198,
+          "cs": 19.3592
+        },
+        {
+          "rank": 4,
+          "mt": 30,
+          "ep": 15,
+          "pc": 0.8,
+          "hr": 0.7797,
+          "exc_pp": 27.32,
+          "med_pnl": 3.9,
+          "hold_h": 1.33,
+          "sigs": 5220,
+          "cs": 19.155
+        },
+        {
+          "rank": 5,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.85,
+          "hr": 0.7741,
+          "exc_pp": 26.76,
+          "med_pnl": 3.96,
+          "hold_h": 1.33,
+          "sigs": 5065,
+          "cs": 19.0651
+        }
+      ],
+      "directional": [
+        {
+          "rank": 1,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.5508,
+          "exc_pp": 4.43,
+          "med_pnl": 0.06,
+          "hold_h": 1.0,
+          "sigs": 7752,
+          "cs": 0.0619
+        },
+        {
+          "rank": 2,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.9,
+          "hr": 0.5504,
+          "exc_pp": 4.39,
+          "med_pnl": 0.06,
+          "hold_h": 1.0,
+          "sigs": 7996,
+          "cs": 0.0605
+        },
+        {
+          "rank": 3,
+          "mt": 30,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.5514,
+          "exc_pp": 4.48,
+          "med_pnl": 0.06,
+          "hold_h": 1.0,
+          "sigs": 7946,
+          "cs": 0.0604
+        },
+        {
+          "rank": 4,
+          "mt": 20,
+          "ep": 15,
+          "pc": 0.75,
+          "hr": 0.5511,
+          "exc_pp": 4.46,
+          "med_pnl": 0.06,
+          "hold_h": 1.0,
+          "sigs": 7953,
+          "cs": 0.0601
+        },
+        {
+          "rank": 5,
+          "mt": 50,
+          "ep": 15,
+          "pc": 0.85,
+          "hr": 0.5496,
+          "exc_pp": 4.3,
+          "med_pnl": 0.06,
+          "hold_h": 1.0,
+          "sigs": 7809,
+          "cs": 0.0588
+        }
+      ]
+    }
+  },
+  "fold_detail": {
+    "Esports": [
+      {
+        "fold": "2025-01-01",
+        "base": 0.1333,
+        "n": 225
+      },
+      {
+        "fold": "2025-04-01",
+        "base": 0.1233,
+        "n": 227
+      },
+      {
+        "fold": "2025-07-01",
+        "base": 0.3426,
+        "n": 324
+      },
+      {
+        "fold": "2025-10-01",
+        "base": 0.4432,
+        "n": 1444
+      },
+      {
+        "fold": "2026-01-01",
+        "base": 0.3476,
+        "n": 2894
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-01-01",
+        "base": 0.3056,
+        "n": 108
+      },
+      {
+        "fold": "2025-04-01",
+        "base": 0.2417,
+        "n": 120
+      },
+      {
+        "fold": "2025-07-01",
+        "base": 0.2239,
+        "n": 545
+      },
+      {
+        "fold": "2025-10-01",
+        "base": 0.5126,
+        "n": 10525
+      },
+      {
+        "fold": "2026-01-01",
+        "base": 0.5097,
+        "n": 17603
+      }
+    ],
+    "1H": [
+      {
+        "fold": "2025-07-01",
+        "base": 0.4973,
+        "n": 1683
+      },
+      {
+        "fold": "2025-10-01",
+        "base": 0.5126,
+        "n": 10525
+      },
+      {
+        "fold": "2026-01-01",
+        "base": 0.5097,
+        "n": 17603
+      }
+    ]
+  },
+  "price_ceiling_impact": {
+    "description": "Effect of max_avg_entry_price on Esports BUY (mt=50, ep=15pp) \u2014 R3",
+    "sweet_spot": 0.75,
+    "pc_sweep": [
+      {
+        "pc": 0.75,
+        "avg_hr": 0.6716,
+        "excess_pp": 35.74,
+        "signals_per_fold": 1192.2,
+        "cs": 34.866
+      },
+      {
+        "pc": 0.8,
+        "avg_hr": 0.662,
+        "excess_pp": 34.78,
+        "signals_per_fold": 1218.8,
+        "cs": 30.8816
+      }
+    ]
+  },
+  "spawned_ideas": [
+    {
+      "slug": "esports-entry-timing",
+      "description": "Does copying within 15 min of consensus formation preserve edge? Esports resolves in 2h avg.",
+      "priority": "high"
+    },
+    {
+      "slug": "esports-weighted-copy",
+      "description": "Weight signals by trader trailing 30d HR (exp decay).",
+      "priority": "high"
+    },
+    {
+      "slug": "tennis-directional",
+      "description": "Tennis DIR HR=72.4% (excess=+30.5pp, CS=6.8) in R3. Directional variant is substantially more accurate \u2014 validate separately.",
+      "priority": "high"
+    },
+    {
+      "slug": "1h-capacity-test",
+      "description": "1H has 5009 signals/fold. Test max capital deployment impact on slippage.",
+      "priority": "medium"
+    }
+  ]
+}

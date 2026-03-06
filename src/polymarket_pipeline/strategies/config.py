@@ -40,6 +40,20 @@ class StrategyConfig:
     subscribe_pending: bool = False
 
 
+@dataclass(frozen=True)
+class HarnessConfig:
+    """Configuration for the production replay harness (pm-harness)."""
+
+    executor: str = "realistic"
+    fill_model: str = "calibrated_slippage"
+    bootstrap_hours: int = 168
+    pre_filter_makers: bool = True
+    settlement_enabled: bool = True
+    resolution_source: str = "asset_id"
+    walk_forward_train_months: int = 12
+    walk_forward_test_months: int = 1
+
+
 def load_strategy_configs(
     path: Path,
     *,
@@ -112,6 +126,31 @@ def load_execution_config(path: Path) -> dict[str, Any]:
         raw = tomllib.load(f)
 
     return dict(raw.get("execution", {}))
+
+
+def load_harness_config(path: Path) -> HarnessConfig:
+    """Load harness configuration from the ``[harness]`` TOML section.
+
+    If the section is missing, all defaults apply. The optional
+    ``[harness.walk_forward]`` subsection sets walk-forward window sizes.
+    """
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+
+    section = raw.get("harness", {})
+    flat = dict(section)
+    wf = flat.pop("walk_forward", {}) if isinstance(flat.get("walk_forward"), dict) else {}
+
+    return HarnessConfig(
+        executor=str(flat.get("executor", "realistic")),
+        fill_model=str(flat.get("fill_model", "calibrated_slippage")),
+        bootstrap_hours=int(flat.get("bootstrap_hours", 168)),
+        pre_filter_makers=bool(flat.get("pre_filter_makers", True)),
+        settlement_enabled=bool(flat.get("settlement_enabled", True)),
+        resolution_source=str(flat.get("resolution_source", "asset_id")),
+        walk_forward_train_months=int(wf.get("train_months", 12)),
+        walk_forward_test_months=int(wf.get("test_months", 1)),
+    )
 
 
 def load_provider_configs(

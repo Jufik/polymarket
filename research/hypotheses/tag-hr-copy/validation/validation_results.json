@@ -1,0 +1,127 @@
+{
+  "hypothesis": "tag-hr-copy",
+  "validation_round": 1,
+  "timestamp": "2026-03-06T12:00:00Z",
+  "period": "2025-01-01:2026-01-01",
+  "executor": "realistic",
+  "settlement_enabled": true,
+  "strategy_impl": "TagHRCopyStrategy + TagHRProvider",
+  "training_window": "2025-09-07 to 2026-03-06 (6mo trailing from run date)",
+  "note": "CRITICAL: Strategy copied any qualified trader's first BUY YES — no consensus filter. See root_cause.",
+
+  "run_config": {
+    "Esports": {"min_trades": 50, "excess_hr_pp": 15, "max_avg_entry_price": 0.75},
+    "1H": {"min_trades": 50, "excess_hr_pp": 15, "max_avg_entry_price": 0.75},
+    "Tennis": {"min_trades": 20, "excess_hr_pp": 15, "max_avg_entry_price": 0.80}
+  },
+
+  "qualified_pools": {
+    "Esports": 319,
+    "1H": 131,
+    "Tennis": 294
+  },
+
+  "tick_by_tick_results": {
+    "total_trades_replayed": 8371546,
+    "total_intents": 22097,
+    "total_fills": 3265,
+    "rejected_by_budget": 18832,
+    "settled": 3257,
+    "capital_usd": 1000,
+    "max_position_usd": 100,
+    "overall": {
+      "hit_rate": 0.484,
+      "total_pnl_net": -2285.08,
+      "sharpe": -0.12,
+      "max_drawdown": 11700.41,
+      "profit_factor": 0.987,
+      "avg_hold_hours": 12.1,
+      "median_pnl_per_trade": -102.50
+    },
+    "per_tag": {
+      "Esports": {
+        "fills": 452,
+        "hit_rate": 0.458,
+        "median_pnl": -102.50,
+        "avg_hold_hours": 12.9,
+        "compounding_score": null
+      },
+      "1H": {
+        "fills": 2534,
+        "hit_rate": 0.498,
+        "median_pnl": -102.50,
+        "avg_hold_hours": 2.0,
+        "compounding_score": null
+      },
+      "Tennis": {
+        "fills": 271,
+        "hit_rate": 0.406,
+        "median_pnl": -102.50,
+        "avg_hold_hours": 15.4,
+        "compounding_score": null
+      }
+    }
+  },
+
+  "vectorized_reference": {
+    "Esports": {
+      "hit_rate": 0.672,
+      "excess_hr_pp": 35.74,
+      "median_pnl": 8.13,
+      "avg_hold_hours": 2.0,
+      "compounding_score": 34.866,
+      "base_rate": 0.343
+    },
+    "1H": {
+      "hit_rate": 0.780,
+      "excess_hr_pp": 27.33,
+      "median_pnl": 4.01,
+      "avg_hold_hours": 1.33,
+      "compounding_score": 19.71,
+      "base_rate": 0.497
+    },
+    "Tennis": {
+      "hit_rate": 0.724,
+      "excess_hr_pp": 33.62,
+      "median_pnl": 2.40,
+      "avg_hold_hours": 2.0,
+      "compounding_score": 9.67,
+      "base_rate": 0.301
+    }
+  },
+
+  "degradation": {
+    "Esports": {"hr_delta_pp": -21.4, "verdict": "collapse_no_consensus"},
+    "1H": {"hr_delta_pp": -28.2, "verdict": "collapse_near_random"},
+    "Tennis": {"hr_delta_pp": -31.8, "verdict": "collapse_below_base_rate"}
+  },
+
+  "root_cause": {
+    "primary": "MISSING CONSENSUS FILTER: Vectorized discovery required N qualified traders to have ALL entered the same market (consensus). Tick-by-tick strategy copies the FIRST trade by any single qualified trader — no consensus check.",
+    "secondary": "PRICE DISTRIBUTION MISMATCH: Fill prices span 0.02-0.82 (median 0.50). Low-price entries (<0.40) have <35% HR. Only 0.60-0.75 bucket shows 64% HR and only 0.75+ shows 85% HR.",
+    "evidence": {
+      "hr_by_price_bucket": {
+        "<0.20": {"n": 225, "hr": 0.124},
+        "0.20-0.40": {"n": 462, "hr": 0.353},
+        "0.40-0.60": {"n": 1977, "hr": 0.494},
+        "0.60-0.75": {"n": 458, "hr": 0.644},
+        "0.75-1.00": {"n": 135, "hr": 0.852}
+      },
+      "key_finding": "HR increases strongly with fill price. The vectorized signal captured HIGH-PRICE entries (0.60-0.75) via avg_entry_price filter. Tick-by-tick copies ALL prices including very-low entries with <30% HR."
+    }
+  },
+
+  "path_forward": {
+    "fix_required": "Add consensus filter in tick-by-tick: buffer trades per condition_id, fire only when N (e.g. 3) distinct qualified traders have entered the same market at qualifying prices.",
+    "secondary_fix": "Tighten trade-level price filter to 0.55-0.75 to exclude low-HR low-price entries.",
+    "expected_impact": "Consensus filter expected to restore HR to 55-65% range with 200-500 signals/year (vs 3265).",
+    "spawn_hypothesis": "tag-hr-copy-consensus (separate discovery + validation track)"
+  },
+
+  "verdicts": {
+    "Esports": "none_as_implemented",
+    "1H": "none_as_implemented",
+    "Tennis": "none_as_implemented",
+    "overall": "none_consensus_gap_identified"
+  }
+}

@@ -1,0 +1,69 @@
+# Tag-HR-Copy strategy configuration
+# Best params from vectorized discovery sweep Round 3 (2026-03-05)
+# R3 fix: first_trade >= test_start (Skeptic audit — removes phantom pre-test entries)
+# VALIDATION: All 3 tags (Esports, 1H, Tennis) — tick-by-tick
+# Esports: mt=50, ep=15pp, pc=0.75 — CS=34.87 UB
+# 1H:      mt=50, ep=15pp, pc=0.75 — CS=19.71 UB
+# Tennis:  mt=20, ep=15pp, pc=0.80 — CS=9.67 UB (included per Lead request)
+
+[strategy.tag_hr_copy]
+enabled = true
+mode = "replay"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 0
+features = ["tag_hr_provider"]
+
+[strategy.tag_hr_copy.params]
+# Signal: BUY-only (position=YES). Directional collapses PnL on Esports/1H.
+signal_variant = "buy_only"
+max_hold_hours = 48
+# Use most permissive price ceiling; per-tag filtering done in provider
+max_avg_entry_price = 0.80
+target_tags = ["Esports", "1H", "Tennis"]
+
+[provider.tag_hr_provider]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.tag_hr_provider.params]
+lookback_months = 6
+target_tags = ["Esports", "1H", "Tennis"]
+min_trades_default = 50
+excess_hr_pp_default = 15
+max_avg_entry_price_default = 0.75
+use_trailing_base_rate = true
+# CRITICAL: use per-tag, per-period trailing base rates
+# Esports base rate: 13% (early 2025) -> 50% (2026) — all-time invalid
+min_universe_size = 50
+
+# Per-tag overrides (Tennis needs lower min_trades=20 and higher pc=0.80)
+[provider.tag_hr_provider.params.tag_params]
+# Nested table: tag label -> {min_trades, excess_hr_pp, max_avg_entry_price}
+[provider.tag_hr_provider.params.tag_params.Esports]
+min_trades = 50
+excess_hr_pp = 15
+max_avg_entry_price = 0.75
+
+[provider.tag_hr_provider.params.tag_params.1H]
+min_trades = 50
+excess_hr_pp = 15
+max_avg_entry_price = 0.75
+
+[provider.tag_hr_provider.params.tag_params.Tennis]
+min_trades = 20
+excess_hr_pp = 15
+max_avg_entry_price = 0.80
+
+[harness]
+executor = "realistic"
+fill_model = "calibrated_slippage"
+bootstrap_hours = 168
+pre_filter_makers = true
+settlement_enabled = true
+resolution_source = "asset_id"
+
+[harness.walk_forward]
+train_months = 6
+test_months = 1

@@ -1,0 +1,1542 @@
+{
+  "hypothesis": "tag-hr-copy",
+  "round": 2,
+  "timestamp": "2026-03-05T13:36:46.606547",
+  "max_hold_hours": 48,
+  "cs_formula": "excess_hr * median_pnl_usd / median_hold_days",
+  "verdict": "pending",
+  "tags": {
+    "Esports": {
+      "buy_only_top15": [
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7956,
+          "avg_excess_hr_pp": 36.47,
+          "median_pnl_usd": 16.84,
+          "avg_pnl_usd": 31.95,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1547,
+          "signals_per_fold": 515.7,
+          "compounding_score": 73.7031
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7888,
+          "avg_excess_hr_pp": 35.79,
+          "median_pnl_usd": 16.81,
+          "avg_pnl_usd": 31.63,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1591,
+          "signals_per_fold": 530.3,
+          "compounding_score": 72.1893
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.779,
+          "avg_excess_hr_pp": 34.81,
+          "median_pnl_usd": 16.14,
+          "avg_pnl_usd": 30.75,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1640,
+          "signals_per_fold": 546.7,
+          "compounding_score": 67.4263
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7718,
+          "avg_excess_hr_pp": 34.09,
+          "median_pnl_usd": 16.13,
+          "avg_pnl_usd": 30.56,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1825,
+          "signals_per_fold": 608.3,
+          "compounding_score": 65.9976
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7716,
+          "avg_excess_hr_pp": 34.06,
+          "median_pnl_usd": 16.12,
+          "avg_pnl_usd": 30.46,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1696,
+          "signals_per_fold": 565.3,
+          "compounding_score": 65.9105
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.738,
+          "avg_excess_hr_pp": 30.71,
+          "median_pnl_usd": 10.71,
+          "avg_pnl_usd": 27.84,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1807,
+          "signals_per_fold": 602.3,
+          "compounding_score": 39.4605
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7244,
+          "avg_excess_hr_pp": 29.35,
+          "median_pnl_usd": 10.77,
+          "avg_pnl_usd": 27.62,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1898,
+          "signals_per_fold": 632.7,
+          "compounding_score": 37.9371
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7035,
+          "avg_excess_hr_pp": 27.26,
+          "median_pnl_usd": 10.3,
+          "avg_pnl_usd": 25.51,
+          "avg_hold_hours": 2.0,
+          "total_signals": 2109,
+          "signals_per_fold": 703.0,
+          "compounding_score": 33.7001
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6891,
+          "avg_excess_hr_pp": 25.82,
+          "median_pnl_usd": 10.18,
+          "avg_pnl_usd": 25.16,
+          "avg_hold_hours": 2.0,
+          "total_signals": 2267,
+          "signals_per_fold": 755.7,
+          "compounding_score": 31.5368
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7238,
+          "avg_excess_hr_pp": 29.29,
+          "median_pnl_usd": 10.35,
+          "avg_pnl_usd": 27.01,
+          "avg_hold_hours": 2.33,
+          "total_signals": 1919,
+          "signals_per_fold": 639.7,
+          "compounding_score": 31.1894
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7214,
+          "avg_excess_hr_pp": 29.04,
+          "median_pnl_usd": 10.35,
+          "avg_pnl_usd": 26.97,
+          "avg_hold_hours": 2.33,
+          "total_signals": 1942,
+          "signals_per_fold": 647.3,
+          "compounding_score": 30.9217
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7203,
+          "avg_excess_hr_pp": 28.94,
+          "median_pnl_usd": 8.9,
+          "avg_pnl_usd": 27.11,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1823,
+          "signals_per_fold": 607.7,
+          "compounding_score": 30.9114
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7135,
+          "avg_excess_hr_pp": 28.25,
+          "median_pnl_usd": 10.31,
+          "avg_pnl_usd": 26.77,
+          "avg_hold_hours": 2.33,
+          "total_signals": 2140,
+          "signals_per_fold": 713.3,
+          "compounding_score": 29.9476
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7128,
+          "avg_excess_hr_pp": 28.19,
+          "median_pnl_usd": 10.3,
+          "avg_pnl_usd": 26.86,
+          "avg_hold_hours": 2.33,
+          "total_signals": 1999,
+          "signals_per_fold": 666.3,
+          "compounding_score": 29.879
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7121,
+          "avg_excess_hr_pp": 28.11,
+          "median_pnl_usd": 10.28,
+          "avg_pnl_usd": 26.7,
+          "avg_hold_hours": 2.33,
+          "total_signals": 2019,
+          "signals_per_fold": 673.0,
+          "compounding_score": 29.7142
+        }
+      ],
+      "directional_top15": [
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3756,
+          "avg_excess_hr_pp": 6.57,
+          "median_pnl_usd": 0.17,
+          "avg_pnl_usd": 0.88,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3237,
+          "signals_per_fold": 647.4,
+          "compounding_score": 0.1031
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3757,
+          "avg_excess_hr_pp": 6.58,
+          "median_pnl_usd": 0.17,
+          "avg_pnl_usd": 0.87,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3282,
+          "signals_per_fold": 656.4,
+          "compounding_score": 0.103
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3754,
+          "avg_excess_hr_pp": 6.55,
+          "median_pnl_usd": 0.17,
+          "avg_pnl_usd": 0.87,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3355,
+          "signals_per_fold": 671.0,
+          "compounding_score": 0.1023
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3677,
+          "avg_excess_hr_pp": 5.78,
+          "median_pnl_usd": 0.17,
+          "avg_pnl_usd": 0.81,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3957,
+          "signals_per_fold": 791.4,
+          "compounding_score": 0.0888
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3663,
+          "avg_excess_hr_pp": 5.64,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.75,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3579,
+          "signals_per_fold": 715.8,
+          "compounding_score": 0.0846
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3658,
+          "avg_excess_hr_pp": 5.59,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.75,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3619,
+          "signals_per_fold": 723.8,
+          "compounding_score": 0.0838
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3647,
+          "avg_excess_hr_pp": 5.48,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.75,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3712,
+          "signals_per_fold": 742.4,
+          "compounding_score": 0.0817
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3641,
+          "avg_excess_hr_pp": 5.42,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.54,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3775,
+          "signals_per_fold": 755.0,
+          "compounding_score": 0.0805
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3642,
+          "avg_excess_hr_pp": 5.43,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.55,
+          "avg_hold_hours": 2.6,
+          "total_signals": 4079,
+          "signals_per_fold": 815.8,
+          "compounding_score": 0.0799
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.364,
+          "avg_excess_hr_pp": 5.41,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.55,
+          "avg_hold_hours": 2.6,
+          "total_signals": 4115,
+          "signals_per_fold": 823.0,
+          "compounding_score": 0.0796
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3636,
+          "avg_excess_hr_pp": 5.37,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.54,
+          "avg_hold_hours": 2.6,
+          "total_signals": 3812,
+          "signals_per_fold": 762.4,
+          "compounding_score": 0.0796
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3636,
+          "avg_excess_hr_pp": 5.37,
+          "median_pnl_usd": 0.15,
+          "avg_pnl_usd": 1.01,
+          "avg_hold_hours": 2.5,
+          "total_signals": 4052,
+          "signals_per_fold": 810.4,
+          "compounding_score": 0.0786
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3635,
+          "avg_excess_hr_pp": 5.37,
+          "median_pnl_usd": 0.15,
+          "avg_pnl_usd": 1.01,
+          "avg_hold_hours": 2.5,
+          "total_signals": 4084,
+          "signals_per_fold": 816.8,
+          "compounding_score": 0.0785
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3631,
+          "avg_excess_hr_pp": 5.32,
+          "median_pnl_usd": 0.16,
+          "avg_pnl_usd": 0.54,
+          "avg_hold_hours": 2.6,
+          "total_signals": 4178,
+          "signals_per_fold": 835.6,
+          "compounding_score": 0.0781
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3629,
+          "avg_excess_hr_pp": 5.3,
+          "median_pnl_usd": 0.15,
+          "avg_pnl_usd": 1.01,
+          "avg_hold_hours": 2.5,
+          "total_signals": 4009,
+          "signals_per_fold": 801.8,
+          "compounding_score": 0.078
+        }
+      ],
+      "n_folds": 5,
+      "fold_base_rates": [
+        {
+          "fold": "2025-01-01",
+          "base": 0.1333,
+          "n": 225
+        },
+        {
+          "fold": "2025-04-01",
+          "base": 0.1233,
+          "n": 227
+        },
+        {
+          "fold": "2025-07-01",
+          "base": 0.3426,
+          "n": 324
+        },
+        {
+          "fold": "2025-10-01",
+          "base": 0.4432,
+          "n": 1444
+        },
+        {
+          "fold": "2026-01-01",
+          "base": 0.507,
+          "n": 7513
+        }
+      ]
+    },
+    "Tennis": {
+      "buy_only_top15": [
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 5,
+          "avg_hr": 0.467,
+          "avg_excess_hr_pp": 18.65,
+          "median_pnl_usd": 7.09,
+          "avg_pnl_usd": 10.31,
+          "avg_hold_hours": 2.9,
+          "total_signals": 1941,
+          "signals_per_fold": 388.2,
+          "compounding_score": 10.9395
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4651,
+          "avg_excess_hr_pp": 18.46,
+          "median_pnl_usd": 7.08,
+          "avg_pnl_usd": 10.22,
+          "avg_hold_hours": 2.9,
+          "total_signals": 1909,
+          "signals_per_fold": 381.8,
+          "compounding_score": 10.817
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4646,
+          "avg_excess_hr_pp": 18.41,
+          "median_pnl_usd": 6.17,
+          "avg_pnl_usd": 11.07,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1780,
+          "signals_per_fold": 356.0,
+          "compounding_score": 9.7388
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4638,
+          "avg_excess_hr_pp": 18.33,
+          "median_pnl_usd": 6.17,
+          "avg_pnl_usd": 10.81,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1858,
+          "signals_per_fold": 371.6,
+          "compounding_score": 9.699
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4637,
+          "avg_excess_hr_pp": 18.32,
+          "median_pnl_usd": 6.17,
+          "avg_pnl_usd": 8.56,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1927,
+          "signals_per_fold": 385.4,
+          "compounding_score": 9.6924
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4615,
+          "avg_excess_hr_pp": 18.11,
+          "median_pnl_usd": 6.17,
+          "avg_pnl_usd": 10.91,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1795,
+          "signals_per_fold": 359.0,
+          "compounding_score": 9.5683
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4617,
+          "avg_excess_hr_pp": 18.12,
+          "median_pnl_usd": 6.16,
+          "avg_pnl_usd": 8.47,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1894,
+          "signals_per_fold": 378.8,
+          "compounding_score": 9.5602
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4616,
+          "avg_excess_hr_pp": 18.12,
+          "median_pnl_usd": 6.16,
+          "avg_pnl_usd": 8.46,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1885,
+          "signals_per_fold": 377.0,
+          "compounding_score": 9.5591
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4602,
+          "avg_excess_hr_pp": 17.97,
+          "median_pnl_usd": 6.17,
+          "avg_pnl_usd": 10.67,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1873,
+          "signals_per_fold": 374.6,
+          "compounding_score": 9.5052
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 5,
+          "avg_hr": 0.4579,
+          "avg_excess_hr_pp": 17.75,
+          "median_pnl_usd": 6.16,
+          "avg_pnl_usd": 8.32,
+          "avg_hold_hours": 2.8,
+          "total_signals": 1899,
+          "signals_per_fold": 379.8,
+          "compounding_score": 9.3639
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5608,
+          "avg_excess_hr_pp": 27.58,
+          "median_pnl_usd": 2.6,
+          "avg_pnl_usd": 8.16,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1396,
+          "signals_per_fold": 465.3,
+          "compounding_score": 8.6135
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5578,
+          "avg_excess_hr_pp": 27.28,
+          "median_pnl_usd": 2.52,
+          "avg_pnl_usd": 21.66,
+          "avg_hold_hours": 2.0,
+          "total_signals": 941,
+          "signals_per_fold": 313.7,
+          "compounding_score": 8.2366
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5565,
+          "avg_excess_hr_pp": 27.15,
+          "median_pnl_usd": 2.53,
+          "avg_pnl_usd": 14.2,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1173,
+          "signals_per_fold": 391.0,
+          "compounding_score": 8.2323
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 1.0
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5529,
+          "avg_excess_hr_pp": 26.79,
+          "median_pnl_usd": 2.54,
+          "avg_pnl_usd": 8.72,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1490,
+          "signals_per_fold": 496.7,
+          "compounding_score": 8.1578
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5541,
+          "avg_excess_hr_pp": 26.91,
+          "median_pnl_usd": 2.52,
+          "avg_pnl_usd": 20.32,
+          "avg_hold_hours": 2.0,
+          "total_signals": 1098,
+          "signals_per_fold": 366.0,
+          "compounding_score": 8.1475
+        }
+      ],
+      "directional_top15": [
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5242,
+          "avg_excess_hr_pp": 24.37,
+          "median_pnl_usd": 2.37,
+          "avg_pnl_usd": 6.11,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2280,
+          "signals_per_fold": 456.0,
+          "compounding_score": 4.6158
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5206,
+          "avg_excess_hr_pp": 24.02,
+          "median_pnl_usd": 2.37,
+          "avg_pnl_usd": 6.07,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2400,
+          "signals_per_fold": 480.0,
+          "compounding_score": 4.5479
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5204,
+          "avg_excess_hr_pp": 23.99,
+          "median_pnl_usd": 2.37,
+          "avg_pnl_usd": 6.05,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2445,
+          "signals_per_fold": 489.0,
+          "compounding_score": 4.5412
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5202,
+          "avg_excess_hr_pp": 23.97,
+          "median_pnl_usd": 2.37,
+          "avg_pnl_usd": 6.05,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2447,
+          "signals_per_fold": 489.4,
+          "compounding_score": 4.5369
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5135,
+          "avg_excess_hr_pp": 23.3,
+          "median_pnl_usd": 2.37,
+          "avg_pnl_usd": 5.87,
+          "avg_hold_hours": 3.0,
+          "total_signals": 3289,
+          "signals_per_fold": 657.8,
+          "compounding_score": 4.4095
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5238,
+          "avg_excess_hr_pp": 24.33,
+          "median_pnl_usd": 1.92,
+          "avg_pnl_usd": 5.29,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2213,
+          "signals_per_fold": 442.6,
+          "compounding_score": 3.7342
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 8,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5203,
+          "avg_excess_hr_pp": 23.98,
+          "median_pnl_usd": 1.92,
+          "avg_pnl_usd": 5.24,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2354,
+          "signals_per_fold": 470.8,
+          "compounding_score": 3.6808
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 10,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5202,
+          "avg_excess_hr_pp": 23.97,
+          "median_pnl_usd": 1.92,
+          "avg_pnl_usd": 5.25,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2336,
+          "signals_per_fold": 467.2,
+          "compounding_score": 3.6795
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 5,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5202,
+          "avg_excess_hr_pp": 23.97,
+          "median_pnl_usd": 1.92,
+          "avg_pnl_usd": 5.24,
+          "avg_hold_hours": 3.0,
+          "total_signals": 2355,
+          "signals_per_fold": 471.0,
+          "compounding_score": 3.678
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 3,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5122,
+          "avg_excess_hr_pp": 23.18,
+          "median_pnl_usd": 1.92,
+          "avg_pnl_usd": 5.04,
+          "avg_hold_hours": 3.0,
+          "total_signals": 3234,
+          "signals_per_fold": 646.8,
+          "compounding_score": 3.5552
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4347,
+          "avg_excess_hr_pp": 16.05,
+          "median_pnl_usd": 1.96,
+          "avg_pnl_usd": 1.94,
+          "avg_hold_hours": 3.25,
+          "total_signals": 2019,
+          "signals_per_fold": 504.8,
+          "compounding_score": 2.3179
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4341,
+          "avg_excess_hr_pp": 15.99,
+          "median_pnl_usd": 1.96,
+          "avg_pnl_usd": 1.91,
+          "avg_hold_hours": 3.25,
+          "total_signals": 2109,
+          "signals_per_fold": 527.2,
+          "compounding_score": 2.3092
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4337,
+          "avg_excess_hr_pp": 15.95,
+          "median_pnl_usd": 1.96,
+          "avg_pnl_usd": 0.14,
+          "avg_hold_hours": 3.25,
+          "total_signals": 2120,
+          "signals_per_fold": 530.0,
+          "compounding_score": 2.3038
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4337,
+          "avg_excess_hr_pp": 15.95,
+          "median_pnl_usd": 1.96,
+          "avg_pnl_usd": 0.14,
+          "avg_hold_hours": 3.25,
+          "total_signals": 2120,
+          "signals_per_fold": 530.0,
+          "compounding_score": 2.3038
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.5297,
+          "avg_excess_hr_pp": 24.92,
+          "median_pnl_usd": 0.92,
+          "avg_pnl_usd": 5.29,
+          "avg_hold_hours": 2.4,
+          "total_signals": 3562,
+          "signals_per_fold": 712.4,
+          "compounding_score": 2.2862
+        }
+      ],
+      "n_folds": 5,
+      "fold_base_rates": [
+        {
+          "fold": "2025-01-01",
+          "base": 0.3056,
+          "n": 108
+        },
+        {
+          "fold": "2025-04-01",
+          "base": 0.2417,
+          "n": 120
+        },
+        {
+          "fold": "2025-07-01",
+          "base": 0.2239,
+          "n": 545
+        },
+        {
+          "fold": "2025-10-01",
+          "base": 0.2836,
+          "n": 1936
+        },
+        {
+          "fold": "2026-01-01",
+          "base": 0.3476,
+          "n": 2894
+        }
+      ]
+    },
+    "1H": {
+      "buy_only_top15": [
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7984,
+          "avg_excess_hr_pp": 29.18,
+          "median_pnl_usd": 4.2,
+          "avg_pnl_usd": 5.82,
+          "avg_hold_hours": 1.33,
+          "total_signals": 4686,
+          "signals_per_fold": 1562.0,
+          "compounding_score": 22.0659
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.8015,
+          "avg_excess_hr_pp": 29.5,
+          "median_pnl_usd": 4.12,
+          "avg_pnl_usd": 5.41,
+          "avg_hold_hours": 1.33,
+          "total_signals": 4885,
+          "signals_per_fold": 1628.3,
+          "compounding_score": 21.8951
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7932,
+          "avg_excess_hr_pp": 28.67,
+          "median_pnl_usd": 4.08,
+          "avg_pnl_usd": 5.39,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5010,
+          "signals_per_fold": 1670.0,
+          "compounding_score": 21.057
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7796,
+          "avg_excess_hr_pp": 27.31,
+          "median_pnl_usd": 4.01,
+          "avg_pnl_usd": 5.52,
+          "avg_hold_hours": 1.33,
+          "total_signals": 4869,
+          "signals_per_fold": 1623.0,
+          "compounding_score": 19.6901
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7801,
+          "avg_excess_hr_pp": 27.36,
+          "median_pnl_usd": 3.94,
+          "avg_pnl_usd": 5.53,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5217,
+          "signals_per_fold": 1739.0,
+          "compounding_score": 19.3963
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7762,
+          "avg_excess_hr_pp": 26.97,
+          "median_pnl_usd": 3.97,
+          "avg_pnl_usd": 5.47,
+          "avg_hold_hours": 1.33,
+          "total_signals": 4900,
+          "signals_per_fold": 1633.3,
+          "compounding_score": 19.2697
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7793,
+          "avg_excess_hr_pp": 27.28,
+          "median_pnl_usd": 3.89,
+          "avg_pnl_usd": 5.04,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5094,
+          "signals_per_fold": 1698.0,
+          "compounding_score": 19.0929
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7719,
+          "avg_excess_hr_pp": 26.54,
+          "median_pnl_usd": 3.83,
+          "avg_pnl_usd": 4.99,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5209,
+          "signals_per_fold": 1736.3,
+          "compounding_score": 18.3027
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7722,
+          "avg_excess_hr_pp": 26.57,
+          "median_pnl_usd": 3.83,
+          "avg_pnl_usd": 4.94,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5156,
+          "signals_per_fold": 1718.7,
+          "compounding_score": 18.3009
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7654,
+          "avg_excess_hr_pp": 25.89,
+          "median_pnl_usd": 3.79,
+          "avg_pnl_usd": 4.91,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5267,
+          "signals_per_fold": 1755.7,
+          "compounding_score": 17.6555
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7592,
+          "avg_excess_hr_pp": 25.27,
+          "median_pnl_usd": 3.69,
+          "avg_pnl_usd": 5.14,
+          "avg_hold_hours": 1.33,
+          "total_signals": 5415,
+          "signals_per_fold": 1805.0,
+          "compounding_score": 16.7902
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7652,
+          "avg_excess_hr_pp": 25.86,
+          "median_pnl_usd": 3.88,
+          "avg_pnl_usd": 5.34,
+          "avg_hold_hours": 1.67,
+          "total_signals": 5010,
+          "signals_per_fold": 1670.0,
+          "compounding_score": 14.4494
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.762,
+          "avg_excess_hr_pp": 25.55,
+          "median_pnl_usd": 3.72,
+          "avg_pnl_usd": 4.82,
+          "avg_hold_hours": 1.67,
+          "total_signals": 5266,
+          "signals_per_fold": 1755.3,
+          "compounding_score": 13.6719
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7533,
+          "avg_excess_hr_pp": 24.68,
+          "median_pnl_usd": 3.66,
+          "avg_pnl_usd": 4.81,
+          "avg_hold_hours": 1.67,
+          "total_signals": 5455,
+          "signals_per_fold": 1818.3,
+          "compounding_score": 13.0047
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7496,
+          "avg_excess_hr_pp": 24.3,
+          "median_pnl_usd": 3.59,
+          "avg_pnl_usd": 5.04,
+          "avg_hold_hours": 1.67,
+          "total_signals": 5523,
+          "signals_per_fold": 1841.0,
+          "compounding_score": 12.5788
+        }
+      ],
+      "directional_top15": [
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5905,
+          "avg_excess_hr_pp": 8.39,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.35,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7747,
+          "signals_per_fold": 2582.3,
+          "compounding_score": 0.1168
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5929,
+          "avg_excess_hr_pp": 8.63,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.34,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7943,
+          "signals_per_fold": 2647.7,
+          "compounding_score": 0.1154
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5912,
+          "avg_excess_hr_pp": 8.46,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.35,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7966,
+          "signals_per_fold": 2655.3,
+          "compounding_score": 0.1151
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5924,
+          "avg_excess_hr_pp": 8.59,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.34,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7949,
+          "signals_per_fold": 2649.7,
+          "compounding_score": 0.1148
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5904,
+          "avg_excess_hr_pp": 8.39,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.35,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7828,
+          "signals_per_fold": 2609.3,
+          "compounding_score": 0.1135
+        },
+        {
+          "params": {
+            "min_trades": 50,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5899,
+          "avg_excess_hr_pp": 8.34,
+          "median_pnl_usd": 0.06,
+          "avg_pnl_usd": 0.35,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7804,
+          "signals_per_fold": 2601.3,
+          "compounding_score": 0.1125
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5927,
+          "avg_excess_hr_pp": 8.61,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.34,
+          "avg_hold_hours": 1.0,
+          "total_signals": 7988,
+          "signals_per_fold": 2662.7,
+          "compounding_score": 0.1112
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5932,
+          "avg_excess_hr_pp": 8.67,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.36,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8139,
+          "signals_per_fold": 2713.0,
+          "compounding_score": 0.1112
+        },
+        {
+          "params": {
+            "min_trades": 30,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5931,
+          "avg_excess_hr_pp": 8.65,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.35,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8046,
+          "signals_per_fold": 2682.0,
+          "compounding_score": 0.1105
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5936,
+          "avg_excess_hr_pp": 8.71,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.38,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8179,
+          "signals_per_fold": 2726.3,
+          "compounding_score": 0.1085
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5927,
+          "avg_excess_hr_pp": 8.62,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.34,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8005,
+          "signals_per_fold": 2668.3,
+          "compounding_score": 0.1084
+        },
+        {
+          "params": {
+            "min_trades": 20,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.85
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5932,
+          "avg_excess_hr_pp": 8.67,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.34,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8076,
+          "signals_per_fold": 2692.0,
+          "compounding_score": 0.1072
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5938,
+          "avg_excess_hr_pp": 8.73,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.37,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8224,
+          "signals_per_fold": 2741.3,
+          "compounding_score": 0.1055
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5927,
+          "avg_excess_hr_pp": 8.61,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.33,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8065,
+          "signals_per_fold": 2688.3,
+          "compounding_score": 0.1036
+        },
+        {
+          "params": {
+            "min_trades": 10,
+            "excess_hr_pp": 15,
+            "max_avg_entry_price": 0.75
+          },
+          "n_folds": 3,
+          "avg_hr": 0.5922,
+          "avg_excess_hr_pp": 8.57,
+          "median_pnl_usd": 0.05,
+          "avg_pnl_usd": 0.33,
+          "avg_hold_hours": 1.0,
+          "total_signals": 8027,
+          "signals_per_fold": 2675.7,
+          "compounding_score": 0.1028
+        }
+      ],
+      "n_folds": 3,
+      "fold_base_rates": [
+        {
+          "fold": "2025-07-01",
+          "base": 0.4973,
+          "n": 1683
+        },
+        {
+          "fold": "2025-10-01",
+          "base": 0.5126,
+          "n": 10525
+        },
+        {
+          "fold": "2026-01-01",
+          "base": 0.5097,
+          "n": 17603
+        }
+      ]
+    }
+  }
+}

@@ -43,19 +43,32 @@ def _register_providers() -> None:
     Add new provider registrations here when implementing strategies.
     """
     try:
+        from polymarket_pipeline.strategies_impl.tag_hr_copy.provider import TagHRProvider
+
+        _PROVIDER_REGISTRY["tag_hr_provider"] = TagHRProvider
+    except ImportError:
+        logger.warning("provider.skip", name="tag_hr_provider", reason="import failed")
+
+    try:
         from polymarket_pipeline.strategies_impl.s2_hitrate_copy.provider import S2Provider
 
         _PROVIDER_REGISTRY["s2_provider"] = S2Provider
     except ImportError:
         logger.warning("provider.skip", name="s2_provider", reason="import failed")
 
-    from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import InsiderCopyProvider
+    try:
+        from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import InsiderCopyProvider
 
-    _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
+        _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
+    except ImportError:
+        logger.warning("provider.skip", name="insider_copy_provider", reason="import failed")
 
-    from polymarket_pipeline.strategies_impl.s3_no_sniper.provider import S3DataProvider
+    try:
+        from polymarket_pipeline.strategies_impl.s3_no_sniper.provider import S3DataProvider
 
-    _PROVIDER_REGISTRY["s3_data_provider"] = S3DataProvider
+        _PROVIDER_REGISTRY["s3_data_provider"] = S3DataProvider
+    except ImportError:
+        logger.warning("provider.skip", name="s3_data_provider", reason="import failed")
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +84,15 @@ def _register_strategies() -> None:
     Add new strategy factories here when implementing strategies.
     """
     try:
+        from polymarket_pipeline.strategies_impl.tag_hr_copy.strategy import (
+            create_tag_hr_copy_strategy,
+        )
+
+        _STRATEGY_FACTORIES["tag_hr_copy"] = create_tag_hr_copy_strategy
+    except ImportError:
+        logger.warning("strategy.skip", name="tag_hr_copy", reason="import failed")
+
+    try:
         from polymarket_pipeline.strategies_impl.s2_hitrate_copy.strategy import (
             create_s2_strategy,
         )
@@ -79,19 +101,25 @@ def _register_strategies() -> None:
     except ImportError:
         logger.warning("strategy.skip", name="s2_hitrate_copy", reason="import failed")
 
-    from polymarket_pipeline.strategies_impl.s2_insider_copy.strategy import (
-        create_insider_copy_strategy,
-    )
+    try:
+        from polymarket_pipeline.strategies_impl.s2_insider_copy.strategy import (
+            create_insider_copy_strategy,
+        )
 
-    _STRATEGY_FACTORIES["s2_insider_sports"] = create_insider_copy_strategy
-    _STRATEGY_FACTORIES["s2_insider_politics"] = create_insider_copy_strategy
-    _STRATEGY_FACTORIES["s2_insider_misc"] = create_insider_copy_strategy
+        _STRATEGY_FACTORIES["s2_insider_sports"] = create_insider_copy_strategy
+        _STRATEGY_FACTORIES["s2_insider_politics"] = create_insider_copy_strategy
+        _STRATEGY_FACTORIES["s2_insider_misc"] = create_insider_copy_strategy
+    except ImportError:
+        logger.warning("strategy.skip", name="s2_insider_copy", reason="import failed")
 
-    from polymarket_pipeline.strategies_impl.s3_no_sniper.strategy import (
-        create_s3_no_sniper_strategy,
-    )
+    try:
+        from polymarket_pipeline.strategies_impl.s3_no_sniper.strategy import (
+            create_s3_no_sniper_strategy,
+        )
 
-    _STRATEGY_FACTORIES["s3_no_sniper"] = create_s3_no_sniper_strategy
+        _STRATEGY_FACTORIES["s3_no_sniper"] = create_s3_no_sniper_strategy
+    except ImportError:
+        logger.warning("strategy.skip", name="s3_no_sniper", reason="import failed")
 
 
 # ---------------------------------------------------------------------------
