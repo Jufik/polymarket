@@ -1,0 +1,4 @@
+# Large parquet/JSONL artifacts — keep config, reviews, notes
+*/discovery/*.parquet
+*/validation/*.parquet
+*/validation/*.jsonl

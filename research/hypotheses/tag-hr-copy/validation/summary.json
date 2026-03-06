@@ -1,0 +1,18 @@
+{
+  "strategy": "tag_hr_copy",
+  "period": "2025-01-01:2026-01-01",
+  "executor": "realistic",
+  "settlement": true,
+  "total_trades": 8371546,
+  "total_intents": 22097,
+  "total_fills": 3265,
+  "settled": 3257,
+  "rejected": 18832,
+  "hit_rate": 0.4845,
+  "sharpe": -0.1247,
+  "total_pnl_net": -2285.08,
+  "avg_edge": -0.7016,
+  "max_drawdown": 11700.41,
+  "profit_factor": 0.9868,
+  "avg_hold_hours": 12.1
+}

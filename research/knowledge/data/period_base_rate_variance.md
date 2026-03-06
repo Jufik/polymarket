@@ -16,9 +16,9 @@ Analyzing base rates by month (excluding "Up or Down" gambling markets), the YES
 | 2025-10 | 35.6% | 64.4% | Normal |
 | Overall | 36.3% | 63.7% | Long-run average |
 
-July 2025 had only 20.4% YES wins -- meaning the NO base rate was 79.6%. A NO strategy with 80% HR in July has only 0.4pp excess, not the 16pp you'd compute using the fixed 63.7% base rate.
+July 2025 had only 20.4% YES wins — meaning the NO base rate was 79.6%. A NO strategy with 80% HR in July has only 0.4pp excess, not the 16pp you'd compute using the fixed 63.7% base rate.
 
-This directly caused $692K negative PnL in the S2 vectorized backtest for July 2025 despite a "high" 76.5% overall HR.
+This variance can cause large negative PnL in individual months despite a "high" overall HR.
 
 ## Evidence
 
@@ -47,6 +47,7 @@ ORDER BY month
 ## Related
 
 - `data/market_base_rates.md` -- Overall base rates (this entry adds time-varying context)
+- `data/tag_base_rates.md` -- Tag-specific base rates (orthogonal dimension of variance)
 - `pitfalls/vectorized_vs_tick.md` -- Vectorized uses resolved positions, affected by base rate swings
 
 ## Tags

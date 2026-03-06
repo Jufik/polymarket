@@ -1,29 +1,21 @@
--- Hold time distribution by market category.
+-- Hold time distribution by market tag.
 -- Usage: capital efficiency planning, position slot allocation.
--- Requires: markets table with closed_at, created_at.
+-- Uses tag chain (not m.category which is 99.3% NULL — see pitfalls/category_column_null.md).
 
 SELECT
-    multiIf(
-        question LIKE '%Up or Down%', 'gambling',
-        question LIKE '%vs.%' OR question LIKE '%Winner%'
-            OR question LIKE '%NFL%' OR question LIKE '%NBA%'
-            OR question LIKE '%MLB%' OR question LIKE '%NHL%',
-        'sports',
-        question LIKE '%Bitcoin%' OR question LIKE '%ETH %'
-            OR question LIKE '%crypto%' OR question LIKE '%BTC%',
-        'crypto',
-        question LIKE '%Trump%' OR question LIKE '%election%'
-            OR question LIKE '%president%',
-        'politics',
-        'other'
-    ) AS cat,
+    t.label AS tag,
     count(*) AS n,
-    round(quantile(0.5)(dateDiff('hour', created_at, closed_at)), 0) AS med_hours,
-    round(avg(dateDiff('hour', created_at, closed_at)), 0) AS avg_hours,
-    round(quantile(0.9)(dateDiff('hour', created_at, closed_at)), 0) AS p90_hours
-FROM markets
-WHERE status = 'closed'
-  AND closed_at > created_at
-  AND closed_at >= '2025-01-01'
-GROUP BY cat
+    round(quantile(0.5)(dateDiff('hour', m.created_at, m.closed_at)), 0) AS med_hours,
+    round(avg(dateDiff('hour', m.created_at, m.closed_at)), 0) AS avg_hours,
+    round(quantile(0.9)(dateDiff('hour', m.created_at, m.closed_at)), 0) AS p90_hours
+FROM markets m
+INNER JOIN events e ON m.event_id = e.id
+INNER JOIN event_tags et ON e.id = et.event_id
+INNER JOIN tags t ON et.tag_id = t.id
+WHERE m.status = 'closed'
+  AND m.closed_at > m.created_at
+  AND m.closed_at >= '2025-01-01'
+  AND m.question NOT LIKE '%Up or Down%'
+GROUP BY tag
+HAVING n >= 100
 ORDER BY med_hours

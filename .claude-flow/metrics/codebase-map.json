@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-03-06T10:36:44.699Z",
+  "projectRoot": "/Users/kiefferjulien/git/polymarket",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1772793404699
+}

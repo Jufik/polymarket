@@ -8,24 +8,57 @@ user-invocable: false
 
 You are performing vectorized signal discovery. All results are UPPER BOUNDS.
 
-## Step 0: Load Knowledge
+## Step 0: Verify Knowledge Context
 
-Before any CH query, load relevant knowledge:
+Your dispatch prompt includes a `## Knowledge Context` section with all CRITICAL and WARNING
+admonitions collected by the Lead in Phase 0. Verify these are present before proceeding.
+If missing, load knowledge from `research/knowledge/` yourself as a fallback.
 
-```python
-# Read all CRITICAL/WARNING admonitions from research/knowledge/
-# Apply each one to your methodology
-```
-
-Key pitfalls to address:
-- **SELL handling** (`pitfalls/sell_is_exit.md`): SELL is directional (SELL YES = bearish, SELL NO = bullish) but ambiguous (exit vs split-entry). Include/exclude is a research parameter — test both.
+Key pitfalls to verify are addressed in your methodology:
+- **SELL handling** (`pitfalls/sell_is_exit.md`): SELL is directional but ambiguous — test both BUY-only and directional mapping (MANDATORY dual-test, see below)
 - **Consensus dedup** (`pitfalls/consensus_dedup.md`): count unique traders, not trades
 - **Resolution** (`data/resolution_mechanics.md`): use asset_id, never string matching
-- **Base rates** (`data/market_base_rates.md`): NO wins 62%, YES wins 38%
+- **Base rates** (`data/tag_base_rates.md`): tag-specific rates vary 9-73% YES — never use global 38/62 blindly
+- **Split correction** (`pitfalls/split_position_blind_spot.md`): use `maker_positions_resolved_corrected`, NOT `trader_positions_resolved`
+- **Counting unit** (`pitfalls/vectorized_counting_unit.md`): aggregate to market-level, not trader-level
+
+## Step 0.5: Sanity Combo (Early Abort)
+
+Before running the full parameter sweep, test ONE sensible default combo:
+- Use median parameter values or prior-informed defaults from the hypothesis framing
+- Run on a single recent 3-month window (not full walk-forward)
+- Compute HR, excess HR above tag-specific base rate, and universe size
+
+**If HR is BELOW the tag-specific base rate for the signal direction: ABORT EARLY.**
+
+If aborting:
+- Write `discovery/results.json` with `"verdict": "no_signal"` and the sanity combo results
+- Return to Lead with NO-GO recommendation and the sanity results
+- Do NOT proceed to full sweep — this saves compute on dead hypotheses
+
+If sanity combo shows signal (HR above base rate by any margin): proceed to Step 1.
 
 ## Step 1: CH SQL Sweep
 
 Connect to remote ClickHouse: `192.168.0.148:18123`, database `polymarket`.
+
+### Classification Verification (before sweep)
+
+Before running any sweep SQL:
+1. Check which classification labels exist:
+   ```sql
+   SELECT DISTINCT label, count(*) AS n FROM trader_classifications FINAL GROUP BY label
+   SELECT DISTINCT label, count(*) AS n FROM market_classifications FINAL GROUP BY label
+   ```
+2. Check which labels your hypothesis needs (from the hypothesis framing)
+3. If a needed classification is MISSING:
+   - Create it using the "Creating new classifications" pattern below
+   - OR propose it in `discovery/notes.md` and use an inline approximation
+4. Verify `computed_at` is appropriate for your cutoff:
+   ```sql
+   SELECT label, max(computed_at) FROM trader_classifications FINAL GROUP BY label
+   ```
+5. Document classification status in `discovery/notes.md`
 
 ### COMPOSABLE QUERY PATTERN (MANDATORY)
 
@@ -83,7 +116,7 @@ INNER JOIN (SELECT trader, score FROM trader_classifications FINAL
    )
    ```
 2. **Populate it** by running the rule with your test cutoff date
-3. **Use it** immediately via JOIN with `as_of = toDate('{cutoff}')`
+3. **Use it** immediately via JOIN
 4. **Iterate** — tweak the rule, re-populate, re-test
 5. **Promote** — when proven useful, propose for production in `discovery/notes.md`
 
@@ -111,19 +144,38 @@ Score: avg(price) as continuous score
 | `trader_volumes` | SummingMergeTree | maker_vol, taker_vol per trader |
 | `trader_classifications` | ReplacingMergeTree | Trader taxonomy — cache, repopulate before use |
 | `market_classifications` | ReplacingMergeTree | Market taxonomy — cache, repopulate before use |
+| `maker_positions` | ReplacingMergeTree | Maker-only positions per (trader, condition_id) — no taker mixing |
+| `split_corrections` | ReplacingMergeTree | Inferred min_splits for positions with negative net (static backfill) |
+| `maker_positions_corrected` | VIEW | maker_positions patched with split_corrections |
+| `maker_positions_resolved_corrected` | VIEW | Corrected positions + PnL + resolution — **use instead of trader_positions_resolved** |
 
 ### SQL conventions:
 - Always use `FROM (SELECT * FROM table FINAL) alias` NOT `FROM table FINAL AS alias`
-- Compare hit rates against base: NO 62%, YES 38%
-- SELL handling is a research parameter — test BUY-only vs directional SELL mapping (see `pitfalls/sell_is_exit.md`)
+- Compare hit rates against **tag-specific** base rates (not global 38/62)
 - **JOIN classification tables** — never re-derive inline; repopulate with correct cutoff before use
 - Keep queries under 50 lines by composing building blocks
+
+### MANDATORY: SELL Dual-Test
+
+Every discovery sweep MUST run TWO variants:
+1. **BUY-only**: Filter `side = 'BUY'` — excludes all SELLs from signal generation
+2. **Directional**: Map SELL YES → bearish signal, SELL NO → bullish signal (include as directional entries)
+
+Report BOTH results side-by-side in the output and in `discovery/results.json`.
+The top-5 parameter combos must be reported for EACH variant.
+
+If only one variant is reported, the discovery is **INCOMPLETE** and will be rejected at review.
+
+If the difference between variants is < 2pp HR: note "SELL handling insensitive" and either is acceptable.
+If > 5pp difference: this is a finding — capture in knowledge base.
+
+See `research/knowledge/pitfalls/sell_is_exit.md` for the 4 implementation options.
 
 ## Step 2: Parameter Sweep
 
 Vary signal thresholds systematically. For each combo compute:
 - Hit rate (by direction: YES and NO separately)
-- Excess HR above base rate
+- Excess HR above **tag-specific** base rate
 - Average edge per trade (USD)
 - Median hold time (days)
 - Universe size (trades/month)
@@ -133,6 +185,25 @@ Use walk-forward windows when possible:
 - Train: 12 months (default from config)
 - Test: 1 month (default from config)
 - **Re-populate classifications per fold** using `cutoff = fold_train_end`
+
+### Step 2b: Sensitivity Analysis (MANDATORY)
+
+After identifying the top-3 parameter combos from the sweep, test their robustness:
+
+For each top combo:
+1. Vary each parameter independently by -10% and +10%
+2. Re-run the sweep for each perturbation (6 × N_params additional runs)
+3. Record HR change for each perturbation
+
+Flag as **FRAGILE** if ANY single perturbation changes HR by > 5pp:
+
+```markdown
+> [!WARNING] FRAGILE: Parameter {X} at {value} — HR drops {N}pp with -10% change.
+> Strategy is sensitive to this parameter. Consider widening the acceptable range.
+```
+
+Include sensitivity results in `discovery/results.json`. Fragile combos should be
+deprioritized in the top-5 ranking (prefer robust combos with slightly lower HR).
 
 ## Step 3: Create Marimo Notebook
 
@@ -147,10 +218,11 @@ ch = clickhouse_connect.get_client(host="192.168.0.148", port=18123, database="p
 # Cell 1: Classification population (populate rules with cutoff)
 # Cell 2: Universe definition (qualified traders, market filters — via classification JOINs)
 # Cell 3: Signal computation SQL
-# Cell 4: Parameter sweep results table
-# Cell 5: Hit rate vs base rate chart
+# Cell 4: Parameter sweep results table (BOTH SELL variants)
+# Cell 5: Hit rate vs base rate chart (tag-specific base rates)
 # Cell 6: Compounding score heatmap
 # Cell 7: Hold time distribution
+# Cell 8: Sensitivity analysis results
 ```
 
 ## Step 4: Populate config.toml
@@ -166,18 +238,71 @@ Write observations to `discovery/notes.md`:
 - What worked, what didn't
 - Surprising findings (flag for knowledge capture)
 - Spawned ideas (for backlog)
-- Parameter sensitivity analysis
+- Parameter sensitivity analysis summary
+- SELL variant comparison results
 - **Classification proposals** for rules that proved useful
+
+## Step 6: Write Structured Output
+
+Write `discovery/results.json` with machine-readable results:
+
+```json
+{
+  "hypothesis": "{slug}",
+  "timestamp": "ISO-8601",
+  "verdict": "promising | marginal | no_signal",
+  "universe": {
+    "total_markets": 0,
+    "trades_per_month": 0,
+    "date_range": ["YYYY-MM-DD", "YYYY-MM-DD"],
+    "tags": ["tag1", "tag2"]
+  },
+  "base_rates": {
+    "tag": "tag_name",
+    "yes_pct": 0.0,
+    "no_pct": 0.0
+  },
+  "buy_only_results": {
+    "top_combos": [
+      {
+        "rank": 1,
+        "params": {},
+        "hr_pct": 0.0,
+        "excess_hr_pp": 0.0,
+        "avg_edge_usd": 0.0,
+        "median_hold_days": 0.0,
+        "compounding_score": 0.0,
+        "n_signals": 0,
+        "trades_per_month": 0.0,
+        "fragile": false,
+        "sensitivity": {}
+      }
+    ]
+  },
+  "directional_results": {
+    "top_combos": []
+  },
+  "sell_sensitivity_pp": 0.0,
+  "spawned_ideas": [],
+  "knowledge_captures": [],
+  "classifications_used": [],
+  "classifications_proposed": []
+}
+```
+
+This file is read by the Lead orchestrator for gate presentation.
 
 ## Output Requirements
 
 All discovery results MUST be labeled as **UPPER BOUNDS**.
 
 Return to Lead:
-1. Top 5 parameter combos by compounding_score
+1. Top 5 parameter combos by compounding_score (BOTH SELL variants)
 2. Vectorized HR and PnL (labeled UPPER BOUND)
 3. Hold time distribution
 4. Universe size (trades/month)
-5. Spawned ideas (for backlog)
-6. Surprising findings (for knowledge capture)
-7. Classification rules created/proposed
+5. Sensitivity analysis summary (fragile flags)
+6. SELL variant comparison
+7. Spawned ideas (for backlog)
+8. Surprising findings (for knowledge capture)
+9. Classification rules created/proposed

@@ -30,7 +30,9 @@ scripts/_cache/
 .DS_Store
 
 # IDE / editor
-.claude/
+tmp
+.claude/worktrees
+
 .serena/
 
 # Worktrees

@@ -12,7 +12,7 @@ The `markets.category` column is populated for only 4,013 markets (0.7%):
 - Other categories: 1,514 total (Crypto 369, US-current-affairs 356, etc.)
 - NULL: 554,540 (99.3%)
 
-When the S2 strategy uses `exclude_categories=("Sports", "Weather")` with
+When a strategy uses `exclude_categories=("Sports", "Weather")` with
 `lower(coalesce(m.category, '')) NOT IN ('sports', 'weather')`:
 - Sports excluded: 2,499 of 267,945 actual sports markets (0.9%)
 - Weather excluded: 0 of 11,982 actual weather markets (0.0%)
@@ -45,14 +45,13 @@ FROM markets WHERE lower(coalesce(category, '')) = 'sports'
 
 ## Impact
 
-- **S2 strategy**: `exclude_categories` parameter is decorative. Must fix `qualified_traders_query()` to use tag chain.
+- **Any strategy with category filtering**: `exclude_categories` is decorative if using `m.category`. Must use the tag join chain instead.
 - **Any market classification**: Never rely on `m.category`. Always use the tag join chain.
-- **Tag-based susceptibility** (in `queries/tag_susceptibility.sql`) is the correct approach.
+- **Market classifications table** (`market_classifications`): should encode tag-derived labels, not `m.category`.
 
 ## Related
 
 - `data/market_base_rates.md` -- base rates should exclude gambling via tags, not categories
-- `signals/insider_copy.md` -- insider copy already uses tag-based susceptibility
 
 ## Tags
 

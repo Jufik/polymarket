@@ -1,0 +1,33 @@
+# Hypothesis configuration — drives pm-harness and pm-strategy
+# Copy to research/hypotheses/{slug}/config.toml and fill in values.
+
+[strategy.RENAME_ME]
+enabled = true
+mode = "replay"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 0
+features = ["RENAME_ME_provider"]
+
+[strategy.RENAME_ME.params]
+# Strategy-specific parameters go here
+
+[provider.RENAME_ME_provider]
+enabled = true
+refresh_interval_s = 900
+
+[provider.RENAME_ME_provider.params]
+# Provider-specific parameters go here
+
+[harness]
+executor = "realistic"               # "realistic" | "simulated"
+fill_model = "calibrated_slippage"   # "calibrated_slippage" | "instant"
+bootstrap_hours = 168
+pre_filter_makers = true
+settlement_enabled = true
+resolution_source = "asset_id"
+
+[harness.walk_forward]
+train_months = 12
+test_months = 1

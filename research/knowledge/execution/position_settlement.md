@@ -3,7 +3,7 @@
 > **TL;DR**: Positions must be settled mid-simulation to free capital. Without settlement, `cost_basis` grows monotonically and blocks all new entries after N fills.
 
 > [!CRITICAL]
-> Any simulation with capital limits MUST implement tick-by-tick settlement. Without it: 50 fills then 10,462 rejections — results are meaningless.
+> Any simulation with capital limits MUST implement tick-by-tick settlement. Without it, all capital gets locked after the first N fills — results are meaningless.
 
 > [!WARNING]
 > `BacktestRunner` does NOT settle mid-run. Only use it for strategies without capital constraints. Use `ReplayRunner` for capital-constrained replay.
@@ -33,8 +33,8 @@ new_pos = replace(old_pos,
 )
 ```
 
-Before fix: 50 fills then 10,462 rejections (all max_open_positions).
-After fix: 355 fills, 0 rejections, 352 settlements (capital recycles).
+Without settlement: N fills then thousands of rejections (all max_open_positions).
+With settlement: fills proceed normally, capital recycles as markets resolve.
 
 ## Impact
 

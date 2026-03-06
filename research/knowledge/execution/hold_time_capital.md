@@ -3,7 +3,7 @@
 > **TL;DR**: Long-dated markets (politics 22d, crypto 11d) consume position slots for weeks. Sports (1.4d) and esports (0.3d) are 10-50x more capital-efficient.
 
 > [!WARNING]
-> Without `max_hold_hours` filtering, the first 50 fills (often long-dated) lock all capital for weeks. Always add a hold-time gate.
+> Without `max_hold_hours` filtering, the first N fills (often long-dated) lock all capital for weeks. Always add a hold-time gate.
 
 > [!TIP]
 > Consider position sizing inversely proportional to expected hold time: `size = base_size * (target_hold / expected_hold)`.
@@ -22,19 +22,26 @@ With N max concurrent positions, throughput = N / avg_hold_time. Market categori
 
 A single politics position blocks a slot for 22 days — the same slot could serve 73 esports positions.
 
-In tick-by-tick simulation without hold-time filtering: peak concurrent = ~2,816 positions vs 50 max slots = capital starvation. The first 50 fills (often long-dated) lock everything.
+In tick-by-tick simulation without hold-time filtering: peak concurrent positions can be 50-100x the available slots, causing capital starvation. The first N fills (often long-dated) lock everything.
 
 ## Evidence
 
 ```sql
 SELECT
-    cat,
-    round(quantile(0.5)(hold_days), 1) AS med_hold,
-    round(avg(hold_days), 1) AS avg_hold,
+    t.label AS tag,
+    round(quantile(0.5)(dateDiff('hour', m.created_at, m.closed_at)) / 24, 1) AS med_hold_days,
+    round(avg(dateDiff('hour', m.created_at, m.closed_at)) / 24, 1) AS avg_hold_days,
     count(*) AS n
-FROM _tmp_s1d_oos_positions
-WHERE pos IN ('YES','NO') AND train_hr >= 0.75
-GROUP BY cat ORDER BY med_hold
+FROM markets m
+INNER JOIN events e ON m.event_id = e.id
+INNER JOIN event_tags et ON e.id = et.event_id
+INNER JOIN tags t ON et.tag_id = t.id
+WHERE m.status = 'closed'
+  AND m.closed_at > m.created_at
+  AND m.closed_at >= '2025-01-01'
+GROUP BY tag
+HAVING n >= 100
+ORDER BY med_hold_days
 ```
 
 ## Impact
@@ -47,7 +54,7 @@ GROUP BY cat ORDER BY med_hold
 ## Related
 
 - `execution/position_settlement.md` — Settlement frees capital; hold time determines how long slots are blocked
-- `pitfalls/vectorized_vs_tick.md` — Capital constraint is Gap #3 in vectorized vs tick divergence
+- `pitfalls/vectorized_vs_tick.md` — Capital constraint is one of the vectorized vs tick divergence sources
 
 ## Tags
 
