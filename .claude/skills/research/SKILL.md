@@ -118,7 +118,8 @@ If greenlit: proceed to Phase 1.5.
 
 ## Phase 1.5: Data Recon
 
-Before any sweep, dispatch Researcher for a quick data reconnaissance:
+Before any sweep, dispatch Researcher for a quick data reconnaissance.
+**Use DuckDB** (instant queries on pre-loaded Parquet snapshot) for recon — no CH needed.
 
 ```python
 Agent(
@@ -126,7 +127,7 @@ Agent(
     team="research-{slug}",
     description="Data recon: {slug}",
     prompt="""
-    TASK: Quick data recon for hypothesis. Run these 5 CH queries and report results.
+    TASK: Quick data recon for hypothesis. Run these 5 DuckDB queries and report results.
     DO NOT run sweeps or create notebooks. Just recon.
 
     {KNOWLEDGE_CONTEXT}
@@ -134,24 +135,24 @@ Agent(
     Hypothesis: {signal}, {thesis}, {test_approach}
     Target tags/categories: {tags}
 
-    Queries to run on CH (192.168.0.148:18123, database polymarket):
+    Use DuckDB (from research.db import db; d = db()):
 
     1. **Universe size**: How many resolved markets match the target tags?
-       Count condition_ids in markets_resolved with appropriate tag filtering.
+       Count condition_ids in markets_resolved with event_tags JOIN.
 
     2. **Tag-specific base rates**: What are YES/NO win rates for the target tags?
        Compute from markets_resolved (not the global 38/62).
 
-    3. **Table health**: Are split-corrected tables populated?
-       SELECT count(*) FROM maker_positions FINAL
-       SELECT count(*) FROM split_corrections FINAL
+    3. **Table health**: Are Parquet snapshot tables populated?
+       d.status() shows row counts for all loaded tables and views.
 
-    4. **Classification status**: What labels exist in classification tables?
-       SELECT label, count(*) FROM trader_classifications FINAL GROUP BY label
-       SELECT label, count(*) FROM market_classifications FINAL GROUP BY label
+    4. **Classification status**: Classifications live in CH only.
+       If the hypothesis needs classifications, check CH:
+       clickhouse_connect to 192.168.0.148:18123, SELECT label, count(*) FROM trader_classifications FINAL GROUP BY label.
+       If not needed, skip.
 
     5. **Time coverage**: What date range has data for the target tags?
-       Earliest and latest trades, total trade count.
+       Query trades view for earliest/latest timestamps + trade count (filtered by universe).
 
     RETURN: Structured report with GO / NO-GO recommendation.
     NO-GO if: universe < 50 resolved markets, data coverage < 6 months,
@@ -374,7 +375,14 @@ Agent(
     SELL variant selected: {buy_only | directional}
 
     You will invoke the research-validate skill for methodology.
-    Run pm-harness and write artifacts to research/hypotheses/{slug}/validation/
+
+    Use the fast replay infrastructure:
+    - `run_fast_backtest()` from research/harness.py (simplest, fully sync)
+    - Or `SyncReplayRunner` from research/sync_replay.py (more control)
+    - Data: Parquet snapshot in data/research/ (Polars predicate pushdown)
+    - No asyncio needed — everything runs synchronously
+
+    Write artifacts to research/hypotheses/{slug}/validation/
 
     RETURN:
     - Validated metrics (HR, PnL, Sharpe, drawdown, compounding_score)

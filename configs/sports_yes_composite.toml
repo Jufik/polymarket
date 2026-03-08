@@ -1,0 +1,25 @@
+[strategy.sports_yes_composite]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 50
+max_open_positions = 10
+cooldown_s = 60
+features = ["consensus_v2"]
+
+[strategy.sports_yes_composite.params]
+n_threshold = 3
+direction_filter = "YES"
+size_usd = 50
+# No max_price — use triggering_price + 0.02 (N=3 consensus is natural in-play filter)
+
+[provider.consensus_v2]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v2.params]
+tag = "Sports"
+k = 25
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90

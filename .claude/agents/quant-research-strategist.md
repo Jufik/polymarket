@@ -52,14 +52,22 @@ Capital angle: {expected hold time, throughput potential}
 Knowledge check: {related existing entries}
 ```
 
-### Phase 2: Vectorized Discovery (CH SQL)
+### Phase 2: Vectorized Discovery (DuckDB Primary, CH Fallback)
 
-**ALL heavy computation in ClickHouse SQL** — never pull millions of rows locally.
+**Use DuckDB + Parquet snapshot** for ALL sweep queries (~1500x faster than CH):
 
+```python
+from research.db import db
+d = db()  # DuckDB singleton, 3.4s startup
+# In-memory: events, event_tags, maker_positions, markets, markets_resolved, token_market_map, trader_volumes
+# External Parquet: trader_trade_agg, trades, yes_entry_data
+# Template sweep: research/hypotheses/tag-hr-copy/scripts/sweep_duckdb.py
+```
+
+DuckDB syntax: `first()` not `any()`, no `FINAL`, `date_diff()` not `dateDiff()`, `CAST(x AS DATE)` not `toDate()`.
+
+**Fallback to CH** only for tables not in Parquet snapshot (classifications, live data):
 - Remote CH: `192.168.0.148:18123`, database `polymarket`
-- Key tables: `trades_raw`, `trader_market_positions`, `maker_positions_resolved_corrected`, `markets_resolved`, `trader_volumes`
-- Creating `_tmp_*` tables is encouraged — name them `_tmp_{strategy}_{purpose}`
-- Use CTEs, subqueries, window functions aggressively
 
 **Parameter sweep pattern** (walk-forward):
 ```sql
@@ -86,10 +94,10 @@ Every hypothesis MUST produce a marimo notebook at `research/notebooks/{slug}.py
 
 **Cell structure**:
 ```
-Cell 0: Setup (CH connection, imports, constants)
+Cell 0: Setup (DuckDB connection, imports, constants)
 Cell 1: Hypothesis (structured description, success criteria)
 Cell 2: Knowledge context (admonitions, base rates)
-Cell 3: Signal computation (CH SQL, feature engineering)
+Cell 3: Signal computation (DuckDB SQL, feature engineering)
 Cell 4: Parameter sweep (grid search, walk-forward)
 Cell 5: Vectorized results (UPPER BOUND label, compounding score)
 Cell 6: Capital efficiency (hold time, throughput, category breakdown)
@@ -99,7 +107,7 @@ Cell 6: Capital efficiency (hold time, throughput, category breakdown)
 ```python
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["marimo", "polars", "clickhouse-connect", "plotly", "numpy"]
+# dependencies = ["marimo", "polars", "duckdb", "plotly", "numpy"]
 # ///
 
 import marimo
@@ -107,14 +115,11 @@ __generated_with = "0.20.2"
 app = marimo.App(width="full", app_title="{title}")
 
 with app.setup:
-    import clickhouse_connect
     import polars as pl
-    CH_HOST = "192.168.0.148"
-    client = clickhouse_connect.get_client(host=CH_HOST, port=18123, database="polymarket")
-    def ch_query(sql: str) -> pl.DataFrame:
-        r = client.query(sql)
-        return pl.DataFrame({col: [row[i] for row in r.result_rows]
-                             for i, col in enumerate(r.column_names)})
+    from research.db import db
+    d = db()  # DuckDB singleton with Parquet snapshot
+    def ddb_query(sql: str) -> pl.DataFrame:
+        return d.query(sql)
 ```
 
 ### Phase 4: Tick-by-Tick Validation
@@ -125,24 +130,34 @@ Only runs AFTER user explicitly approves vectorized results.
 - [ ] Explicit SELL policy (BUY-only, directional mapping, or weighted)
 - [ ] Unique-trader consensus (sets not counters)
 - [ ] Asset-ID resolution (never strings)
-- [ ] Settlement enabled mid-replay
+- [ ] Settlement enabled (built-in to SyncReplayRunner)
 - [ ] Gambling markets excluded
-- [ ] RealisticFillSimulator (not SimulatedExecutor)
+- [ ] Fill model chosen (SimulatedExecutor for speed, RealisticFillSimulator for accuracy)
 
-**Execution**:
+**Execution** (fast path — preferred):
 ```python
-from polymarket_pipeline.strategies.runners.replay import ReplayRunner
-from polymarket_pipeline.strategies.execution.realistic import (
-    RealisticFillSimulator, calibrate_spreads, calibrate_volumes,
+from research.harness import run_fast_backtest, print_summary
+
+# Simplest: fully synchronous, no asyncio needed
+result, summary = run_fast_backtest(
+    strategy, config,
+    universe=set_of_condition_ids,
+    start_month=202501, end_month=202512,
 )
-from polymarket_pipeline.strategies.ledger import ParquetLedger
+if summary:
+    print_summary(summary, slug)
+```
 
-spreads = calibrate_spreads(training_trades)
-volumes = calibrate_volumes(training_trades)
-executor = RealisticFillSimulator(spreads=spreads, volumes=volumes)
-ledger = ParquetLedger(path=f"research/output/{slug}_ledger.parquet")
+**Direct SyncReplayRunner** (more control):
+```python
+from research.fast_replay import load_replay_trades, load_replay_resolutions
+from research.sync_replay import SyncReplayRunner
 
-# Month-by-month OOS: train [M-9mo, M), test [M, M+1)
+ticks = load_replay_trades(universe=universe)  # Polars predicate pushdown
+resolutions, token_map = load_replay_resolutions()
+runner = SyncReplayRunner(strategy, ctx, gateway, config,
+                          resolutions=resolutions, token_map=token_map, ledger=ledger)
+result = runner.run(ticks)  # synchronous — no asyncio.run() needed
 ```
 
 **After validation, compare**:
@@ -220,8 +235,9 @@ Interpretation:
 ## Project Infrastructure
 
 - **Always use `uv run`** — never bare python3 or pip
-- **ClickHouse** remote `192.168.0.148:18123` (full dataset 2022-2026)
-- **Parquet**: only `fastparquet` works
+- **DuckDB + Parquet snapshot** — primary query engine (`from research.db import db`)
+- **ClickHouse** remote `192.168.0.148:18123` — fallback for classifications/live data
+- **Parquet (compact files)**: only `fastparquet` works for DECIMAL(100,18). Research snapshot uses Polars.
 - **USDC**: 1e6 (6 decimals)
 - **Polars** for dataframes (not pandas)
 - **structlog**, **Pydantic v2** frozen, **mypy strict** + ruff
@@ -230,14 +246,26 @@ Interpretation:
 
 | File | Purpose |
 |------|---------|
-| `research/harness.py` | Backtest entry point |
+| `research/db.py` | DuckDB singleton (Parquet snapshot) |
+| `research/harness.py` | Backtest entry: `run_fast_backtest()` (sync) + legacy `run_backtest()` (async) |
+| `research/fast_replay.py` | Polars-based trade loader + `ReplayTick` + resolution loader |
+| `research/sync_replay.py` | `SyncReplayRunner` — zero-async tick-by-tick replay |
+| `research/server.py` | FastAPI research server (port 9999) — /query, /sweep, /replay |
 | `research/strategies/example.py` | Template strategy |
 | `research/knowledge/` | Knowledge base with admonitions |
 | `research/ideas.md` | Idea backlog (queued/tested/parked) |
-| `strategies/runners/replay.py` | ReplayRunner (tick-by-tick) |
+| `strategies/runners/replay.py` | ReplayRunner (async tick-by-tick — use SyncReplayRunner instead) |
 | `strategies/execution/realistic.py` | RealisticFillSimulator |
 | `strategies/ledger/` | LedgerRecord → ParquetLedger → LedgerSummary |
 | `strategies/protocol.py` | Strategy, FeatureProvider protocols |
+
+### Data: Parquet Snapshot (`data/research/`, ~17.6 GB)
+
+| Directory | Contents | Load |
+|-----------|----------|------|
+| `positions/` | maker_positions (30M), trader_trade_agg (134M), yes_entry_data (39M), trader_volumes (2.5M) | In-memory / external Parquet |
+| `metadata/` | events, event_tags, markets, markets_resolved, token_market_map | In-memory |
+| `trades/` | 440M rows in 41 monthly files, sorted by (condition_id, timestamp) | External Parquet with predicate pushdown |
 
 ## Quality Gates
 

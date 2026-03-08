@@ -1,0 +1,207 @@
+{
+  "description": "Dissent ratio = n_qual_yes / (n_qual_yes + n_qual_no). Track 3.",
+  "consensus_n": 3,
+  "meh_thresh_pp": 10,
+  "mpe_thresh": 0.8,
+  "results_by_tag": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.3426,
+        "test_base_rate": 0.3677,
+        "pool_size": 50,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 4,
+            "hit_rate": 1.0,
+            "excess_hr_pp": 63.23,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 16,
+            "hit_rate": 0.75,
+            "excess_hr_pp": 38.23,
+            "median_dissent": 0.778
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 58,
+            "hit_rate": 0.5862,
+            "excess_hr_pp": 21.85,
+            "median_dissent": 0.5
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.4432,
+        "test_base_rate": 0.6537,
+        "pool_size": 197,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 12,
+            "hit_rate": 0.9167,
+            "excess_hr_pp": 26.3,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "strong (0.90-1.0)",
+            "n_markets": 3,
+            "hit_rate": 1.0,
+            "excess_hr_pp": 34.63,
+            "median_dissent": 0.905
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 54,
+            "hit_rate": 0.6852,
+            "excess_hr_pp": 3.15,
+            "median_dissent": 0.75
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 138,
+            "hit_rate": 0.5362,
+            "excess_hr_pp": -11.75,
+            "median_dissent": 0.521
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.507,
+        "test_base_rate": 0.4558,
+        "pool_size": 517,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 86,
+            "hit_rate": 0.9302,
+            "excess_hr_pp": 47.44,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "strong (0.90-1.0)",
+            "n_markets": 3,
+            "hit_rate": 0.6667,
+            "excess_hr_pp": 21.08,
+            "median_dissent": 0.917
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 119,
+            "hit_rate": 0.8403,
+            "excess_hr_pp": 38.45,
+            "median_dissent": 0.75
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 256,
+            "hit_rate": 0.4766,
+            "excess_hr_pp": 2.07,
+            "median_dissent": 0.5
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.2239,
+        "test_base_rate": 0.2476,
+        "pool_size": 107,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 5,
+            "hit_rate": 0.8,
+            "excess_hr_pp": 55.24,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "strong (0.90-1.0)",
+            "n_markets": 1,
+            "hit_rate": 1.0,
+            "excess_hr_pp": 75.24,
+            "median_dissent": 0.9
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 14,
+            "hit_rate": 0.6429,
+            "excess_hr_pp": 39.53,
+            "median_dissent": 0.75
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 107,
+            "hit_rate": 0.5514,
+            "excess_hr_pp": 30.38,
+            "median_dissent": 0.5
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.2836,
+        "test_base_rate": 0.3955,
+        "pool_size": 298,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 13,
+            "hit_rate": 0.6923,
+            "excess_hr_pp": 29.68,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 71,
+            "hit_rate": 0.5634,
+            "excess_hr_pp": 16.79,
+            "median_dissent": 0.75
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 268,
+            "hit_rate": 0.3918,
+            "excess_hr_pp": -0.37,
+            "median_dissent": 0.5
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.3476,
+        "test_base_rate": 0.453,
+        "pool_size": 343,
+        "dissent_buckets": [
+          {
+            "bucket": "pure YES (1.0)",
+            "n_markets": 34,
+            "hit_rate": 0.5294,
+            "excess_hr_pp": 7.64,
+            "median_dissent": 1.0
+          },
+          {
+            "bucket": "moderate (0.70-0.90)",
+            "n_markets": 90,
+            "hit_rate": 0.6,
+            "excess_hr_pp": 14.7,
+            "median_dissent": 0.75
+          },
+          {
+            "bucket": "split (<0.70)",
+            "n_markets": 195,
+            "hit_rate": 0.5385,
+            "excess_hr_pp": 8.54,
+            "median_dissent": 0.556
+          }
+        ]
+      }
+    ]
+  }
+}

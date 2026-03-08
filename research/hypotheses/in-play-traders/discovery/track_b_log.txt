@@ -1,0 +1,342 @@
+=== Track B: In-Play Consensus Discovery ===
+Started: 2026-03-07 18:45:28
+DB loaded.
+
+--- Step 0: Setup ---
+Valid (non-gambling, closed) markets: 342,842
+Markets with non-gambling primary tag: 342,802
+Top tags:
+      primary_tag     n
+            Games 76551
+       Basketball 63210
+          Esports 36960
+           Dota 2 12868
+          Culture 12693
+           Crypto 10714
+              All 10415
+           Awards  8372
+              CFB  6098
+         Mentions  4855
+               4H  4444
+          Cricket  4160
+          Bitcoin  4056
+              EPL  3876
+             Golf  3834
+2026 Winter Games  3545
+      Geopolitics  2828
+        Elections  2524
+ EFL Championship  2364
+    New York City  2345
+
+--- Step 1: Building in-play positions table ---
+Total valid positions (all hold durations): 13,131,881
+Hold distribution: <=1h=101,726, <=2h=297,889, <=4h=2,438,264, <=24h=6,483,344, >24h=6,648,537
+
+--- Step 2: Joining entry prices ---
+YES positions with price: 6,329,202/6,329,202 (100.0%), NO positions: 5,688,721
+
+--- Step 3: Base rates ---
+Markets: 285,311, YES base rate: 0.2901, NO base rate: 0.7099
+Per-tag base rates:
+               primary_tag  n_markets  yes_base_rate
+                     Games      56235       0.348662
+                Basketball      47225       0.358433
+                   Esports      24710       0.308418
+                    Crypto       9849       0.155041
+                   Culture       9787       0.173291
+                    Dota 2       8102       0.241298
+                       CFB       4668       0.407883
+                  Mentions       4489       0.425039
+                   Bitcoin       3889       0.176652
+                    Awards       3685       0.140299
+                       All       3604       0.304384
+                       EPL       3359       0.347425
+                   Cricket       2972       0.237887
+               Geopolitics       2518       0.291501
+             New York City       2342       0.158839
+          EFL Championship       2175       0.371954
+         2026 Winter Games       2095       0.105489
+                      Golf       2075       0.034699
+                    London       1748       0.157895
+                 Formula 1       1723       0.092861
+                  Equities       1707       0.134153
+                       NFL       1559       0.186017
+                    Sports       1483       0.229265
+                       CBB       1459       0.356408
+Argentina Primera División       1416       0.307910
+                        4H       1342       0.112519
+                 Elections       1254       0.165869
+                   Weather       1165       0.153648
+                Eredivisie       1163       0.425623
+                  Politics       1009       0.244797
+
+--- Step 4: Full parameter sweep ---
+Running 192 combinations...
+Sweep complete in 28.7s — 192 result rows
+Saved sweep_with_excess.csv
+
+--- Step 5: Best combos (train, YES, n_signals>=20) ---
+split direction  hold_window_h  n_thresh price_gate  n_signals  n_wins  hit_rate  median_hold_hours  median_entry_price  median_signal_vol_usd  base_rate  excess_hr
+train       YES            2.0         5       0.70        238     151    0.6345                1.0                 0.5                3726.14     0.2901     0.3444
+train       YES            2.0         5       0.85        244     154    0.6311                1.0                 0.5                3617.67     0.2901     0.3410
+train       YES            2.0         5       none        244     154    0.6311                1.0                 0.5                3617.67     0.2901     0.3410
+train       YES            2.0         5       0.80        242     152    0.6281                1.0                 0.5                3617.67     0.2901     0.3380
+train       YES            1.0         2       none        526     320    0.6084                0.0                 0.5                 328.48     0.2901     0.3183
+train       YES            2.0         2       none       1968    1194    0.6067                1.0                 0.5                 266.19     0.2901     0.3166
+train       YES            1.0         2       0.85        522     316    0.6054                0.0                 0.5                 328.48     0.2901     0.3153
+train       YES            2.0         2       0.85       1953    1182    0.6052                1.0                 0.5                 273.07     0.2901     0.3151
+train       YES            1.0         2       0.80        521     315    0.6046                0.0                 0.5                 329.90     0.2901     0.3145
+train       YES            2.0         2       0.80       1949    1178    0.6044                1.0                 0.5                 273.07     0.2901     0.3143
+train       YES            2.0         2       0.70       1931    1166    0.6038                1.0                 0.5                 273.47     0.2901     0.3137
+train       YES            1.0         2       0.70        517     311    0.6015                0.0                 0.5                 331.66     0.2901     0.3114
+train       YES            2.0         3       none        854     513    0.6007                1.0                 0.5                 780.47     0.2901     0.3106
+train       YES            2.0         3       0.85        852     511    0.5998                1.0                 0.5                 792.43     0.2901     0.3097
+train       YES            2.0         3       0.80        850     509    0.5988                1.0                 0.5                 780.47     0.2901     0.3087
+train       YES            2.0         3       0.70        842     504    0.5986                1.0                 0.5                 780.47     0.2901     0.3085
+train       YES            1.0         3       none        191     114    0.5969                0.0                 0.5                1419.65     0.2901     0.3068
+train       YES            1.0         3       0.85        190     113    0.5947                0.0                 0.5                1438.73     0.2901     0.3046
+train       YES            1.0         3       0.70        190     113    0.5947                0.0                 0.5                1438.73     0.2901     0.3046
+train       YES            1.0         3       0.80        190     113    0.5947                0.0                 0.5                1438.73     0.2901     0.3046
+
+--- Best combos (train, NO, n_signals>=20) ---
+split direction  hold_window_h  n_thresh price_gate  n_signals  n_wins  hit_rate  median_hold_hours  median_entry_price  median_signal_vol_usd  base_rate  excess_hr
+train        NO            1.0         8       0.70         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       0.80         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       0.85         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       none         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         2       0.70        644     453    0.7034                0.0                 0.5                 647.13     0.7099    -0.0065
+train        NO            1.0         2       0.80        644     453    0.7034                0.0                 0.5                 647.13     0.7099    -0.0065
+train        NO            1.0         2       0.85        644     453    0.7034                0.0                 0.5                 647.13     0.7099    -0.0065
+train        NO            1.0         2       none        644     453    0.7034                0.0                 0.5                 647.13     0.7099    -0.0065
+train        NO            2.0         2       none       1976    1367    0.6918                1.0                 0.5                 539.19     0.7099    -0.0181
+train        NO            2.0         2       0.85       1976    1367    0.6918                1.0                 0.5                 539.19     0.7099    -0.0181
+train        NO            2.0         2       0.80       1976    1367    0.6918                1.0                 0.5                 539.19     0.7099    -0.0181
+train        NO            2.0         2       0.70       1976    1367    0.6918                1.0                 0.5                 539.19     0.7099    -0.0181
+train        NO            2.0         3       none        836     536    0.6411                1.0                 0.5                1203.00     0.7099    -0.0688
+train        NO            2.0         3       0.85        836     536    0.6411                1.0                 0.5                1203.00     0.7099    -0.0688
+train        NO            2.0         3       0.80        836     536    0.6411                1.0                 0.5                1203.00     0.7099    -0.0688
+train        NO            2.0         3       0.70        836     536    0.6411                1.0                 0.5                1203.00     0.7099    -0.0688
+train        NO            1.0         3       0.70        239     152    0.6360                0.0                 0.5                1553.71     0.7099    -0.0739
+train        NO            1.0         3       0.80        239     152    0.6360                0.0                 0.5                1553.71     0.7099    -0.0739
+train        NO            1.0         3       0.85        239     152    0.6360                0.0                 0.5                1553.71     0.7099    -0.0739
+train        NO            1.0         3       none        239     152    0.6360                0.0                 0.5                1553.71     0.7099    -0.0739
+
+--- Step 6: Tag breakdown ---
+
+Tag breakdown: hold_w=2.0h n=3 gate=0.8 dir=YES
+               primary_tag  n_signals  hit_rate  med_hold_hours  med_entry_price  med_vol_usd
+                     Games       4777  0.356081             1.0              0.5     1.877000
+                   Esports       3034  0.285102             1.0              0.5     1.602500
+                Basketball       2438  0.497129             1.0              0.5    16.563420
+                    Dota 2        921  0.245385             1.0              0.5     1.214000
+                  Mentions        600  0.500000             1.0              0.5    57.975535
+               Geopolitics        356  0.601124             1.0              0.5   736.874444
+                   Culture        331  0.447130             1.0              0.5     5.731000
+                       CFB        317  0.318612             1.0              0.5     2.292000
+                   Cricket        237  0.172996             1.0              0.5     1.392000
+                       EPL        188  0.904255             1.0              0.5  2881.836518
+                    Crypto        156  0.820513             1.0              0.5  5022.517497
+          EFL Championship        110  0.736364             1.0              0.5   334.520139
+                   Bitcoin         98  0.887755             1.0              0.5 22733.209250
+                Eredivisie         90  0.755556             1.0              0.5   216.401952
+                      Gaza         77  0.779221             0.0              0.5  2165.046262
+                    Awards         77  0.168831             1.0              0.5     1.291000
+              Call of Duty         63  0.238095             1.0              0.5     1.394000
+                   Epstein         61  0.606557             1.0              0.5  1406.309081
+       Australian A-League         60  0.650000             1.0              0.5   463.321209
+              Best of 2025         60  0.133333             1.0              0.5     2.633000
+                  Earnings         60  0.966667             1.0              0.5   788.342099
+             Breaking News         59  0.711864             1.0              0.5  4237.248710
+                  Politics         57  0.561404             1.0              0.5   457.155759
+            Earnings Calls         56  0.446429             1.0              0.5     2.184500
+Argentina Primera División         56  0.482143             1.0              0.5     2.626000
+
+Tag breakdown: hold_w=4.0h n=3 gate=0.8 dir=YES
+               primary_tag  n_signals  hit_rate  med_hold_hours  med_entry_price  med_vol_usd
+                     Games      33487  0.320184             2.0         0.500000    90.866001
+                Basketball      25186  0.222822             2.0         0.500000     4.939452
+                   Esports      14552  0.230484             2.0         0.500000     4.468500
+                    Dota 2       4775  0.202932             2.0         0.500000     2.652000
+                  Mentions       2680  0.450373             2.0         0.500000   163.102230
+                   Culture       2388  0.273869             3.0         0.500000    11.121441
+                       EPL       2256  0.413564             3.0         0.500000   742.610276
+                    Crypto       1757  0.326693             3.0         0.500000     8.378240
+                       CFB       1444  0.328947             2.0         0.500000   122.520330
+          EFL Championship       1263  0.379256             3.0         0.500000    97.590470
+                   Cricket       1260  0.159524             2.0         0.500000     2.766695
+                    Awards       1093  0.108875             3.0         0.500000     2.620000
+               Geopolitics        981  0.471967             2.0         0.500000   155.241038
+                   Bitcoin        922  0.489154             3.0         0.500000   575.708727
+Argentina Primera División        799  0.306633             3.0         0.500000    48.863946
+                Eredivisie        746  0.482574             2.0         0.500000   411.659158
+                    Sports        667  0.331334             2.0         0.500000   563.828483
+       Australian A-League        556  0.379496             2.0         0.500000   324.349967
+             New York City        542  0.079336             4.0         0.287688    12.777167
+              Bundesliga 2        481  0.422037             3.0         0.500000   249.529461
+            Brazil Serie A        466  0.420601             3.0         0.500000   192.825176
+                    London        463  0.045356             3.0         0.210930    16.158053
+                   Economy        391  0.253197             3.0         0.500000     8.472070
+                  Equities        375  0.074667             3.0         0.500000     1.717660
+                    FA Cup        372  0.475806             2.0         0.500000   261.691152
+
+Tag breakdown: hold_w=2.0h n=5 gate=0.8 dir=YES
+               primary_tag  n_signals  hit_rate  med_hold_hours  med_entry_price  med_vol_usd
+                     Games       3043  0.245810             1.0         0.500000     1.650000
+                   Esports       2198  0.201092             1.0         0.500000     1.535185
+                Basketball       1233  0.441200             1.0         0.500000     2.966000
+                    Dota 2        608  0.169408             1.0         0.500000     1.238995
+                  Mentions        233  0.394850             1.0         0.500000     3.639583
+               Geopolitics        196  0.525510             0.5         0.500000   598.615406
+                   Cricket        180  0.133333             1.0         0.500000     1.459000
+                   Culture        173  0.312139             1.0         0.500000     2.776000
+                       CFB        171  0.204678             1.0         0.500000     2.281000
+                       EPL        101  0.861386             1.0         0.500000  4282.603060
+                    Crypto         72  0.736111             1.0         0.500000 10390.329485
+          EFL Championship         54  0.629630             1.0         0.500000   237.889724
+                   Epstein         50  0.560000             0.5         0.500000   988.959039
+              Best of 2025         45  0.066667             1.0         0.500000     2.341374
+              Call of Duty         45  0.133333             1.0         0.500000     1.381000
+       Australian A-League         40  0.600000             1.0         0.500000   518.702944
+                Eredivisie         39  0.615385             1.0         0.500000   206.852941
+Argentina Primera División         39  0.256410             1.0         0.500000     2.290000
+                   Bitcoin         39  0.974359             1.0         0.500000 46689.012040
+                    Awards         38  0.052632             1.0         0.500000     1.176965
+                      Gaza         33  0.848485             0.0         0.500000  6516.051156
+                        AI         29  0.448276             1.0         0.500000    20.611339
+            Earnings Calls         29  0.344828             1.0         0.500000     2.049662
+           Coupe de France         26  0.038462             1.0         0.500000     2.345500
+             Breaking News         24  0.750000             1.0         0.500006 28103.895973
+
+Tag breakdown: hold_w=2.0h n=3 gate=0.8 dir=NO
+        primary_tag  n_signals  hit_rate  med_hold_hours  med_entry_price  med_vol_usd
+              Games       3752  0.374467             1.0              0.5     1.979500
+            Esports       3228  0.298017             1.0              0.5     1.477000
+         Basketball       2034  0.618977             1.0              0.5   169.854977
+             Dota 2       1259  0.169182             1.0              0.5     1.100000
+           Mentions        474  0.455696             1.0              0.5    12.486078
+            Culture        354  0.694915             1.0              0.5  1119.144728
+        Geopolitics        336  0.491071             1.0              0.5   186.159559
+                CFB        249  0.337349             1.0              0.5     2.348000
+            Cricket        232  0.211207             1.0              0.5     1.360130
+             Crypto        187  0.668449             1.0              0.5  1068.969960
+                EPL        172  0.901163             1.0              0.5  2048.619608
+            Bitcoin        111  0.783784             1.0              0.5  4950.064989
+   EFL Championship         74  0.648649             1.0              0.5   110.444449
+  Daily Temperature         72  1.000000             1.0              0.5  2867.030089
+             London         66  1.000000             1.0              0.5  1993.759277
+      New York City         66  0.984848             1.0              0.5  2020.922048
+            Epstein         64  0.062500             1.0              0.5     8.206860
+     Earnings Calls         60  0.183333             1.0              0.5     1.581000
+               Gaza         58  0.310345             1.0              0.5    27.968037
+           Politics         54  0.370370             1.0              0.5    40.536999
+      Breaking News         54  0.333333             1.0              0.5    34.380778
+       Call of Duty         50  0.260000             1.0              0.5     1.834745
+            Atlanta         50  1.000000             1.0              0.5   546.447999
+Australian A-League         45  0.800000             1.0              0.5   394.475136
+                 AI         44  0.454545             1.0              0.5   129.645255
+
+--- Step 7: Train/test persistence (YES direction) ---
+hold_w | n | gate | TRAIN_HR | TRAIN_n | TEST_HR | TEST_n | excess_train | excess_test
+  2.0h | n=5 | gate=0.70 | train HR=0.634 (n=238) | test HR=0.294 (n=9167) | excess: +0.344 -> +0.004
+  2.0h | n=5 | gate=0.85 | train HR=0.631 (n=244) | test HR=0.295 (n=9191) | excess: +0.341 -> +0.005
+  2.0h | n=5 | gate=none | train HR=0.631 (n=244) | test HR=0.296 (n=9210) | excess: +0.341 -> +0.006
+  2.0h | n=5 | gate=0.80 | train HR=0.628 (n=242) | test HR=0.295 (n=9185) | excess: +0.338 -> +0.004
+  1.0h | n=2 | gate=none | train HR=0.608 (n=526) | test HR=0.449 (n=7546) | excess: +0.318 -> +0.159
+  2.0h | n=2 | gate=none | train HR=0.607 (n=1968) | test HR=0.460 (n=23329) | excess: +0.317 -> +0.170
+  1.0h | n=2 | gate=0.85 | train HR=0.605 (n=522) | test HR=0.448 (n=7535) | excess: +0.315 -> +0.158
+  2.0h | n=2 | gate=0.85 | train HR=0.605 (n=1953) | test HR=0.460 (n=23282) | excess: +0.315 -> +0.169
+  1.0h | n=2 | gate=0.80 | train HR=0.605 (n=521) | test HR=0.448 (n=7530) | excess: +0.315 -> +0.158
+  2.0h | n=2 | gate=0.80 | train HR=0.604 (n=1949) | test HR=0.459 (n=23264) | excess: +0.314 -> +0.169
+  2.0h | n=2 | gate=0.70 | train HR=0.604 (n=1931) | test HR=0.458 (n=23202) | excess: +0.314 -> +0.168
+  1.0h | n=2 | gate=0.70 | train HR=0.602 (n=517) | test HR=0.447 (n=7516) | excess: +0.311 -> +0.157
+  2.0h | n=3 | gate=none | train HR=0.601 (n=854) | test HR=0.398 (n=15219) | excess: +0.311 -> +0.107
+  2.0h | n=3 | gate=0.85 | train HR=0.600 (n=852) | test HR=0.397 (n=15191) | excess: +0.310 -> +0.107
+  2.0h | n=3 | gate=0.80 | train HR=0.599 (n=850) | test HR=0.396 (n=15181) | excess: +0.309 -> +0.106
+
+--- Step 8: Contamination analysis (YES, hold<=4h, n>=3) ---
+              price_bucket  n_markets  hit_rate  med_hold_hours
+          <30% (long-shot)      17111  0.000760             3.0
+        30-50% (uncertain)      14662  0.096235             2.0
+        50-70% (mild lean)      80278  0.369753             2.0
+      70-80% (strong lean)        737  0.791045             2.0
+     80-85% (near-certain)        155  0.748387             2.0
+    85-90% (contaminated?)        120  0.700000             2.0
+>90% (likely contaminated)        120  0.825000             2.0
+
+--- Step 9: Signal entry time distribution (n>=3, YES, hold<=4h) ---
+Signal entry time:
+signal_hold_bucket  n_markets  avg_n_traders
+             <5min       1290      13.352713
+           5-15min       2690      11.660595
+          15-30min       3716      11.492734
+          30-60min       6510      11.100461
+              1-2h      20379      10.240640
+              2-4h      78514       9.810340
+              >=4h         84       6.964286
+
+--- Step 10: Compounding scores (train, YES, n>=20, excess>0) ---
+combo | HR | EP | excess | hold_days | n_sigs | CS
+  2.0h n=5 gate=0.70: HR=0.634 EP=0.500 excess=+0.344 hold_days=0.04 n=238 edge=$13.4 CS=111.17
+  2.0h n=5 gate=0.85: HR=0.631 EP=0.500 excess=+0.341 hold_days=0.04 n=244 edge=$13.1 CS=107.29
+  2.0h n=5 gate=none: HR=0.631 EP=0.500 excess=+0.341 hold_days=0.04 n=244 edge=$13.1 CS=107.29
+  2.0h n=5 gate=0.80: HR=0.628 EP=0.500 excess=+0.338 hold_days=0.04 n=242 edge=$12.8 CS=103.91
+  1.0h n=2 gate=none: HR=0.608 EP=0.500 excess=+0.318 hold_days=1.00 n=526 edge=$10.8 CS=3.45
+  2.0h n=2 gate=none: HR=0.607 EP=0.500 excess=+0.317 hold_days=0.04 n=1968 edge=$10.7 CS=81.07
+  1.0h n=2 gate=0.85: HR=0.605 EP=0.500 excess=+0.315 hold_days=1.00 n=522 edge=$10.5 CS=3.32
+  2.0h n=2 gate=0.85: HR=0.605 EP=0.500 excess=+0.315 hold_days=0.04 n=1953 edge=$10.5 CS=79.56
+  1.0h n=2 gate=0.80: HR=0.605 EP=0.500 excess=+0.315 hold_days=1.00 n=521 edge=$10.5 CS=3.29
+  2.0h n=2 gate=0.80: HR=0.604 EP=0.500 excess=+0.314 hold_days=0.04 n=1949 edge=$10.4 CS=78.75
+  2.0h n=2 gate=0.70: HR=0.604 EP=0.500 excess=+0.314 hold_days=0.04 n=1931 edge=$10.4 CS=78.15
+  1.0h n=2 gate=0.70: HR=0.602 EP=0.500 excess=+0.311 hold_days=1.00 n=517 edge=$10.2 CS=3.16
+  2.0h n=3 gate=none: HR=0.601 EP=0.500 excess=+0.311 hold_days=0.04 n=854 edge=$10.1 CS=75.07
+  2.0h n=3 gate=0.85: HR=0.600 EP=0.500 excess=+0.310 hold_days=0.04 n=852 edge=$10.0 CS=74.18
+  2.0h n=3 gate=0.80: HR=0.599 EP=0.500 excess=+0.309 hold_days=0.04 n=850 edge=$9.9 CS=73.20
+
+--- Step 11: NO direction train/test persistence ---
+  1.0h | n=8 | gate=0.70 | train HR=0.763 (n=38) | test HR=0.506 (n=725) | excess: +0.053 -> -0.204
+  1.0h | n=8 | gate=0.80 | train HR=0.763 (n=38) | test HR=0.506 (n=725) | excess: +0.053 -> -0.204
+  1.0h | n=8 | gate=0.85 | train HR=0.763 (n=38) | test HR=0.506 (n=725) | excess: +0.053 -> -0.204
+  1.0h | n=8 | gate=none | train HR=0.763 (n=38) | test HR=0.506 (n=725) | excess: +0.053 -> -0.204
+  1.0h | n=2 | gate=0.70 | train HR=0.703 (n=644) | test HR=0.523 (n=7374) | excess: -0.006 -> -0.187
+  1.0h | n=2 | gate=0.80 | train HR=0.703 (n=644) | test HR=0.523 (n=7374) | excess: -0.006 -> -0.187
+  1.0h | n=2 | gate=0.85 | train HR=0.703 (n=644) | test HR=0.523 (n=7374) | excess: -0.006 -> -0.187
+  1.0h | n=2 | gate=none | train HR=0.703 (n=644) | test HR=0.523 (n=7374) | excess: -0.006 -> -0.187
+  2.0h | n=2 | gate=none | train HR=0.692 (n=1976) | test HR=0.514 (n=21500) | excess: -0.018 -> -0.196
+  2.0h | n=2 | gate=0.85 | train HR=0.692 (n=1976) | test HR=0.514 (n=21500) | excess: -0.018 -> -0.196
+
+--- Step 12: Hold window quality gradient (n=3, gate=0.80, YES) ---
+  hold_w=1.0h: n=4,787 HR=0.379 excess=+0.089 med_hold=0.0h ep=0.500 pct_lt15min=0.359
+  hold_w=2.0h: n=16,032 HR=0.407 excess=+0.117 med_hold=1.0h ep=0.500 pct_lt15min=0.160
+  hold_w=4.0h: n=112,788 HR=0.281 excess=-0.009 med_hold=2.0h ep=0.500 pct_lt15min=0.035
+
+=== FINAL SUMMARY ===
+Valid non-gambling closed markets: 342,842
+Overall YES base rate: 0.2901
+Overall NO base rate: 0.7099
+
+[NOTE: These are UPPER BOUNDS. Expect 20-40pp degradation in tick-by-tick.]
+
+[BEST COMBOS — TRAIN — YES direction, n>=20, sorted by excess_hr]
+split direction  hold_window_h  n_thresh price_gate  n_signals  n_wins  hit_rate  median_hold_hours  median_entry_price  median_signal_vol_usd  base_rate  excess_hr
+train       YES            2.0         5       0.70        238     151    0.6345                1.0                 0.5                3726.14     0.2901     0.3444
+train       YES            2.0         5       0.85        244     154    0.6311                1.0                 0.5                3617.67     0.2901     0.3410
+train       YES            2.0         5       none        244     154    0.6311                1.0                 0.5                3617.67     0.2901     0.3410
+train       YES            2.0         5       0.80        242     152    0.6281                1.0                 0.5                3617.67     0.2901     0.3380
+train       YES            1.0         2       none        526     320    0.6084                0.0                 0.5                 328.48     0.2901     0.3183
+train       YES            2.0         2       none       1968    1194    0.6067                1.0                 0.5                 266.19     0.2901     0.3166
+train       YES            1.0         2       0.85        522     316    0.6054                0.0                 0.5                 328.48     0.2901     0.3153
+train       YES            2.0         2       0.85       1953    1182    0.6052                1.0                 0.5                 273.07     0.2901     0.3151
+train       YES            1.0         2       0.80        521     315    0.6046                0.0                 0.5                 329.90     0.2901     0.3145
+train       YES            2.0         2       0.80       1949    1178    0.6044                1.0                 0.5                 273.07     0.2901     0.3143
+
+[BEST COMBOS — TRAIN — NO direction, n>=20, sorted by excess_hr]
+split direction  hold_window_h  n_thresh price_gate  n_signals  n_wins  hit_rate  median_hold_hours  median_entry_price  median_signal_vol_usd  base_rate  excess_hr
+train        NO            1.0         8       0.70         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       0.80         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       0.85         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         8       none         38      29    0.7632                0.0                 0.5               22683.50     0.7099     0.0533
+train        NO            1.0         2       0.70        644     453    0.7034                0.0                 0.5                 647.13     0.7099    -0.0065
+
+Artifacts: /mnt/nvme/git/polymarket/polymarket/research/hypotheses/in-play-traders/discovery
+Completed: 2026-03-07 18:46:08
+Saved summary.json

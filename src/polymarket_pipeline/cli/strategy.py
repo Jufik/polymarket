@@ -70,6 +70,7 @@ def _register_providers() -> None:
     except ImportError:
         logger.warning("provider.skip", name="s3_data_provider", reason="import failed")
 
+<<<<<<< HEAD
     from polymarket_pipeline.strategies_impl.crypto_gbm.providers import (
         CryptoWindowProvider,
         ExchangePriceProvider,
@@ -77,6 +78,14 @@ def _register_providers() -> None:
 
     _PROVIDER_REGISTRY["crypto_windows"] = CryptoWindowProvider
     _PROVIDER_REGISTRY["exchange_prices"] = ExchangePriceProvider
+=======
+    try:
+        from polymarket_pipeline.strategies_impl.consensus_v2.provider import ConsensusV2Provider
+
+        _PROVIDER_REGISTRY["consensus_v2"] = ConsensusV2Provider
+    except ImportError:
+        logger.warning("provider.skip", name="consensus_v2", reason="import failed")
+>>>>>>> 231d271 (ok, nice promises)
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +145,20 @@ def _register_strategies() -> None:
     except ImportError:
         logger.warning("strategy.skip", name="s3_no_sniper", reason="import failed")
 
+<<<<<<< HEAD
     _STRATEGY_FACTORIES["crypto_gbm"] = _make_crypto_gbm
+=======
+    try:
+        from polymarket_pipeline.strategies_impl.consensus_v2.strategy import (
+            create_consensus_v2_strategy,
+        )
+
+        _STRATEGY_FACTORIES["sports_yes_composite"] = create_consensus_v2_strategy
+        _STRATEGY_FACTORIES["politics_yes_composite"] = create_consensus_v2_strategy
+        _STRATEGY_FACTORIES["crypto_yes_hr"] = create_consensus_v2_strategy
+    except ImportError:
+        logger.warning("strategy.skip", name="consensus_v2", reason="import failed")
+>>>>>>> 231d271 (ok, nice promises)
 
 
 # ---------------------------------------------------------------------------

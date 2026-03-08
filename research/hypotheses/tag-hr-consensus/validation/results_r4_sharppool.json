@@ -1,0 +1,292 @@
+{
+  "hypothesis": "tag-hr-consensus",
+  "phase": "validation-r4-sharppool",
+  "timestamp": "2026-03-06T17:47:29.543472",
+  "note": "Task #13. Tick-by-tick. BUY-only. Top-K pool (ranked by excess_hr DESC). price_ceil=0.40. SimulatedExecutor fee_pct=0.0 (zero fees confirmed). Training-window base rate for ranking. INNER JOIN yes_entry_data.",
+  "combos": [
+    {
+      "tag": "Esports",
+      "label": "K20_N3",
+      "params": {
+        "top_k": 20,
+        "consensus_n": 3,
+        "price_ceil": 0.4,
+        "fee_pct": 0.0,
+        "pool_method": "top-K by excess_hr (INNER JOIN yes_entry_data, mpe<=0.80, hr<0.99, excess>0)"
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.3426,
+          "test_base_rate": 0.3677,
+          "n_train_markets": 324,
+          "n_test_markets": 223,
+          "n_qualified_traders": 20,
+          "n_signals": 11,
+          "n_settled": 11,
+          "n_wins": 4,
+          "hit_rate": 0.3636,
+          "excess_hr_pp": -0.41,
+          "total_pnl_net": 972.58,
+          "avg_fill_price": 0.2415,
+          "avg_edge_usd": 88.4164,
+          "sharpe": 6.982,
+          "avg_hold_hours": 10.03,
+          "elapsed_s": 0.0
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.4432,
+          "test_base_rate": 0.6537,
+          "n_train_markets": 1444,
+          "n_test_markets": 1441,
+          "n_qualified_traders": 20,
+          "n_signals": 1,
+          "n_settled": 1,
+          "n_wins": 0,
+          "hit_rate": 0.0,
+          "excess_hr_pp": -65.37,
+          "total_pnl_net": -100.0,
+          "avg_fill_price": 0.23,
+          "avg_edge_usd": -100.0,
+          "sharpe": 0.0,
+          "avg_hold_hours": 2.15,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.507,
+          "test_base_rate": 0.4558,
+          "n_qualified_traders": 20,
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hit_rate": 0.1818,
+        "avg_test_base_rate": 0.5107,
+        "avg_excess_hr_pp": -32.89,
+        "total_signals": 12,
+        "total_settled": 12,
+        "signals_per_fold": 4.0,
+        "total_pnl_net": 872.58
+      }
+    },
+    {
+      "tag": "Esports",
+      "label": "K30_N3",
+      "params": {
+        "top_k": 30,
+        "consensus_n": 3,
+        "price_ceil": 0.4,
+        "fee_pct": 0.0,
+        "pool_method": "top-K by excess_hr (INNER JOIN yes_entry_data, mpe<=0.80, hr<0.99, excess>0)"
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.3426,
+          "test_base_rate": 0.3677,
+          "n_train_markets": 324,
+          "n_test_markets": 223,
+          "n_qualified_traders": 30,
+          "n_signals": 30,
+          "n_settled": 30,
+          "n_wins": 9,
+          "hit_rate": 0.3,
+          "excess_hr_pp": -6.77,
+          "total_pnl_net": 1741.69,
+          "avg_fill_price": 0.2581,
+          "avg_edge_usd": 58.0563,
+          "sharpe": 6.614,
+          "avg_hold_hours": 6.18,
+          "elapsed_s": 0.0
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.4432,
+          "test_base_rate": 0.6537,
+          "n_train_markets": 1444,
+          "n_test_markets": 1441,
+          "n_qualified_traders": 30,
+          "n_signals": 11,
+          "n_settled": 11,
+          "n_wins": 3,
+          "hit_rate": 0.2727,
+          "excess_hr_pp": -38.1,
+          "total_pnl_net": 3288.28,
+          "avg_fill_price": 0.1782,
+          "avg_edge_usd": 298.9344,
+          "sharpe": 16.742,
+          "avg_hold_hours": 2.78,
+          "elapsed_s": 0.2
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.507,
+          "test_base_rate": 0.4558,
+          "n_qualified_traders": 30,
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hit_rate": 0.2863,
+        "avg_test_base_rate": 0.5107,
+        "avg_excess_hr_pp": -22.44,
+        "total_signals": 41,
+        "total_settled": 41,
+        "signals_per_fold": 13.7,
+        "total_pnl_net": 5029.97
+      }
+    },
+    {
+      "tag": "Esports",
+      "label": "K50_N3",
+      "params": {
+        "top_k": 50,
+        "consensus_n": 3,
+        "price_ceil": 0.4,
+        "fee_pct": 0.0,
+        "pool_method": "top-K by excess_hr (INNER JOIN yes_entry_data, mpe<=0.80, hr<0.99, excess>0)"
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.3426,
+          "test_base_rate": 0.3677,
+          "n_train_markets": 324,
+          "n_test_markets": 223,
+          "n_qualified_traders": 50,
+          "n_signals": 57,
+          "n_settled": 57,
+          "n_wins": 18,
+          "hit_rate": 0.3158,
+          "excess_hr_pp": -5.19,
+          "total_pnl_net": 1858.77,
+          "avg_fill_price": 0.2702,
+          "avg_edge_usd": 32.6099,
+          "sharpe": 3.279,
+          "avg_hold_hours": 12.49,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.4432,
+          "test_base_rate": 0.6537,
+          "n_train_markets": 1444,
+          "n_test_markets": 1441,
+          "n_qualified_traders": 50,
+          "n_signals": 40,
+          "n_settled": 40,
+          "n_wins": 13,
+          "hit_rate": 0.325,
+          "excess_hr_pp": -32.87,
+          "total_pnl_net": 558.76,
+          "avg_fill_price": 0.2656,
+          "avg_edge_usd": 13.969,
+          "sharpe": 3.209,
+          "avg_hold_hours": 4.85,
+          "elapsed_s": 0.2
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.507,
+          "test_base_rate": 0.4558,
+          "n_qualified_traders": 50,
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hit_rate": 0.3204,
+        "avg_test_base_rate": 0.5107,
+        "avg_excess_hr_pp": -19.03,
+        "total_signals": 97,
+        "total_settled": 97,
+        "signals_per_fold": 32.3,
+        "total_pnl_net": 2417.53
+      }
+    },
+    {
+      "tag": "Tennis",
+      "label": "K30_N3",
+      "params": {
+        "top_k": 30,
+        "consensus_n": 3,
+        "price_ceil": 0.4,
+        "fee_pct": 0.0,
+        "pool_method": "top-K by excess_hr (INNER JOIN yes_entry_data, mpe<=0.80, hr<0.99, excess>0)"
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.2239,
+          "test_base_rate": 0.2476,
+          "n_train_markets": 545,
+          "n_test_markets": 517,
+          "n_qualified_traders": 30,
+          "n_signals": 31,
+          "n_settled": 31,
+          "n_wins": 6,
+          "hit_rate": 0.1935,
+          "excess_hr_pp": -5.41,
+          "total_pnl_net": -1318.48,
+          "avg_fill_price": 0.2661,
+          "avg_edge_usd": -42.5315,
+          "sharpe": -10.052,
+          "avg_hold_hours": 10.85,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.2836,
+          "test_base_rate": 0.3955,
+          "n_train_markets": 1936,
+          "n_test_markets": 928,
+          "n_qualified_traders": 30,
+          "n_signals": 1,
+          "n_settled": 1,
+          "n_wins": 1,
+          "hit_rate": 1.0,
+          "excess_hr_pp": 60.45,
+          "total_pnl_net": 150.0,
+          "avg_fill_price": 0.4,
+          "avg_edge_usd": 150.0,
+          "sharpe": 0.0,
+          "avg_hold_hours": 2.42,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.3476,
+          "test_base_rate": 0.453,
+          "n_qualified_traders": 30,
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hit_rate": 0.5968,
+        "avg_test_base_rate": 0.3216,
+        "avg_excess_hr_pp": 27.52,
+        "total_signals": 32,
+        "total_settled": 32,
+        "signals_per_fold": 10.7,
+        "total_pnl_net": -1168.48
+      }
+    }
+  ]
+}

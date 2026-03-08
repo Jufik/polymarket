@@ -1,0 +1,25 @@
+[strategy.crypto_yes_hr]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 50
+max_open_positions = 10
+cooldown_s = 60
+features = ["consensus_v2"]
+
+[strategy.crypto_yes_hr.params]
+n_threshold = 2
+direction_filter = "YES"
+size_usd = 50
+max_price = 0.65
+
+[provider.consensus_v2]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v2.params]
+tag = "Crypto"
+k = 50
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90

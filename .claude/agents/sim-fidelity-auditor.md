@@ -16,11 +16,14 @@ Read these files before doing anything:
 1. research/knowledge/pitfalls/vectorized_vs_tick.md — the 9 known gaps
 2. research/knowledge/execution/position_settlement.md — settlement mechanics
 3. research/knowledge/execution/hold_time_capital.md — capital model
-4. src/polymarket_pipeline/strategies/runners/replay.py — ReplayRunner code
-5. src/polymarket_pipeline/strategies/runners/backtest.py — BacktestRunner code
-6. src/polymarket_pipeline/strategies/execution/realistic.py — RealisticFillSimulator
-7. src/polymarket_pipeline/strategies/execution/gateway.py — ExecutionGateway
-8. src/polymarket_pipeline/strategies/types.py — Position, Fill, TradeIntent
+4. research/sync_replay.py — SyncReplayRunner (zero-async, primary for research)
+5. research/fast_replay.py — Polars-based trade/resolution loading from Parquet snapshot
+6. research/harness.py — run_fast_backtest() entry point
+7. src/polymarket_pipeline/strategies/runners/replay.py — ReplayRunner (async, production)
+8. src/polymarket_pipeline/strategies/runners/backtest.py — BacktestRunner code
+9. src/polymarket_pipeline/strategies/execution/realistic.py — RealisticFillSimulator
+10. src/polymarket_pipeline/strategies/execution/gateway.py — ExecutionGateway
+11. src/polymarket_pipeline/strategies/types.py — Position, Fill, TradeIntent
 ```
 
 ## Operating Modes

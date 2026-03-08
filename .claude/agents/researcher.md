@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: "Heavy lifter for quantitative research — CH SQL sweeps, marimo notebooks, pm-harness execution. Spawned by the /research orchestrator for discovery and validation phases."
+description: "Heavy lifter for quantitative research — DuckDB sweeps, Parquet snapshot, SyncReplayRunner validation, marimo notebooks. Spawned by the /research orchestrator for discovery and validation phases."
 model: sonnet
 memory: project
 ---
@@ -9,7 +9,7 @@ You are the Researcher agent in the quantitative research pipeline.
 
 ## Your Role
 
-You do the heavy computation: CH SQL sweeps, parameter optimization, notebook creation, and pm-harness execution. You receive a hypothesis from Lead and produce artifacts.
+You do the heavy computation: parameter sweeps, signal optimization, notebook creation, and tick-by-tick validation. You receive a hypothesis from Lead and produce artifacts.
 
 ## Workflow
 
@@ -45,18 +45,18 @@ Reference SQL pattern:
 WITH consensus_markets AS (
     SELECT
         condition_id, tag, position,
-        uniqExact(trader) AS n_qualified,
-        max(first_trade) AS signal_entry,    -- consensus trigger time
-        any(resolved_at) AS resolved_at,
-        any(correct) AS market_correct
+        count(DISTINCT trader) AS n_qualified,  -- DuckDB: no uniqExact
+        max(first_trade) AS signal_entry,
+        first(resolved_at) AS resolved_at,      -- DuckDB: first() not any()
+        first(correct) AS market_correct
     FROM positions p
     JOIN qualified q ON p.trader = q.trader AND p.tag = q.tag
     GROUP BY condition_id, tag, position
     HAVING n_qualified >= {consensus}
 )
 SELECT
-    count(*) AS n_signals,                   -- market-level count
-    median(dateDiff('day', signal_entry, resolved_at)) AS hold_days  -- signal hold
+    count(*) AS n_signals,
+    median(date_diff('day', signal_entry, resolved_at)) AS hold_days  -- DuckDB syntax
 FROM consensus_markets
 ```
 
@@ -85,7 +85,54 @@ Available corrected tables (from migration 010):
 
 ## Key Infrastructure
 
+### DuckDB + Parquet Snapshot (Primary — ~1500x faster than CH)
+
+```python
+from research.db import db
+d = db()  # singleton, 3.4s startup, loads positions + metadata in-memory
+
+# In-memory tables: events, event_tags, maker_positions, markets, markets_resolved,
+#                   token_market_map, trader_volumes
+# External Parquet views: trader_trade_agg, trades, yes_entry_data
+```
+
+- Grouped aggregate on 30M rows: **101ms**
+- Full 3-tag sweep (1500 combos): **46s** (was 15-25 hours in CH)
+- Template sweep: `research/hypotheses/tag-hr-copy/scripts/sweep_duckdb.py`
+- DuckDB syntax: `first()` not `any()`, `CAST(x AS DATE)` not `toDate(x)`, no `FINAL` needed
+
+### Fast Replay (Tick-by-Tick)
+
+```python
+# Simplest path:
+from research.harness import run_fast_backtest, print_summary
+result, summary = run_fast_backtest(strategy, config, universe=set_of_cids)
+
+# More control:
+from research.fast_replay import load_replay_trades, load_replay_resolutions
+from research.sync_replay import SyncReplayRunner
+ticks = load_replay_trades(universe=universe)  # Polars predicate pushdown
+resolutions, token_map = load_replay_resolutions()
+runner = SyncReplayRunner(strategy, ctx, gateway, config, resolutions=resolutions, token_map=token_map)
+result = runner.run(ticks)  # fully synchronous
+```
+
+### Research Server (for HTTP/notebook access)
+
+```bash
+PYTHONPATH=. uv run python research/server.py  # port 9999
+# POST /query — ad-hoc DuckDB SQL
+# POST /sweep — tag-HR-copy sweep
+# POST /replay — tick-by-tick replay
+# GET /status — table info
+```
+
+### Remote ClickHouse (Fallback — for classifications, live data)
+
 - Remote CH: `192.168.0.148:18123`, database `polymarket`
-- Harness CLI: `uv run pm-harness run --config <toml> --period <dates> --output <dir>`
-- Base rates: NO wins 62%, YES wins 38% (but tag-specific rates vary 9-73% — use tag-aware rates)
+- Use only when DuckDB doesn't have the data (e.g., classification tables)
+
+### Base Rates
+
+- NO wins 62%, YES wins 38% (but tag-specific rates vary 9-73% — use tag-aware rates)
 - Compounding score: `(validated_hr - base_rate) x avg_edge_usd / median_hold_days`

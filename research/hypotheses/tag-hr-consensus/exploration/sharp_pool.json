@@ -1,0 +1,232 @@
+{
+  "description": "Top-K traders by excess_hr (training window) \u2014 vectorized HR in test window",
+  "k_values": [
+    10,
+    20,
+    30,
+    50
+  ],
+  "consensus_n": 3,
+  "results_by_tag": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.3426,
+        "test_base_rate": 0.3677,
+        "pool_total": 89,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 0,
+            "n_wins": 0,
+            "hit_rate": null,
+            "excess_hr_pp": null
+          },
+          {
+            "k": 20,
+            "n_signals": 6,
+            "n_wins": "5",
+            "hit_rate": 0.8333,
+            "excess_hr_pp": 46.56
+          },
+          {
+            "k": 30,
+            "n_signals": 27,
+            "n_wins": "20",
+            "hit_rate": 0.7407,
+            "excess_hr_pp": 37.3
+          },
+          {
+            "k": 50,
+            "n_signals": 73,
+            "n_wins": "48",
+            "hit_rate": 0.6575,
+            "excess_hr_pp": 28.98
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.4432,
+        "test_base_rate": 0.6537,
+        "pool_total": 367,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 2,
+            "n_wins": "2",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 34.63
+          },
+          {
+            "k": 20,
+            "n_signals": 14,
+            "n_wins": "14",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 34.63
+          },
+          {
+            "k": 30,
+            "n_signals": 19,
+            "n_wins": "18",
+            "hit_rate": 0.9474,
+            "excess_hr_pp": 29.37
+          },
+          {
+            "k": 50,
+            "n_signals": 42,
+            "n_wins": "31",
+            "hit_rate": 0.7381,
+            "excess_hr_pp": 8.44
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.507,
+        "test_base_rate": 0.4558,
+        "pool_total": 1299,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 20,
+            "n_signals": 31,
+            "n_wins": "31",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 30,
+            "n_signals": 34,
+            "n_wins": "34",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 50,
+            "n_signals": 36,
+            "n_wins": "36",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.42
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.2239,
+        "test_base_rate": 0.2476,
+        "pool_total": 161,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 2,
+            "n_wins": "2",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 75.24
+          },
+          {
+            "k": 20,
+            "n_signals": 11,
+            "n_wins": "9",
+            "hit_rate": 0.8182,
+            "excess_hr_pp": 57.06
+          },
+          {
+            "k": 30,
+            "n_signals": 24,
+            "n_wins": "22",
+            "hit_rate": 0.9167,
+            "excess_hr_pp": 66.91
+          },
+          {
+            "k": 50,
+            "n_signals": 61,
+            "n_wins": "41",
+            "hit_rate": 0.6721,
+            "excess_hr_pp": 42.45
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.2836,
+        "test_base_rate": 0.3955,
+        "pool_total": 491,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 60.45
+          },
+          {
+            "k": 20,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 60.45
+          },
+          {
+            "k": 30,
+            "n_signals": 2,
+            "n_wins": "2",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 60.45
+          },
+          {
+            "k": 50,
+            "n_signals": 6,
+            "n_wins": "6",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 60.45
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.3476,
+        "test_base_rate": 0.453,
+        "pool_total": 692,
+        "k_results": [
+          {
+            "k": 10,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.7
+          },
+          {
+            "k": 20,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.7
+          },
+          {
+            "k": 30,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.7
+          },
+          {
+            "k": 50,
+            "n_signals": 1,
+            "n_wins": "1",
+            "hit_rate": 1.0,
+            "excess_hr_pp": 54.7
+          }
+        ]
+      }
+    ]
+  }
+}

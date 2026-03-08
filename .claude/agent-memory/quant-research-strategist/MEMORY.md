@@ -148,7 +148,30 @@ See `research/knowledge/` for full details. Key structural weaknesses:
 - Script: `research/scripts/s2_hitrate_gapfix_validation.py`
 - Knowledge: `pitfalls/dedup_counterproductive.md`
 
+## Copy-Trader Contamination -- REJECTED (2026-03-06)
+- **Hypothesis**: pool explosion (47->774) from copiers creating fake consensus. **WRONG.**
+- **Key finding**: HR MONOTONICALLY INCREASES with entry order (1st: 47% -> 5th: 72%). Followers > Leaders.
+- Independence filter HARMFUL: -7 to -22pp HR vs standard, 60-95% sample reduction.
+- First-mover filter HARMFUL: restricting to early entrants lowers HR.
+- New pool members have EQUAL/HIGHER HR than returning members.
+- **Actual failure**: base rate non-stationarity + fill price compression, not pool quality.
+- **Actionable**: deep consensus (N>=5) + regime gate (skip train_base > 0.50) are the real fixes.
+- Analysis: `research/hypotheses/tag-hr-consensus/exploration/`
+
+## Trader Scorecard Framework (2026-03-07)
+- Framework doc: `research/hypotheses/trader-scorecard/discovery/scorecard_framework.md`
+- **4 scored metrics**: excess_hr_weighted (0.45), consistency_sharpe (0.25), avg_edge_usd (0.20), profit_factor (0.10)
+- **Conviction OMITTED**: contaminated by split mechanics (55.9% of makers), subsumed by consensus dedup
+- **Striking score REPLACED** with avg_edge_usd: contrarian thesis contradicted by data (high entry price = best signal)
+- **Composition**: tiered gate (binary pass/fail) + weighted composite (percentile-ranked)
+- **Normalization**: percentile rank within tag cohort (min 20 traders; global fallback below)
+- **Tag-specific scorecards MANDATORY**: base rates 9-73%, hold times 0.3-22d, pool dynamics differ
+- **Minimum data**: 10 positions/tag, 2 active windows, recency <= 90d, bot guard < 10K
+- **Decay**: 90-day half-life (tag-adjustable in v2)
+- **Key insight**: entry price floor (>= 0.70) outperforms entry price ceiling -- confirms favorites, not contrarians
+
 ## Dead Ends
+- **Copy-trader contamination**: all 4 proposed fixes (first-mover, independence, leader-only, order-penalty) HARMFUL.
 - **S2 HRC Gap Fixes (dedup+cap+direction)**: 51.2% avg HR at C>=3, -$7,185. C>=4 marginal (+$2,275). Dedup hurts.
 - **S2 Tag-Aware Hit-Rate Copy**: 46.7% HR tick (WORSE than global 50.6%). Tag-specific base too permissive.
 - **S2 Hit-Rate Copy (BOTH direction)**: 45.9-50.6% HR tick-by-tick (base rate), negative PnL. NO direction kills it.

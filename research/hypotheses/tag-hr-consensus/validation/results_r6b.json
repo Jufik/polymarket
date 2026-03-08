@@ -1,0 +1,241 @@
+{
+  "hypothesis": "tag-hr-consensus",
+  "phase": "validation-r6b",
+  "timestamp": "2026-03-06T18:07:17.749635",
+  "config": {
+    "sharp_k": 50,
+    "price_ceil": 0.75,
+    "min_signal_vol": 200.0,
+    "fee_pct": 0.0,
+    "base_size": 100.0,
+    "tier_weights": {
+      "1": 2.0,
+      "2": 1.5,
+      "3": 1.0,
+      "4": 0.5,
+      "5": 0.25
+    }
+  },
+  "tag_configs": {
+    "Esports": {
+      "consensus_n": 3,
+      "tier_gate": false,
+      "max_avg_tier": 99.0
+    },
+    "Tennis": {
+      "consensus_n": 3,
+      "tier_gate": false,
+      "max_avg_tier": 99.0
+    }
+  },
+  "combos": [
+    {
+      "tag": "Esports",
+      "config": {
+        "consensus_n": 3,
+        "tier_gate": false,
+        "max_avg_tier": 99.0
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.3426,
+          "test_base_rate": 0.3677,
+          "n_train": 324,
+          "n_test": 223,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 1,
+            "2": 13,
+            "3": 36
+          },
+          "n_signals": 79,
+          "n_settled": 79,
+          "n_wins": 40,
+          "hit_rate": 0.5063,
+          "excess_hr_pp": 13.86,
+          "total_pnl_net": 871.27,
+          "avg_fill_price": 0.4742,
+          "avg_position_size": 109.7,
+          "avg_tier_in_consensus": 2.81,
+          "avg_edge_usd": 11.0287,
+          "sharpe": 1.75,
+          "avg_hold_hours": 9.67,
+          "elapsed_s": 0.0,
+          "gates": {
+            "skip_vol": 76,
+            "skip_tier": 0,
+            "skip_price": 269
+          }
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.4432,
+          "test_base_rate": 0.6537,
+          "n_train": 1444,
+          "n_test": 1441,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 2,
+            "2": 21,
+            "3": 27
+          },
+          "n_signals": 61,
+          "n_settled": 61,
+          "n_wins": 32,
+          "hit_rate": 0.5246,
+          "excess_hr_pp": -12.91,
+          "total_pnl_net": 10.3,
+          "avg_fill_price": 0.5109,
+          "avg_position_size": 124.28,
+          "avg_tier_in_consensus": 2.51,
+          "avg_edge_usd": 0.1688,
+          "sharpe": 0.047,
+          "avg_hold_hours": 6.52,
+          "elapsed_s": 0.2,
+          "gates": {
+            "skip_vol": 27,
+            "skip_tier": 0,
+            "skip_price": 1124
+          }
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.507,
+          "test_base_rate": 0.4558,
+          "n_train": 7513,
+          "n_test": 13538,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 1,
+            "2": 18,
+            "3": 31
+          },
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0,
+          "gates": {
+            "skip_vol": 5,
+            "skip_tier": 0,
+            "skip_price": 98
+          }
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hr": 0.5154,
+        "avg_test_base": 0.5107,
+        "avg_excess_pp": 0.47,
+        "total_signals": 140,
+        "total_pnl": 881.57,
+        "avg_position_size": 116.99,
+        "avg_tier_in_consensus": 2.66
+      }
+    },
+    {
+      "tag": "Tennis",
+      "config": {
+        "consensus_n": 3,
+        "tier_gate": false,
+        "max_avg_tier": 99.0
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "train_base_rate": 0.2239,
+          "test_base_rate": 0.2476,
+          "n_train": 545,
+          "n_test": 517,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 2,
+            "2": 10,
+            "3": 38
+          },
+          "n_signals": 79,
+          "n_settled": 79,
+          "n_wins": 44,
+          "hit_rate": 0.557,
+          "excess_hr_pp": 30.94,
+          "total_pnl_net": 149.39,
+          "avg_fill_price": 0.5455,
+          "avg_position_size": 108.2,
+          "avg_tier_in_consensus": 2.84,
+          "avg_edge_usd": 1.891,
+          "sharpe": 0.454,
+          "avg_hold_hours": 11.52,
+          "elapsed_s": 0.1,
+          "gates": {
+            "skip_vol": 23,
+            "skip_tier": 0,
+            "skip_price": 356
+          }
+        },
+        {
+          "fold": "2025-10-01",
+          "train_base_rate": 0.2836,
+          "test_base_rate": 0.3955,
+          "n_train": 1936,
+          "n_test": 928,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 4,
+            "2": 19,
+            "3": 27
+          },
+          "n_signals": 5,
+          "n_settled": 5,
+          "n_wins": 3,
+          "hit_rate": 0.6,
+          "excess_hr_pp": 20.45,
+          "total_pnl_net": 35.99,
+          "avg_fill_price": 0.554,
+          "avg_position_size": 113.33,
+          "avg_tier_in_consensus": 2.73,
+          "avg_edge_usd": 7.1988,
+          "sharpe": 2.926,
+          "avg_hold_hours": 3.63,
+          "elapsed_s": 0.1,
+          "gates": {
+            "skip_vol": 1,
+            "skip_tier": 0,
+            "skip_price": 130
+          }
+        },
+        {
+          "fold": "2026-01-01",
+          "train_base_rate": 0.3476,
+          "test_base_rate": 0.453,
+          "n_train": 2894,
+          "n_test": 9474,
+          "pool_size": 50,
+          "tier_dist": {
+            "1": 6,
+            "2": 16,
+            "3": 28
+          },
+          "n_signals": 0,
+          "hit_rate": null,
+          "excess_hr_pp": null,
+          "total_pnl_net": 0.0,
+          "gates": {
+            "skip_vol": 0,
+            "skip_tier": 0,
+            "skip_price": 58
+          }
+        }
+      ],
+      "aggregate": {
+        "n_folds": 2,
+        "avg_hr": 0.5785,
+        "avg_test_base": 0.3216,
+        "avg_excess_pp": 25.7,
+        "total_signals": 84,
+        "total_pnl": 185.38,
+        "avg_position_size": 110.77,
+        "avg_tier_in_consensus": 2.79
+      }
+    }
+  ]
+}

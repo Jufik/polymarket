@@ -1,0 +1,1278 @@
+{
+  "hypothesis": "tag-hr-consensus",
+  "exploration": "signal_quality",
+  "timestamp": "2026-03-06T18:15:28.735241",
+  "note": "UPPER BOUNDS \u2014 vectorized DuckDB. All counts at market level.",
+  "folds": [
+    {
+      "train": "2025-01-01_2025-07-01",
+      "test": "2025-07-01"
+    },
+    {
+      "train": "2025-04-01_2025-10-01",
+      "test": "2025-10-01"
+    },
+    {
+      "train": "2025-07-01_2026-01-01",
+      "test": "2026-01-01"
+    }
+  ],
+  "base_params": {
+    "consensus_n": 3,
+    "min_excess_hr": 0.1,
+    "max_pool_entry_price": 0.8,
+    "price_ceil": 0.75,
+    "max_hold_hours": 48,
+    "min_trades": 20,
+    "bot_guard": 10000
+  },
+  "monthly_base_rates": {
+    "monthly": {
+      "Esports": [
+        {
+          "month": "2024-05",
+          "n_markets": 4,
+          "base_rate": 2.5
+        },
+        {
+          "month": "2024-09",
+          "n_markets": 33,
+          "base_rate": 7.0606
+        },
+        {
+          "month": "2024-10",
+          "n_markets": 83,
+          "base_rate": 1.7349
+        },
+        {
+          "month": "2024-11",
+          "n_markets": 11,
+          "base_rate": 55.0
+        },
+        {
+          "month": "2024-12",
+          "n_markets": 98,
+          "base_rate": 15.2041
+        },
+        {
+          "month": "2025-01",
+          "n_markets": 10,
+          "base_rate": 13.1
+        },
+        {
+          "month": "2025-02",
+          "n_markets": 17,
+          "base_rate": 12.5294
+        },
+        {
+          "month": "2025-03",
+          "n_markets": 8,
+          "base_rate": 5.0
+        },
+        {
+          "month": "2025-04",
+          "n_markets": 29,
+          "base_rate": 5.0345
+        },
+        {
+          "month": "2025-05",
+          "n_markets": 108,
+          "base_rate": 10.9167
+        },
+        {
+          "month": "2025-06",
+          "n_markets": 152,
+          "base_rate": 11.7105
+        },
+        {
+          "month": "2025-07",
+          "n_markets": 223,
+          "base_rate": 18.13
+        },
+        {
+          "month": "2025-08",
+          "n_markets": 319,
+          "base_rate": 19.6176
+        },
+        {
+          "month": "2025-09",
+          "n_markets": 613,
+          "base_rate": 10.69
+        },
+        {
+          "month": "2025-10",
+          "n_markets": 1441,
+          "base_rate": 13.2103
+        },
+        {
+          "month": "2025-11",
+          "n_markets": 1816,
+          "base_rate": 19.9626
+        },
+        {
+          "month": "2025-12",
+          "n_markets": 3101,
+          "base_rate": 14.1606
+        },
+        {
+          "month": "2026-01",
+          "n_markets": 13538,
+          "base_rate": 9.0232
+        },
+        {
+          "month": "2026-02",
+          "n_markets": 22722,
+          "base_rate": 9.6935
+        }
+      ],
+      "Tennis": [
+        {
+          "month": "2024-01",
+          "n_markets": 2,
+          "base_rate": 0.0
+        },
+        {
+          "month": "2024-05",
+          "n_markets": 2,
+          "base_rate": 0.0
+        },
+        {
+          "month": "2024-06",
+          "n_markets": 19,
+          "base_rate": 2.9474
+        },
+        {
+          "month": "2024-07",
+          "n_markets": 12,
+          "base_rate": 0.0
+        },
+        {
+          "month": "2024-08",
+          "n_markets": 39,
+          "base_rate": 5.2308
+        },
+        {
+          "month": "2024-09",
+          "n_markets": 36,
+          "base_rate": 23.1944
+        },
+        {
+          "month": "2024-10",
+          "n_markets": 6,
+          "base_rate": 5.0
+        },
+        {
+          "month": "2024-11",
+          "n_markets": 15,
+          "base_rate": 14.8667
+        },
+        {
+          "month": "2025-01",
+          "n_markets": 73,
+          "base_rate": 7.3151
+        },
+        {
+          "month": "2025-03",
+          "n_markets": 26,
+          "base_rate": 3.2692
+        },
+        {
+          "month": "2025-04",
+          "n_markets": 39,
+          "base_rate": 2.0256
+        },
+        {
+          "month": "2025-05",
+          "n_markets": 143,
+          "base_rate": 5.1329
+        },
+        {
+          "month": "2025-06",
+          "n_markets": 264,
+          "base_rate": 10.7689
+        },
+        {
+          "month": "2025-07",
+          "n_markets": 517,
+          "base_rate": 11.0271
+        },
+        {
+          "month": "2025-08",
+          "n_markets": 506,
+          "base_rate": 7.504
+        },
+        {
+          "month": "2025-09",
+          "n_markets": 467,
+          "base_rate": 7.863
+        },
+        {
+          "month": "2025-10",
+          "n_markets": 928,
+          "base_rate": 11.8987
+        },
+        {
+          "month": "2025-11",
+          "n_markets": 251,
+          "base_rate": 30.6175
+        },
+        {
+          "month": "2025-12",
+          "n_markets": 225,
+          "base_rate": 8.5422
+        },
+        {
+          "month": "2026-01",
+          "n_markets": 9474,
+          "base_rate": 7.0014
+        },
+        {
+          "month": "2026-02",
+          "n_markets": 10270,
+          "base_rate": 6.5317
+        }
+      ]
+    },
+    "summary": {
+      "Esports": {
+        "min_br": 1.7349,
+        "max_br": 55.0,
+        "mean_br": 14.5164,
+        "high_regime_months": 17,
+        "low_regime_months": 0,
+        "high_regime_examples": [
+          "2024-09",
+          "2024-10",
+          "2024-11",
+          "2024-12",
+          "2025-01"
+        ]
+      },
+      "Tennis": {
+        "min_br": 0.0,
+        "max_br": 30.6175,
+        "mean_br": 9.2076,
+        "high_regime_months": 17,
+        "low_regime_months": 1,
+        "high_regime_examples": [
+          "2024-06",
+          "2024-08",
+          "2024-09",
+          "2024-11",
+          "2025-01"
+        ]
+      }
+    }
+  },
+  "entry_price_signal": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.3677,
+        "n_markets": 223,
+        "buckets": [
+          {
+            "price_bucket": "0.00-0.20",
+            "n_signals": 3,
+            "hr": 0.0,
+            "excess_hr_pp": -36.77,
+            "mean_ep": 0.1285
+          },
+          {
+            "price_bucket": "0.60-0.70",
+            "n_signals": 7,
+            "hr": 0.8571,
+            "excess_hr_pp": 48.94,
+            "mean_ep": 0.6615
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 13,
+            "hr": 0.9231,
+            "excess_hr_pp": 55.54,
+            "mean_ep": 0.8598
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.6537,
+        "n_markets": 1441,
+        "buckets": [
+          {
+            "price_bucket": "0.60-0.70",
+            "n_signals": 3,
+            "hr": 0.3333,
+            "excess_hr_pp": -32.04,
+            "mean_ep": 0.627
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 22,
+            "hr": 0.9545,
+            "excess_hr_pp": 30.08,
+            "mean_ep": 0.8873
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.4558,
+        "n_markets": 13538,
+        "buckets": [
+          {
+            "price_bucket": "0.00-0.20",
+            "n_signals": 15,
+            "hr": 0.0,
+            "excess_hr_pp": -45.58,
+            "mean_ep": 0.1343
+          },
+          {
+            "price_bucket": "0.20-0.30",
+            "n_signals": 27,
+            "hr": 0.1111,
+            "excess_hr_pp": -34.47,
+            "mean_ep": 0.2487
+          },
+          {
+            "price_bucket": "0.30-0.40",
+            "n_signals": 29,
+            "hr": 0.2759,
+            "excess_hr_pp": -17.99,
+            "mean_ep": 0.3473
+          },
+          {
+            "price_bucket": "0.40-0.50",
+            "n_signals": 32,
+            "hr": 0.3125,
+            "excess_hr_pp": -14.33,
+            "mean_ep": 0.4536
+          },
+          {
+            "price_bucket": "0.50-0.60",
+            "n_signals": 48,
+            "hr": 0.5208,
+            "excess_hr_pp": 6.5,
+            "mean_ep": 0.5562
+          },
+          {
+            "price_bucket": "0.60-0.70",
+            "n_signals": 53,
+            "hr": 0.6792,
+            "excess_hr_pp": 22.34,
+            "mean_ep": 0.6447
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 160,
+            "hr": 0.9375,
+            "excess_hr_pp": 48.17,
+            "mean_ep": 0.8614
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.2476,
+        "n_markets": 517,
+        "buckets": [
+          {
+            "price_bucket": "0.20-0.30",
+            "n_signals": 8,
+            "hr": 0.25,
+            "excess_hr_pp": 0.24,
+            "mean_ep": 0.2528
+          },
+          {
+            "price_bucket": "0.30-0.40",
+            "n_signals": 3,
+            "hr": 0.0,
+            "excess_hr_pp": -24.76,
+            "mean_ep": 0.3639
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 9,
+            "hr": 1.0,
+            "excess_hr_pp": 75.24,
+            "mean_ep": 0.8435
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.3955,
+        "n_markets": 928,
+        "buckets": [
+          {
+            "price_bucket": "0.00-0.20",
+            "n_signals": 4,
+            "hr": 0.0,
+            "excess_hr_pp": -39.55,
+            "mean_ep": 0.1246
+          },
+          {
+            "price_bucket": "0.20-0.30",
+            "n_signals": 5,
+            "hr": 0.0,
+            "excess_hr_pp": -39.55,
+            "mean_ep": 0.2446
+          },
+          {
+            "price_bucket": "0.30-0.40",
+            "n_signals": 8,
+            "hr": 0.125,
+            "excess_hr_pp": -27.05,
+            "mean_ep": 0.3517
+          },
+          {
+            "price_bucket": "0.40-0.50",
+            "n_signals": 9,
+            "hr": 0.7778,
+            "excess_hr_pp": 38.23,
+            "mean_ep": 0.4644
+          },
+          {
+            "price_bucket": "0.50-0.60",
+            "n_signals": 15,
+            "hr": 0.3333,
+            "excess_hr_pp": -6.22,
+            "mean_ep": 0.5538
+          },
+          {
+            "price_bucket": "0.60-0.70",
+            "n_signals": 18,
+            "hr": 0.5,
+            "excess_hr_pp": 10.45,
+            "mean_ep": 0.6451
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 33,
+            "hr": 0.8788,
+            "excess_hr_pp": 48.33,
+            "mean_ep": 0.8242
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.453,
+        "n_markets": 9474,
+        "buckets": [
+          {
+            "price_bucket": "0.40-0.50",
+            "n_signals": 8,
+            "hr": 0.25,
+            "excess_hr_pp": -20.3,
+            "mean_ep": 0.4446
+          },
+          {
+            "price_bucket": "0.50-0.60",
+            "n_signals": 5,
+            "hr": 0.2,
+            "excess_hr_pp": -25.3,
+            "mean_ep": 0.555
+          },
+          {
+            "price_bucket": "0.60-0.70",
+            "n_signals": 6,
+            "hr": 0.8333,
+            "excess_hr_pp": 38.03,
+            "mean_ep": 0.6633
+          },
+          {
+            "price_bucket": "0.70+",
+            "n_signals": 44,
+            "hr": 1.0,
+            "excess_hr_pp": 54.7,
+            "mean_ep": 0.8786
+          }
+        ]
+      }
+    ]
+  },
+  "convergence_speed": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.3677,
+        "buckets": [
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 15,
+            "hr": 0.8,
+            "excess_hr_pp": 43.23,
+            "median_conv_hours": 3.53
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 17,
+            "hr": 0.7059,
+            "excess_hr_pp": 33.82,
+            "median_conv_hours": 13.83
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.6537,
+        "buckets": [
+          {
+            "speed_bucket": "fast (5m-1h)",
+            "n_signals": 10,
+            "hr": 0.9,
+            "excess_hr_pp": 24.63,
+            "median_conv_hours": 0.42
+          },
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 7,
+            "hr": 0.8571,
+            "excess_hr_pp": 20.34,
+            "median_conv_hours": 1.9
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 8,
+            "hr": 0.625,
+            "excess_hr_pp": -2.87,
+            "median_conv_hours": 10.79
+          },
+          {
+            "speed_bucket": "very_slow (>24h)",
+            "n_signals": 6,
+            "hr": 0.8333,
+            "excess_hr_pp": 17.96,
+            "median_conv_hours": 65.74
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.4558,
+        "buckets": [
+          {
+            "speed_bucket": "fast (5m-1h)",
+            "n_signals": 132,
+            "hr": 0.6515,
+            "excess_hr_pp": 19.57,
+            "median_conv_hours": 0.54
+          },
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 121,
+            "hr": 0.6942,
+            "excess_hr_pp": 23.84,
+            "median_conv_hours": 2.3
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 96,
+            "hr": 0.625,
+            "excess_hr_pp": 16.92,
+            "median_conv_hours": 13.62
+          },
+          {
+            "speed_bucket": "very_slow (>24h)",
+            "n_signals": 42,
+            "hr": 0.6429,
+            "excess_hr_pp": 18.71,
+            "median_conv_hours": 46.58
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.2476,
+        "buckets": [
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 5,
+            "hr": 0.6,
+            "excess_hr_pp": 35.24,
+            "median_conv_hours": 2.82
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 26,
+            "hr": 0.4615,
+            "excess_hr_pp": 21.39,
+            "median_conv_hours": 14.04
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.3955,
+        "buckets": [
+          {
+            "speed_bucket": "fast (5m-1h)",
+            "n_signals": 8,
+            "hr": 0.25,
+            "excess_hr_pp": -14.55,
+            "median_conv_hours": 0.63
+          },
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 42,
+            "hr": 0.6667,
+            "excess_hr_pp": 27.12,
+            "median_conv_hours": 2.96
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 40,
+            "hr": 0.625,
+            "excess_hr_pp": 22.95,
+            "median_conv_hours": 13.43
+          },
+          {
+            "speed_bucket": "very_slow (>24h)",
+            "n_signals": 16,
+            "hr": 0.375,
+            "excess_hr_pp": -2.05,
+            "median_conv_hours": 30.75
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.453,
+        "buckets": [
+          {
+            "speed_bucket": "fast (5m-1h)",
+            "n_signals": 6,
+            "hr": 1.0,
+            "excess_hr_pp": 54.7,
+            "median_conv_hours": 0.65
+          },
+          {
+            "speed_bucket": "medium (1h-6h)",
+            "n_signals": 19,
+            "hr": 0.7368,
+            "excess_hr_pp": 28.38,
+            "median_conv_hours": 2.9
+          },
+          {
+            "speed_bucket": "slow (6h-24h)",
+            "n_signals": 31,
+            "hr": 0.8065,
+            "excess_hr_pp": 35.35,
+            "median_conv_hours": 12.53
+          },
+          {
+            "speed_bucket": "very_slow (>24h)",
+            "n_signals": 14,
+            "hr": 0.6429,
+            "excess_hr_pp": 18.99,
+            "median_conv_hours": 36.78
+          }
+        ]
+      }
+    ]
+  },
+  "trader_cooccurrence": {
+    "Esports": {
+      "fold": "2025-07-01",
+      "base_rate": 0.3677,
+      "n_consensus_markets": 34,
+      "n_qualified_traders": 16,
+      "top20_participation": [
+        {
+          "trader": "0x4ad6cade...",
+          "n_consensus_mkts": 19,
+          "pct_of_consensus": 0.5588
+        },
+        {
+          "trader": "0xe2165992...",
+          "n_consensus_mkts": 16,
+          "pct_of_consensus": 0.4706
+        },
+        {
+          "trader": "0xf5201f99...",
+          "n_consensus_mkts": 16,
+          "pct_of_consensus": 0.4706
+        },
+        {
+          "trader": "0x476b0f06...",
+          "n_consensus_mkts": 15,
+          "pct_of_consensus": 0.4412
+        },
+        {
+          "trader": "0x53abaa09...",
+          "n_consensus_mkts": 14,
+          "pct_of_consensus": 0.4118
+        },
+        {
+          "trader": "0x27653cd5...",
+          "n_consensus_mkts": 11,
+          "pct_of_consensus": 0.3235
+        },
+        {
+          "trader": "0x94a16d28...",
+          "n_consensus_mkts": 9,
+          "pct_of_consensus": 0.2647
+        },
+        {
+          "trader": "0x14a056c6...",
+          "n_consensus_mkts": 9,
+          "pct_of_consensus": 0.2647
+        },
+        {
+          "trader": "0x7f2ac723...",
+          "n_consensus_mkts": 6,
+          "pct_of_consensus": 0.1765
+        },
+        {
+          "trader": "0x46a62a13...",
+          "n_consensus_mkts": 4,
+          "pct_of_consensus": 0.1176
+        },
+        {
+          "trader": "0x68df1403...",
+          "n_consensus_mkts": 2,
+          "pct_of_consensus": 0.0588
+        },
+        {
+          "trader": "0x72feb074...",
+          "n_consensus_mkts": 1,
+          "pct_of_consensus": 0.0294
+        },
+        {
+          "trader": "0x8f692690...",
+          "n_consensus_mkts": 1,
+          "pct_of_consensus": 0.0294
+        }
+      ],
+      "max_single_trader_pct": 0.5588,
+      "median_single_trader_pct": 0.2647,
+      "herding_diagnosis": "HIGH herding: dominant trader drives >50% of signals"
+    },
+    "Tennis": {
+      "fold": "2025-07-01",
+      "base_rate": 0.2476,
+      "n_consensus_markets": 33,
+      "n_qualified_traders": 15,
+      "top20_participation": [
+        {
+          "trader": "0x88c47db1...",
+          "n_consensus_mkts": 18,
+          "pct_of_consensus": 0.5455
+        },
+        {
+          "trader": "0xb8afcb4c...",
+          "n_consensus_mkts": 14,
+          "pct_of_consensus": 0.4242
+        },
+        {
+          "trader": "0xf5201f99...",
+          "n_consensus_mkts": 14,
+          "pct_of_consensus": 0.4242
+        },
+        {
+          "trader": "0xb786b8b6...",
+          "n_consensus_mkts": 13,
+          "pct_of_consensus": 0.3939
+        },
+        {
+          "trader": "0xdbb9b361...",
+          "n_consensus_mkts": 13,
+          "pct_of_consensus": 0.3939
+        },
+        {
+          "trader": "0xf8d4a7a3...",
+          "n_consensus_mkts": 12,
+          "pct_of_consensus": 0.3636
+        },
+        {
+          "trader": "0x27653cd5...",
+          "n_consensus_mkts": 10,
+          "pct_of_consensus": 0.303
+        },
+        {
+          "trader": "0x6c82c87d...",
+          "n_consensus_mkts": 7,
+          "pct_of_consensus": 0.2121
+        },
+        {
+          "trader": "0x480d013b...",
+          "n_consensus_mkts": 4,
+          "pct_of_consensus": 0.1212
+        },
+        {
+          "trader": "0xee00ba33...",
+          "n_consensus_mkts": 3,
+          "pct_of_consensus": 0.0909
+        },
+        {
+          "trader": "0xfba6af10...",
+          "n_consensus_mkts": 3,
+          "pct_of_consensus": 0.0909
+        }
+      ],
+      "max_single_trader_pct": 0.5455,
+      "median_single_trader_pct": 0.3636,
+      "herding_diagnosis": "HIGH herding: dominant trader drives >50% of signals"
+    }
+  },
+  "market_age": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.3677,
+        "buckets": [
+          {
+            "age_bucket": "recent (1h-6h)",
+            "n_signals": 4,
+            "hr": 1.0,
+            "excess_hr_pp": 63.23,
+            "median_age_days": 0.15
+          },
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 24,
+            "hr": 0.7083,
+            "excess_hr_pp": 34.06,
+            "median_age_days": 0.71
+          },
+          {
+            "age_bucket": "week-old (1-7d)",
+            "n_signals": 6,
+            "hr": 0.8333,
+            "excess_hr_pp": 46.56,
+            "median_age_days": 1.21
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.6537,
+        "buckets": [
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 15,
+            "hr": 0.7333,
+            "excess_hr_pp": 7.96,
+            "median_age_days": 0.63
+          },
+          {
+            "age_bucket": "week-old (1-7d)",
+            "n_signals": 16,
+            "hr": 0.875,
+            "excess_hr_pp": 22.13,
+            "median_age_days": 3.75
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.4558,
+        "buckets": [
+          {
+            "age_bucket": "fresh (<=1h)",
+            "n_signals": 11,
+            "hr": 0.7273,
+            "excess_hr_pp": 27.15,
+            "median_age_days": 0.04
+          },
+          {
+            "age_bucket": "recent (1h-6h)",
+            "n_signals": 66,
+            "hr": 0.6818,
+            "excess_hr_pp": 22.6,
+            "median_age_days": 0.13
+          },
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 132,
+            "hr": 0.7045,
+            "excess_hr_pp": 24.87,
+            "median_age_days": 0.69
+          },
+          {
+            "age_bucket": "week-old (1-7d)",
+            "n_signals": 140,
+            "hr": 0.6286,
+            "excess_hr_pp": 17.28,
+            "median_age_days": 3.67
+          },
+          {
+            "age_bucket": "mature (>7d)",
+            "n_signals": 44,
+            "hr": 0.5682,
+            "excess_hr_pp": 11.24,
+            "median_age_days": 11.73
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.2476,
+        "buckets": [
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 30,
+            "hr": 0.5,
+            "excess_hr_pp": 25.24,
+            "median_age_days": 0.67
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.3955,
+        "buckets": [
+          {
+            "age_bucket": "recent (1h-6h)",
+            "n_signals": 3,
+            "hr": 0.6667,
+            "excess_hr_pp": 27.12,
+            "median_age_days": 0.25
+          },
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 52,
+            "hr": 0.5962,
+            "excess_hr_pp": 20.07,
+            "median_age_days": 0.83
+          },
+          {
+            "age_bucket": "week-old (1-7d)",
+            "n_signals": 51,
+            "hr": 0.549,
+            "excess_hr_pp": 15.35,
+            "median_age_days": 1.5
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.453,
+        "buckets": [
+          {
+            "age_bucket": "same-day (6h-24h)",
+            "n_signals": 10,
+            "hr": 0.6,
+            "excess_hr_pp": 14.7,
+            "median_age_days": 0.71
+          },
+          {
+            "age_bucket": "week-old (1-7d)",
+            "n_signals": 60,
+            "hr": 0.8,
+            "excess_hr_pp": 34.7,
+            "median_age_days": 1.88
+          }
+        ]
+      }
+    ]
+  },
+  "pool_size_sensitivity": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.3677,
+        "n_markets": 223,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 14,
+            "hr": 0.8571,
+            "excess_hr_pp": 48.94
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 44,
+            "hr": 0.7273,
+            "excess_hr_pp": 35.96
+          },
+          {
+            "k": 30,
+            "pool_actual": 30,
+            "n_signals": 70,
+            "hr": 0.6143,
+            "excess_hr_pp": 24.66
+          },
+          {
+            "k": 50,
+            "pool_actual": 35,
+            "n_signals": 116,
+            "hr": 0.3793,
+            "excess_hr_pp": 1.16
+          },
+          {
+            "k": 75,
+            "pool_actual": 35,
+            "n_signals": 116,
+            "hr": 0.3793,
+            "excess_hr_pp": 1.16
+          },
+          {
+            "k": 100,
+            "pool_actual": 35,
+            "n_signals": 116,
+            "hr": 0.3793,
+            "excess_hr_pp": 1.16
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.6537,
+        "n_markets": 1441,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 10,
+            "hr": 1.0,
+            "excess_hr_pp": 34.63
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 31,
+            "hr": 0.8065,
+            "excess_hr_pp": 15.28
+          },
+          {
+            "k": 30,
+            "pool_actual": 30,
+            "n_signals": 57,
+            "hr": 0.8596,
+            "excess_hr_pp": 20.59
+          },
+          {
+            "k": 50,
+            "pool_actual": 50,
+            "n_signals": 106,
+            "hr": 0.717,
+            "excess_hr_pp": 6.33
+          },
+          {
+            "k": 75,
+            "pool_actual": 75,
+            "n_signals": 165,
+            "hr": 0.6485,
+            "excess_hr_pp": -0.52
+          },
+          {
+            "k": 100,
+            "pool_actual": 100,
+            "n_signals": 217,
+            "hr": 0.6037,
+            "excess_hr_pp": -5.0
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.4558,
+        "n_markets": 13538,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 10,
+            "hr": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 12,
+            "hr": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 30,
+            "pool_actual": 30,
+            "n_signals": 23,
+            "hr": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 50,
+            "pool_actual": 50,
+            "n_signals": 52,
+            "hr": 1.0,
+            "excess_hr_pp": 54.42
+          },
+          {
+            "k": 75,
+            "pool_actual": 75,
+            "n_signals": 86,
+            "hr": 0.907,
+            "excess_hr_pp": 45.12
+          },
+          {
+            "k": 100,
+            "pool_actual": 100,
+            "n_signals": 116,
+            "hr": 0.8362,
+            "excess_hr_pp": 38.04
+          }
+        ]
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "base_rate": 0.2476,
+        "n_markets": 517,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 14,
+            "hr": 0.7143,
+            "excess_hr_pp": 46.67
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 45,
+            "hr": 0.5111,
+            "excess_hr_pp": 26.35
+          },
+          {
+            "k": 30,
+            "pool_actual": 29,
+            "n_signals": 94,
+            "hr": 0.266,
+            "excess_hr_pp": 1.84
+          },
+          {
+            "k": 50,
+            "pool_actual": 29,
+            "n_signals": 94,
+            "hr": 0.266,
+            "excess_hr_pp": 1.84
+          },
+          {
+            "k": 75,
+            "pool_actual": 29,
+            "n_signals": 94,
+            "hr": 0.266,
+            "excess_hr_pp": 1.84
+          },
+          {
+            "k": 100,
+            "pool_actual": 29,
+            "n_signals": 94,
+            "hr": 0.266,
+            "excess_hr_pp": 1.84
+          }
+        ]
+      },
+      {
+        "fold": "2025-10-01",
+        "base_rate": 0.3955,
+        "n_markets": 928,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 0,
+            "hr": null,
+            "excess_hr_pp": null
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 0,
+            "hr": null,
+            "excess_hr_pp": null
+          },
+          {
+            "k": 30,
+            "pool_actual": 30,
+            "n_signals": 9,
+            "hr": 1.0,
+            "excess_hr_pp": 60.45
+          },
+          {
+            "k": 50,
+            "pool_actual": 50,
+            "n_signals": 57,
+            "hr": 0.7544,
+            "excess_hr_pp": 35.89
+          },
+          {
+            "k": 75,
+            "pool_actual": 75,
+            "n_signals": 177,
+            "hr": 0.4915,
+            "excess_hr_pp": 9.6
+          },
+          {
+            "k": 100,
+            "pool_actual": 100,
+            "n_signals": 272,
+            "hr": 0.4412,
+            "excess_hr_pp": 4.57
+          }
+        ]
+      },
+      {
+        "fold": "2026-01-01",
+        "base_rate": 0.453,
+        "n_markets": 9474,
+        "k_results": [
+          {
+            "k": 10,
+            "pool_actual": 10,
+            "n_signals": 0,
+            "hr": null,
+            "excess_hr_pp": null
+          },
+          {
+            "k": 20,
+            "pool_actual": 20,
+            "n_signals": 0,
+            "hr": null,
+            "excess_hr_pp": null
+          },
+          {
+            "k": 30,
+            "pool_actual": 30,
+            "n_signals": 6,
+            "hr": 0.8333,
+            "excess_hr_pp": 38.03
+          },
+          {
+            "k": 50,
+            "pool_actual": 50,
+            "n_signals": 37,
+            "hr": 0.8108,
+            "excess_hr_pp": 35.78
+          },
+          {
+            "k": 75,
+            "pool_actual": 75,
+            "n_signals": 98,
+            "hr": 0.6939,
+            "excess_hr_pp": 24.09
+          },
+          {
+            "k": 100,
+            "pool_actual": 100,
+            "n_signals": 135,
+            "hr": 0.6222,
+            "excess_hr_pp": 16.92
+          }
+        ]
+      }
+    ]
+  },
+  "elapsed_seconds": 117.9
+}

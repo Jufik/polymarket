@@ -3,15 +3,33 @@
 These files constitute the production execution harness. Only the Architect agent
 may modify them. All changes must be generic improvements, not strategy-specific.
 
+## Production Harness (strategies framework)
+
 | File | Purpose |
 |------|---------|
-| `src/polymarket_pipeline/strategies/runners/replay.py` | ReplayRunner: tick-by-tick replay with settlement |
+| `src/polymarket_pipeline/strategies/runners/replay.py` | ReplayRunner: async tick-by-tick replay with settlement |
 | `src/polymarket_pipeline/strategies/runners/helpers.py` | Risk gate + position math (apply_fill_to_position) |
 | `src/polymarket_pipeline/strategies/execution/gateway.py` | ExecutionGateway: intent validation, budget gate, logging |
 | `src/polymarket_pipeline/strategies/execution/realistic.py` | RealisticFillSimulator: calibrated slippage model |
 | `src/polymarket_pipeline/strategies/execution/calibrate.py` | Spread/volume calibration from trade data |
 | `src/polymarket_pipeline/strategies/config.py` | StrategyConfig, HarnessConfig, TOML loaders |
 | `src/polymarket_pipeline/cli/harness.py` | pm-harness CLI entry point |
+
+## Research Harness (fast paths — shared by all research agents)
+
+| File | Purpose |
+|------|---------|
+| `research/db.py` | ResearchDB: DuckDB singleton over Parquet snapshot |
+| `research/fast_replay.py` | Polars-based trade/resolution loading from Parquet |
+| `research/sync_replay.py` | SyncReplayRunner: zero-async tick-by-tick (same semantics as ReplayRunner) |
+| `research/harness.py` | `run_fast_backtest()` (sync) + legacy `run_backtest()` (async) |
+| `research/server.py` | FastAPI research server (/query, /sweep, /replay) |
+| `research/export_snapshot.py` | CH → Parquet snapshot exporter |
+
+## Data Infrastructure
+
+| File | Purpose |
+|------|---------|
 | `docker/clickhouse/migrations/009+` | Classification table migrations (taxonomy layer) |
 | `docker/clickhouse/classifications/` | Production classification rule `.sql` files |
 

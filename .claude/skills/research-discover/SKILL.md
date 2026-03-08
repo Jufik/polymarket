@@ -38,13 +38,52 @@ If aborting:
 
 If sanity combo shows signal (HR above base rate by any margin): proceed to Step 1.
 
-## Step 1: CH SQL Sweep
+## Step 1: DuckDB Sweep (Primary) or CH SQL Sweep (Fallback)
 
-Connect to remote ClickHouse: `192.168.0.148:18123`, database `polymarket`.
+### Preferred: DuckDB + Parquet Snapshot
+
+Use the local DuckDB engine with pre-exported Parquet snapshot (`data/research/`).
+This is **~1500x faster** than CH for sweep queries (46s vs 15-25 hours for a 3-tag sweep).
+
+```python
+from research.db import db
+d = db()
+
+# Ad-hoc queries
+df = d.query("SELECT count() FROM maker_positions")
+rows = d.fetchall("SELECT condition_id, first(yes_won) as yes_won FROM maker_positions GROUP BY condition_id")
+d.execute("CREATE TEMP TABLE tag_mkts AS SELECT DISTINCT condition_id FROM ...")
+
+# Available tables (in-memory):
+#   events, event_tags, maker_positions, markets, markets_resolved, token_market_map, trader_volumes
+# Available views (external Parquet, predicate pushdown):
+#   trader_trade_agg, trades, yes_entry_data
+```
+
+**DuckDB vs CH syntax differences:**
+| CH | DuckDB |
+|---|---|
+| `any(col)` | `first(col)` |
+| `countIf(x=1)` | `sum(CASE WHEN x THEN 1 ELSE 0 END)` |
+| `toDate(x)` | `CAST(x AS DATE)` |
+| `toFloat64(x)` | `x::DOUBLE` |
+| `arrayExists(...)` | Pre-aggregate stats + `EXISTS (SELECT 1 FROM ...)` |
+| `_tmp_* Memory tables` | `CREATE TEMP TABLE` |
+| `dateDiff('hour', x, y)` | `date_diff('hour', x, y)` |
+
+**Existing sweep implementation**: `research/hypotheses/tag-hr-copy/scripts/sweep_duckdb.py`
+provides a working template for DuckDB parameter sweeps with batched combo queries.
+
+### Fallback: Remote ClickHouse
+
+Use CH only when you need tables NOT in the Parquet snapshot (e.g., `trader_classifications`,
+`market_classifications`, or live data). Connect to `192.168.0.148:18123`, database `polymarket`.
 
 ### Classification Verification (before sweep)
 
-Before running any sweep SQL:
+Before running any sweep SQL, check which classification labels exist.
+For DuckDB sweeps, classifications must be pre-exported or queried from CH as a one-time step.
+For CH sweeps:
 1. Check which classification labels exist:
    ```sql
    SELECT DISTINCT label, count(*) AS n FROM trader_classifications FINAL GROUP BY label
@@ -150,7 +189,8 @@ Score: avg(price) as continuous score
 | `maker_positions_resolved_corrected` | VIEW | Corrected positions + PnL + resolution — **use instead of trader_positions_resolved** |
 
 ### SQL conventions:
-- Always use `FROM (SELECT * FROM table FINAL) alias` NOT `FROM table FINAL AS alias`
+- **DuckDB (primary)**: standard SQL; no `FINAL` needed (Parquet snapshot is pre-deduped)
+- **CH (fallback)**: Always use `FROM (SELECT * FROM table FINAL) alias` NOT `FROM table FINAL AS alias`
 - Compare hit rates against **tag-specific** base rates (not global 38/62)
 - **JOIN classification tables** — never re-derive inline; repopulate with correct cutoff before use
 - Keep queries under 50 lines by composing building blocks
@@ -211,18 +251,23 @@ Write to `discovery/notebook.py`. Marimo conventions:
 
 ```python
 import marimo as mo
-# Cell 0: Imports + CH connection
+# Cell 0: Imports + DuckDB connection (preferred) or CH fallback
+from research.db import db
+d = db()  # DuckDB singleton — pre-loaded with Parquet snapshot
+
+# Cell 1: Universe definition (qualified traders, market filters)
+# Cell 2: Signal computation SQL
+# Cell 3: Parameter sweep results table (BOTH SELL variants)
+# Cell 4: Hit rate vs base rate chart (tag-specific base rates)
+# Cell 5: Compounding score heatmap
+# Cell 6: Hold time distribution
+# Cell 7: Sensitivity analysis results
+```
+
+For queries that require CH-only tables (classifications, live data):
+```python
 import clickhouse_connect
 ch = clickhouse_connect.get_client(host="192.168.0.148", port=18123, database="polymarket")
-
-# Cell 1: Classification population (populate rules with cutoff)
-# Cell 2: Universe definition (qualified traders, market filters — via classification JOINs)
-# Cell 3: Signal computation SQL
-# Cell 4: Parameter sweep results table (BOTH SELL variants)
-# Cell 5: Hit rate vs base rate chart (tag-specific base rates)
-# Cell 6: Compounding score heatmap
-# Cell 7: Hold time distribution
-# Cell 8: Sensitivity analysis results
 ```
 
 ## Step 4: Populate config.toml

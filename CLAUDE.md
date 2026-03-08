@@ -70,11 +70,19 @@ uv run python scripts/build_data.py --step prices          # market price timese
 uv run python scripts/build_data.py --force-metadata       # re-fetch even if fresh
 
 # Research backtest harness (see research/harness.py)
-# Quick usage in Python:
+# Fast path (preferred — sync, Parquet snapshot):
+#   from research.harness import run_fast_backtest, print_summary
+#   result, summary = run_fast_backtest(MyStrategy(), config, universe={"0xabc..."})
+#   if summary: print_summary(summary, "my_strategy")
+#
+# Legacy path (async, compact parquet files):
 #   from research.harness import load_compact_trades, run_backtest, print_summary
 #   trades = load_compact_trades(max_files=10)
 #   result, summary = asyncio.run(run_backtest(MyStrategy(), trades, config))
-#   print_summary(summary, "my_strategy")
+#
+# Research server (HTTP — for notebooks):
+#   PYTHONPATH=. uv run python research/server.py  # port 9999
+#   curl -X POST http://localhost:9999/query -d '{"sql": "SELECT count() FROM maker_positions"}'
 ```
 
 ## Architecture
@@ -216,7 +224,12 @@ research/                # Research sandbox (imports from pipeline, never import
 │   ├── pitfalls/        # Known biases, simulation gaps, critical bugs
 │   ├── execution/       # Position lifecycle, slippage, capital
 │   └── queries/         # Reusable CH SQL snippets (.sql files)
-├── harness.py           # Backtest entry point: load trades → calibrate → run → ledger → analytics
+├── db.py                # DuckDB singleton over Parquet snapshot (ResearchDB)
+├── fast_replay.py       # Polars-based trade/resolution loading (ReplayTick, predicate pushdown)
+├── sync_replay.py       # SyncReplayRunner: zero-async tick-by-tick replay
+├── harness.py           # run_fast_backtest() (sync) + run_backtest() (async legacy)
+├── server.py            # FastAPI research server (port 9999: /query, /sweep, /replay)
+├── export_snapshot.py   # CH → Parquet snapshot exporter
 ├── conftest.py          # Shared pytest fixtures (permissive_config, sample_trades)
 ├── strategies/          # Draft strategy modules (same protocol, not registered in CLI)
 │   └── example.py       # Template strategy: buy YES below threshold
@@ -314,21 +327,27 @@ CLOB WS `market_resolved` → `markets.events` topic → `MarketEventsConsumer` 
 
 ### Research Workflow
 
-Quantitative research is orchestrated via the `quant-research` skill with a 5-phase workflow.
+Quantitative research is orchestrated via the `research` skill with a 5-phase workflow.
 Knowledge is captured in `research/knowledge/`. Ideas are tracked in `research/ideas.md`.
 
 ```
 LOAD KNOWLEDGE ──→ DISCOVER (vectorized) ──→ MANUAL GATE ──→ VALIDATE (tick-by-tick) ──→ CAPTURE & SCORE
-  parallel agents     CH SQL sweeps            user reviews       ReplayRunner replay       knowledge entries
-  parse admonitions   marimo notebook           decides next       realistic fills           compounding score
+  parallel agents     DuckDB sweeps            user reviews       SyncReplayRunner          knowledge entries
+  parse admonitions   marimo notebook           decides next       Parquet snapshot          compounding score
   surface CRITICAL    UPPER BOUNDS only         validate/refine    compare with vectorized   idea backlog update
 ```
 
 **Skills** (in `.claude/skills/`):
-- `quant-research` — main orchestrator, multi-track coordination, manual gate
-- `research-track` — vectorized discovery agent, creates marimo notebooks
-- `research-validate` — tick-by-tick validation agent, ReplayRunner + RealisticFillSimulator
+- `research` — main orchestrator, multi-agent review, manual gate
+- `research-discover` — vectorized discovery agent, DuckDB sweeps, marimo notebooks
+- `research-validate` — tick-by-tick validation, SyncReplayRunner + Parquet snapshot
 - `research-knowledge` — knowledge loading, admonition parsing, enrichment
+
+**Agents** (in `.claude/agents/`):
+- `researcher` — heavy computation (DuckDB sweeps, tick-by-tick validation)
+- `quant-research-strategist` — ad-hoc exploration (quick queries, sanity checks)
+- `sim-fidelity-auditor` — simulation engine audit and gap diagnosis
+- `skeptic`, `visionary`, `challenger`, `engineer`, `architect` — review panel
 
 **Knowledge admonitions** (GitHub-flavored `> [!CRITICAL]` / `> [!WARNING]` / `> [!TIP]`):
 - Parsed from `research/knowledge/` entries at session start
@@ -349,14 +368,17 @@ LOAD KNOWLEDGE ──→ DISCOVER (vectorized) ──→ MANUAL GATE ──→ V
 
 | Layer | Speed | Accuracy | Use For |
 |-------|-------|----------|---------|
-| Vectorized (CH SQL) | ~5s/sweep | Low (upper bound) | Signal discovery, parameter sweep |
-| ReplayRunner (tick-by-tick) | ~2min/month | High | Validation, PnL estimation |
+| Vectorized (DuckDB) | ~46s/3-tag sweep | Low (upper bound) | Signal discovery, parameter sweep |
+| SyncReplayRunner (tick-by-tick) | ~3s/small universe | High | Validation, PnL estimation |
 | Paper trading (live) | Real-time | Highest | Pre-deployment confirmation |
 
-**ReplayRunner** (`strategies/runners/replay.py`):
-- Asset_id-based resolution via `MarketResolution(winning_asset_ids=frozenset)`
-- Tick-by-tick settlement frees capital mid-replay
-- Provider hot-path: `on_trade()` → feature update → strategy decision per tick
-- Pre-filter trades by qualified makers in CH (11x speedup)
+**Research data infrastructure** (`data/research/`, ~17.6 GB Parquet snapshot):
+- `research/db.py` — DuckDB singleton (3.4s startup, positions + metadata in-memory)
+- `research/fast_replay.py` — Polars loader with predicate pushdown (ReplayTick ~0.5 μs)
+- `research/sync_replay.py` — SyncReplayRunner (zero-async, built-in settlement)
+- `research/harness.py` — `run_fast_backtest()` (sync) + `run_backtest()` (async)
+- `research/server.py` — FastAPI research server (port 9999: /query, /sweep, /replay)
+- `research/export_snapshot.py` — CH → Parquet snapshot refresh
 
-**Remote ClickHouse**: `192.168.0.148:18123`, database `polymarket` (full dataset 2022-2026)
+**Remote ClickHouse**: `192.168.0.148:18123`, database `polymarket` (full dataset 2022-2026).
+Used as fallback for classifications, live data, and tables not in Parquet snapshot.

@@ -1,0 +1,304 @@
+{
+  "hypothesis": "tag-hr-consensus",
+  "phase": "validation-r2",
+  "timestamp": "2026-03-06T17:12:00.404523",
+  "note": "Tick-by-tick. BUY-only. No volume filter. mpe pool filter applied. SimulatedExecutor.",
+  "combos": [
+    {
+      "tag": "Esports",
+      "label": "primary",
+      "params": {
+        "consensus_n": 2,
+        "price_ceil": 0.75,
+        "min_excess_hr_pp": 15,
+        "max_pool_entry_price": 0.8,
+        "window_hours": null
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "base_rate": 0.3677,
+          "n_markets": 223,
+          "n_qualified_traders": 33,
+          "n_signals": 107,
+          "n_settled": 107,
+          "n_wins": 46,
+          "hit_rate": 0.4299,
+          "excess_hr_pp": 6.22,
+          "total_pnl_net": -2167.85,
+          "avg_fill_price": 0.4575,
+          "avg_edge_usd": -20.2603,
+          "sharpe": -5.127,
+          "avg_hold_hours": 13.9,
+          "elapsed_s": 0.0
+        },
+        {
+          "fold": "2025-10-01",
+          "base_rate": 0.6537,
+          "n_markets": 1441,
+          "n_qualified_traders": 24,
+          "n_signals": 19,
+          "n_settled": 19,
+          "n_wins": 12,
+          "hit_rate": 0.6316,
+          "excess_hr_pp": -2.21,
+          "total_pnl_net": 9.69,
+          "avg_fill_price": 0.6326,
+          "avg_edge_usd": 0.5102,
+          "sharpe": 0.263,
+          "avg_hold_hours": 4.44,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2026-01-01",
+          "base_rate": 0.4558,
+          "n_markets": 13538,
+          "n_qualified_traders": 536,
+          "n_signals": 500,
+          "n_settled": 500,
+          "n_wins": 219,
+          "hit_rate": 0.438,
+          "excess_hr_pp": -1.78,
+          "total_pnl_net": -1117.87,
+          "avg_fill_price": 0.453,
+          "avg_edge_usd": -2.2357,
+          "sharpe": -0.378,
+          "avg_hold_hours": 7.99,
+          "elapsed_s": 0.9
+        }
+      ],
+      "aggregate": {
+        "n_folds": 3,
+        "avg_hit_rate": 0.4998,
+        "avg_base_rate": 0.4924,
+        "avg_excess_hr_pp": 0.74,
+        "total_signals": 626,
+        "total_settled": 626,
+        "signals_per_fold": 208.7,
+        "total_pnl_net": -3276.03
+      }
+    },
+    {
+      "tag": "Esports",
+      "label": "sensitive",
+      "params": {
+        "consensus_n": 4,
+        "price_ceil": 0.75,
+        "min_excess_hr_pp": 10,
+        "max_pool_entry_price": 0.8,
+        "window_hours": null
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "base_rate": 0.3677,
+          "n_markets": 223,
+          "n_qualified_traders": 47,
+          "n_signals": 52,
+          "n_settled": 52,
+          "n_wins": 27,
+          "hit_rate": 0.5192,
+          "excess_hr_pp": 15.15,
+          "total_pnl_net": 616.08,
+          "avg_fill_price": 0.4429,
+          "avg_edge_usd": 11.8477,
+          "sharpe": 3.272,
+          "avg_hold_hours": 7.21,
+          "elapsed_s": 0.0
+        },
+        {
+          "fold": "2025-10-01",
+          "base_rate": 0.6537,
+          "n_markets": 1441,
+          "n_qualified_traders": 46,
+          "n_signals": 40,
+          "n_settled": 40,
+          "n_wins": 24,
+          "hit_rate": 0.6,
+          "excess_hr_pp": -5.37,
+          "total_pnl_net": -197.33,
+          "avg_fill_price": 0.5772,
+          "avg_edge_usd": -4.9333,
+          "sharpe": -2.908,
+          "avg_hold_hours": 3.66,
+          "elapsed_s": 0.2
+        },
+        {
+          "fold": "2026-01-01",
+          "base_rate": 0.4558,
+          "n_markets": 13538,
+          "n_qualified_traders": 774,
+          "n_signals": 433,
+          "n_settled": 433,
+          "n_wins": 199,
+          "hit_rate": 0.4596,
+          "excess_hr_pp": 0.38,
+          "total_pnl_net": -386.7,
+          "avg_fill_price": 0.4771,
+          "avg_edge_usd": -0.8931,
+          "sharpe": -0.225,
+          "avg_hold_hours": 7.36,
+          "elapsed_s": 0.8
+        }
+      ],
+      "aggregate": {
+        "n_folds": 3,
+        "avg_hit_rate": 0.5263,
+        "avg_base_rate": 0.4924,
+        "avg_excess_hr_pp": 3.39,
+        "total_signals": 525,
+        "total_settled": 525,
+        "signals_per_fold": 175.0,
+        "total_pnl_net": 32.05
+      }
+    },
+    {
+      "tag": "Tennis",
+      "label": "primary",
+      "params": {
+        "consensus_n": 3,
+        "price_ceil": 0.75,
+        "min_excess_hr_pp": 20,
+        "max_pool_entry_price": 0.9,
+        "window_hours": null
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "base_rate": 0.2476,
+          "n_markets": 517,
+          "n_qualified_traders": 73,
+          "n_signals": 103,
+          "n_settled": 103,
+          "n_wins": 58,
+          "hit_rate": 0.5631,
+          "excess_hr_pp": 31.55,
+          "total_pnl_net": 981.95,
+          "avg_fill_price": 0.5258,
+          "avg_edge_usd": 9.5335,
+          "sharpe": 2.256,
+          "avg_hold_hours": 11.14,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2025-10-01",
+          "base_rate": 0.3955,
+          "n_markets": 928,
+          "n_qualified_traders": 162,
+          "n_signals": 109,
+          "n_settled": 109,
+          "n_wins": 44,
+          "hit_rate": 0.4037,
+          "excess_hr_pp": 0.82,
+          "total_pnl_net": -2709.91,
+          "avg_fill_price": 0.5085,
+          "avg_edge_usd": -24.8616,
+          "sharpe": -11.298,
+          "avg_hold_hours": 4.39,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2026-01-01",
+          "base_rate": 0.453,
+          "n_markets": 9474,
+          "n_qualified_traders": 183,
+          "n_signals": 38,
+          "n_settled": 38,
+          "n_wins": 22,
+          "hit_rate": 0.5789,
+          "excess_hr_pp": 12.59,
+          "total_pnl_net": 643.33,
+          "avg_fill_price": 0.5127,
+          "avg_edge_usd": 16.9298,
+          "sharpe": 2.477,
+          "avg_hold_hours": 19.34,
+          "elapsed_s": 0.4
+        }
+      ],
+      "aggregate": {
+        "n_folds": 3,
+        "avg_hit_rate": 0.5152,
+        "avg_base_rate": 0.3654,
+        "avg_excess_hr_pp": 14.99,
+        "total_signals": 250,
+        "total_settled": 250,
+        "signals_per_fold": 83.3,
+        "total_pnl_net": -1084.63
+      }
+    },
+    {
+      "tag": "Tennis",
+      "label": "sensitive",
+      "params": {
+        "consensus_n": 2,
+        "price_ceil": 0.75,
+        "min_excess_hr_pp": 20,
+        "max_pool_entry_price": 0.7,
+        "window_hours": null
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "base_rate": 0.2476,
+          "n_markets": 517,
+          "n_qualified_traders": 53,
+          "n_signals": 146,
+          "n_settled": 146,
+          "n_wins": 77,
+          "hit_rate": 0.5274,
+          "excess_hr_pp": 27.98,
+          "total_pnl_net": 371.22,
+          "avg_fill_price": 0.4877,
+          "avg_edge_usd": 2.5426,
+          "sharpe": 0.514,
+          "avg_hold_hours": 14.42,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2025-10-01",
+          "base_rate": 0.3955,
+          "n_markets": 928,
+          "n_qualified_traders": 101,
+          "n_signals": 85,
+          "n_settled": 85,
+          "n_wins": 29,
+          "hit_rate": 0.3412,
+          "excess_hr_pp": -5.43,
+          "total_pnl_net": -3188.57,
+          "avg_fill_price": 0.4978,
+          "avg_edge_usd": -37.5126,
+          "sharpe": -16.612,
+          "avg_hold_hours": 5.43,
+          "elapsed_s": 0.1
+        },
+        {
+          "fold": "2026-01-01",
+          "base_rate": 0.453,
+          "n_markets": 9474,
+          "n_qualified_traders": 102,
+          "n_signals": 66,
+          "n_settled": 66,
+          "n_wins": 35,
+          "hit_rate": 0.5303,
+          "excess_hr_pp": 7.73,
+          "total_pnl_net": 800.73,
+          "avg_fill_price": 0.502,
+          "avg_edge_usd": 12.1322,
+          "sharpe": 2.028,
+          "avg_hold_hours": 13.91,
+          "elapsed_s": 0.4
+        }
+      ],
+      "aggregate": {
+        "n_folds": 3,
+        "avg_hit_rate": 0.4663,
+        "avg_base_rate": 0.3654,
+        "avg_excess_hr_pp": 10.09,
+        "total_signals": 297,
+        "total_settled": 297,
+        "signals_per_fold": 99.0,
+        "total_pnl_net": -2016.62
+      }
+    }
+  ]
+}

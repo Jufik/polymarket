@@ -1,0 +1,362 @@
+{
+  "all_traders_any_tag": 458376,
+  "gate1_min_markets_noMM": 6089,
+  "gate2_excess_hr_15pp": 2759,
+  "gate3_min_activity": 976,
+  "gate4_stability_4": 517,
+  "elite_pool_records": 567,
+  "elite_pool_traders": 517,
+  "elite_by_tag": [
+    {
+      "tag": "Sports",
+      "n_traders": 312,
+      "median_hr": 0.5712,
+      "median_excess_hr": 0.2816,
+      "median_stability": 6.2567,
+      "tag_base_rate": 0.2897
+    },
+    {
+      "tag": "Politics",
+      "n_traders": 207,
+      "median_hr": 0.5795,
+      "median_excess_hr": 0.3334,
+      "median_stability": 5.4969,
+      "tag_base_rate": 0.2462
+    },
+    {
+      "tag": "Crypto",
+      "n_traders": 28,
+      "median_hr": 0.8138,
+      "median_excess_hr": 0.6446,
+      "median_stability": 6.8575,
+      "tag_base_rate": 0.1692
+    },
+    {
+      "tag": "Weather",
+      "n_traders": 6,
+      "median_hr": 0.8101,
+      "median_excess_hr": 0.6886,
+      "median_stability": 5.3801,
+      "tag_base_rate": 0.1216
+    },
+    {
+      "tag": "Awards",
+      "n_traders": 3,
+      "median_hr": 0.4444,
+      "median_excess_hr": 0.3223,
+      "median_stability": 5.6166,
+      "tag_base_rate": 0.1221
+    },
+    {
+      "tag": "Business",
+      "n_traders": 3,
+      "median_hr": 0.8462,
+      "median_excess_hr": 0.6715,
+      "median_stability": 9.5276,
+      "tag_base_rate": 0.1746
+    },
+    {
+      "tag": "All",
+      "n_traders": 2,
+      "median_hr": 0.621,
+      "median_excess_hr": 0.2261,
+      "median_stability": 4.5192,
+      "tag_base_rate": 0.3948
+    },
+    {
+      "tag": "Trump",
+      "n_traders": 2,
+      "median_hr": 0.8452,
+      "median_excess_hr": 0.6226,
+      "median_stability": 5.325,
+      "tag_base_rate": 0.2226
+    },
+    {
+      "tag": "Esports",
+      "n_traders": 2,
+      "median_hr": 0.7232,
+      "median_excess_hr": 0.269,
+      "median_stability": 6.1571,
+      "tag_base_rate": 0.4542
+    },
+    {
+      "tag": "Movies",
+      "n_traders": 1,
+      "median_hr": 0.6087,
+      "median_excess_hr": 0.4706,
+      "median_stability": 4.3581,
+      "tag_base_rate": 0.1381
+    },
+    {
+      "tag": "box office",
+      "n_traders": 1,
+      "median_hr": 0.7727,
+      "median_excess_hr": 0.5581,
+      "median_stability": 5.7791,
+      "tag_base_rate": 0.2146
+    }
+  ],
+  "test_signals_by_tag": [
+    {
+      "tag": "Sports",
+      "n_signals": 15349,
+      "hit_rate": 0.6004,
+      "median_hold": 0.0
+    },
+    {
+      "tag": "Politics",
+      "n_signals": 1902,
+      "hit_rate": 0.4769,
+      "median_hold": 1.0
+    },
+    {
+      "tag": "Crypto",
+      "n_signals": 391,
+      "hit_rate": 0.8951,
+      "median_hold": 0.0
+    },
+    {
+      "tag": "Awards",
+      "n_signals": 115,
+      "hit_rate": 0.4348,
+      "median_hold": 1.0
+    },
+    {
+      "tag": "Weather",
+      "n_signals": 51,
+      "hit_rate": 0.4902,
+      "median_hold": 1.0
+    },
+    {
+      "tag": "Movies",
+      "n_signals": 9,
+      "hit_rate": 0.5556,
+      "median_hold": 3.0
+    },
+    {
+      "tag": "box office",
+      "n_signals": 7,
+      "hit_rate": 0.4286,
+      "median_hold": 3.0
+    },
+    {
+      "tag": "Business",
+      "n_signals": 4,
+      "hit_rate": 0.5,
+      "median_hold": 7.0
+    },
+    {
+      "tag": "Trump",
+      "n_signals": 3,
+      "hit_rate": 0.3333,
+      "median_hold": 18.0
+    },
+    {
+      "tag": "Esports",
+      "n_signals": 1,
+      "hit_rate": 1.0,
+      "median_hold": 2.0
+    }
+  ],
+  "consensus_by_n": {
+    "N>=1": {
+      "n_signals": 17832,
+      "hit_rate": 0.5921,
+      "median_hold": 0.0
+    },
+    "N>=2": {
+      "n_signals": 6413,
+      "hit_rate": 0.6454,
+      "median_hold": 0.0
+    },
+    "N>=3": {
+      "n_signals": 3276,
+      "hit_rate": 0.6371,
+      "median_hold": 0.0
+    },
+    "N>=4": {
+      "n_signals": 1999,
+      "hit_rate": 0.6338,
+      "median_hold": 0.0
+    },
+    "N>=5": {
+      "n_signals": 1334,
+      "hit_rate": 0.6342,
+      "median_hold": 0.0
+    }
+  },
+  "tag_consensus_n2": [
+    {
+      "tag": "Sports",
+      "n_signals": 5544,
+      "hit_rate": 0.6432,
+      "median_hold": 0.0
+    },
+    {
+      "tag": "Politics",
+      "n_signals": 801,
+      "hit_rate": 0.6342,
+      "median_hold": 0.0
+    },
+    {
+      "tag": "Crypto",
+      "n_signals": 61,
+      "hit_rate": 0.9508,
+      "median_hold": 0.0
+    },
+    {
+      "tag": "Awards",
+      "n_signals": 6,
+      "hit_rate": 1.0,
+      "median_hold": 0.5
+    },
+    {
+      "tag": "Business",
+      "n_signals": 1,
+      "hit_rate": 1.0,
+      "median_hold": 0.0
+    }
+  ],
+  "top_decile_test": {
+    "n_traders": 1631,
+    "n_signals": 24733,
+    "hit_rate": 0.7983,
+    "median_hold": 0.0
+  },
+  "top_quintile_test": {
+    "n_traders": 8160,
+    "n_signals": 37441,
+    "hit_rate": 0.6149,
+    "median_hold": 0.0
+  },
+  "entry_price_by_tag": [
+    {
+      "tag": "Sports",
+      "n_entries": 31826,
+      "median_entry_price": 0.37,
+      "avg_entry_price": 0.3771,
+      "n_below_30": 13864,
+      "n_30_60": 10572,
+      "n_above_60": 7390
+    },
+    {
+      "tag": "Politics",
+      "n_entries": 11732,
+      "median_entry_price": 0.0732,
+      "avg_entry_price": 0.2257,
+      "n_below_30": 8461,
+      "n_30_60": 1548,
+      "n_above_60": 1723
+    },
+    {
+      "tag": "Weather",
+      "n_entries": 706,
+      "median_entry_price": 0.01,
+      "avg_entry_price": 0.0283,
+      "n_below_30": 694,
+      "n_30_60": 0,
+      "n_above_60": 12
+    },
+    {
+      "tag": "Crypto",
+      "n_entries": 369,
+      "median_entry_price": 0.0022,
+      "avg_entry_price": 0.1562,
+      "n_below_30": 299,
+      "n_30_60": 25,
+      "n_above_60": 45
+    },
+    {
+      "tag": "Awards",
+      "n_entries": 266,
+      "median_entry_price": 0.1686,
+      "avg_entry_price": 0.2551,
+      "n_below_30": 183,
+      "n_30_60": 45,
+      "n_above_60": 38
+    },
+    {
+      "tag": "box office",
+      "n_entries": 17,
+      "median_entry_price": 0.0555,
+      "avg_entry_price": 0.2705,
+      "n_below_30": 12,
+      "n_30_60": 1,
+      "n_above_60": 4
+    },
+    {
+      "tag": "Business",
+      "n_entries": 10,
+      "median_entry_price": 0.0083,
+      "avg_entry_price": 0.0626,
+      "n_below_30": 9,
+      "n_30_60": 1,
+      "n_above_60": 0
+    },
+    {
+      "tag": "Movies",
+      "n_entries": 8,
+      "median_entry_price": 0.1567,
+      "avg_entry_price": 0.3077,
+      "n_below_30": 5,
+      "n_30_60": 1,
+      "n_above_60": 2
+    },
+    {
+      "tag": "Trump",
+      "n_entries": 5,
+      "median_entry_price": 0.0018,
+      "avg_entry_price": 0.3317,
+      "n_below_30": 3,
+      "n_30_60": 0,
+      "n_above_60": 2
+    },
+    {
+      "tag": "Esports",
+      "n_entries": 4,
+      "median_entry_price": 0.2461,
+      "avg_entry_price": 0.2655,
+      "n_below_30": 2,
+      "n_30_60": 2,
+      "n_above_60": 0
+    }
+  ],
+  "price_filter_impact": {
+    "price_ceil_0.4": {
+      "n_signals": 1106,
+      "hit_rate": 0.1582
+    },
+    "price_ceil_0.5": {
+      "n_signals": 1459,
+      "hit_rate": 0.2193
+    },
+    "price_ceil_0.6": {
+      "n_signals": 1732,
+      "hit_rate": 0.2621
+    },
+    "price_ceil_0.7": {
+      "n_signals": 1966,
+      "hit_rate": 0.3093
+    },
+    "price_ceil_0.8": {
+      "n_signals": 2169,
+      "hit_rate": 0.3555
+    },
+    "no_filter": {
+      "n_signals": 3121,
+      "hit_rate": 0.5425
+    }
+  },
+  "elite_market_selector": [
+    {
+      "group": "elite_selected",
+      "n_markets": 17832,
+      "yes_win_rate": 0.4771
+    },
+    {
+      "group": "all_markets",
+      "n_markets": 151217,
+      "yes_win_rate": 0.2502
+    }
+  ]
+}

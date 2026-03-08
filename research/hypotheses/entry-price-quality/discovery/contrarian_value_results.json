@@ -1,0 +1,614 @@
+{
+  "global_hr": 0.5736605623577279,
+  "n_traders": 37341,
+  "yes_count": 1272989,
+  "no_count": 5074003,
+  "total_positions": 6346992,
+  "pop_bucket": [
+    {
+      "price_bucket": "0.00-0.20",
+      "n_positions": 1218135,
+      "pop_hr": 0.1407972022805354
+    },
+    {
+      "price_bucket": "0.20-0.40",
+      "n_positions": 1014310,
+      "pop_hr": 0.1650550620618943
+    },
+    {
+      "price_bucket": "0.40-0.60",
+      "n_positions": 1172895,
+      "pop_hr": 0.47153411004395107
+    },
+    {
+      "price_bucket": "0.60-0.80",
+      "n_positions": 964626,
+      "pop_hr": 0.8526050510767904
+    },
+    {
+      "price_bucket": "0.80-1.00",
+      "n_positions": 1977026,
+      "pop_hr": 0.9744874371910132
+    }
+  ],
+  "pop_bucket_yes": [
+    {
+      "price_bucket": "0.00-0.20",
+      "n_positions": 636129,
+      "pop_hr": 0.20693758655870115
+    },
+    {
+      "price_bucket": "0.20-0.40",
+      "n_positions": 174545,
+      "pop_hr": 0.38611246383454123
+    },
+    {
+      "price_bucket": "0.40-0.60",
+      "n_positions": 157554,
+      "pop_hr": 0.5230333726849207
+    },
+    {
+      "price_bucket": "0.60-0.80",
+      "n_positions": 123997,
+      "pop_hr": 0.718356089260224
+    },
+    {
+      "price_bucket": "0.80-1.00",
+      "n_positions": 180764,
+      "pop_hr": 0.9400378393927995
+    }
+  ],
+  "surething_dist": [
+    {
+      "st_bucket": "0-10%",
+      "n_traders": 3997,
+      "avg_hr": 0.48614811654929935,
+      "avg_excess_hr": -0.08751244580842861,
+      "avg_n_positions": 128.91268451338505,
+      "avg_entry_price": 0.4595946571507714
+    },
+    {
+      "st_bucket": "10-30%",
+      "n_traders": 7371,
+      "avg_hr": 0.508624158144988,
+      "avg_excess_hr": -0.06503640421273828,
+      "avg_n_positions": 159.9331162664496,
+      "avg_entry_price": 0.47458897754801094
+    },
+    {
+      "st_bucket": "30-50%",
+      "n_traders": 8029,
+      "avg_hr": 0.558705529664911,
+      "avg_excess_hr": -0.014955032692814918,
+      "avg_n_positions": 129.3715282102379,
+      "avg_entry_price": 0.5239267169182255
+    },
+    {
+      "st_bucket": "50-70%",
+      "n_traders": 6642,
+      "avg_hr": 0.5965646049334967,
+      "avg_excess_hr": 0.02290404257577188,
+      "avg_n_positions": 103.62390846130684,
+      "avg_entry_price": 0.5757525733280124
+    },
+    {
+      "st_bucket": "70-100%",
+      "n_traders": 11212,
+      "avg_hr": 0.7095101098871126,
+      "avg_excess_hr": 0.1358495475293853,
+      "avg_n_positions": 65.3799500535141,
+      "avg_entry_price": 0.6944193533854683
+    },
+    {
+      "st_bucket": "no_correct",
+      "n_traders": 90,
+      "avg_hr": 0.0,
+      "avg_excess_hr": -0.5736605623577287,
+      "avg_n_positions": 120.37777777777778,
+      "avg_entry_price": 0.18492027509523262
+    }
+  ],
+  "corr_surething": {
+    "corr_st_excess_hr": 0.4450366804458082,
+    "corr_st_hit_rate": 0.445036680445809,
+    "corr_price_excess_hr": 0.8763639438055058
+  },
+  "epd_deciles": [
+    {
+      "decile": 1,
+      "n_traders": 3726,
+      "avg_profit_when_correct": 0.05240897607324156,
+      "avg_entry_price": 0.7509372756260019,
+      "avg_hr": 0.7577572365288039,
+      "avg_excess_hr": 0.18409667417107398,
+      "avg_n_positions": 30.723027375201287
+    },
+    {
+      "decile": 2,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.08840164853256538,
+      "avg_entry_price": 0.697759277996552,
+      "avg_hr": 0.7142959295839801,
+      "avg_excess_hr": 0.14063536722625225,
+      "avg_n_positions": 52.024429530201346
+    },
+    {
+      "decile": 3,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.1494539651758668,
+      "avg_entry_price": 0.6482456026984844,
+      "avg_hr": 0.665668833578848,
+      "avg_excess_hr": 0.09200827122112172,
+      "avg_n_positions": 117.62228187919463
+    },
+    {
+      "decile": 4,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.21304683380626796,
+      "avg_entry_price": 0.6083326221356126,
+      "avg_hr": 0.6242216774814796,
+      "avg_excess_hr": 0.050561115123751534,
+      "avg_n_positions": 106.46120805369128
+    },
+    {
+      "decile": 5,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.25917202766539216,
+      "avg_entry_price": 0.5726917560235876,
+      "avg_hr": 0.5978309711901678,
+      "avg_excess_hr": 0.024170408832438126,
+      "avg_n_positions": 120.13718120805369
+    },
+    {
+      "decile": 6,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.295958133397912,
+      "avg_entry_price": 0.5431671534814372,
+      "avg_hr": 0.5690163578157157,
+      "avg_excess_hr": -0.004644204542012166,
+      "avg_n_positions": 129.52939597315435
+    },
+    {
+      "decile": 7,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.32921087194670995,
+      "avg_entry_price": 0.5190615636950145,
+      "avg_hr": 0.5432234102562103,
+      "avg_excess_hr": -0.03043715210151774,
+      "avg_n_positions": 139.8
+    },
+    {
+      "decile": 8,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.36190863134066953,
+      "avg_entry_price": 0.4994310946653497,
+      "avg_hr": 0.5276523633371039,
+      "avg_excess_hr": -0.04600819902062419,
+      "avg_n_positions": 125.98711409395973
+    },
+    {
+      "decile": 9,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.3999649908820514,
+      "avg_entry_price": 0.4729586054767954,
+      "avg_hr": 0.5028859961646838,
+      "avg_excess_hr": -0.07077456619304433,
+      "avg_n_positions": 119.17288590604026
+    },
+    {
+      "decile": 10,
+      "n_traders": 3725,
+      "avg_profit_when_correct": 0.5241326782627531,
+      "avg_entry_price": 0.36554397523508536,
+      "avg_hr": 0.42891060392876734,
+      "avg_excess_hr": -0.14474995842896,
+      "avg_n_positions": 173.7463087248322
+    }
+  ],
+  "corr_epd": {
+    "corr_epd_excess_hr": -0.4942916281536122,
+    "corr_epd_hit_rate": -0.49429162815361377
+  },
+  "bargain_deciles": [
+    {
+      "decile": 1,
+      "n_traders": 3726,
+      "avg_bargain_score": -0.1361115824640928,
+      "avg_profit_when_correct": 0.4444425995456643,
+      "avg_excess_hr": -0.3035667459781438,
+      "avg_hr": 0.2700938163795853,
+      "avg_entry_price": 0.34713607512051475
+    },
+    {
+      "decile": 2,
+      "n_traders": 3725,
+      "avg_bargain_score": -0.052152430711376915,
+      "avg_profit_when_correct": 0.35248084412858505,
+      "avg_excess_hr": -0.1581282289898423,
+      "avg_hr": 0.4155323333678858,
+      "avg_entry_price": 0.4516020755941032
+    },
+    {
+      "decile": 3,
+      "n_traders": 3725,
+      "avg_bargain_score": -0.027785809694120134,
+      "avg_profit_when_correct": 0.3234414268638044,
+      "avg_excess_hr": -0.09546936716244857,
+      "avg_hr": 0.47819119519528,
+      "avg_entry_price": 0.4883926008493843
+    },
+    {
+      "decile": 4,
+      "n_traders": 3725,
+      "avg_bargain_score": -0.012491535900265784,
+      "avg_profit_when_correct": 0.27399999387444585,
+      "avg_excess_hr": -0.05903247865212977,
+      "avg_hr": 0.5146280837055951,
+      "avg_entry_price": 0.5106586649859808
+    },
+    {
+      "decile": 5,
+      "n_traders": 3725,
+      "avg_bargain_score": -0.002603372682862192,
+      "avg_profit_when_correct": 0.19927073333769402,
+      "avg_excess_hr": -0.021411022939714645,
+      "avg_hr": 0.5522495394180164,
+      "avg_entry_price": 0.5455394330373705
+    },
+    {
+      "decile": 6,
+      "n_traders": 3725,
+      "avg_bargain_score": 0.004563343054260923,
+      "avg_profit_when_correct": 0.18037062486786698,
+      "avg_excess_hr": 0.042639380458768805,
+      "avg_hr": 0.6162999428164937,
+      "avg_entry_price": 0.5978878115676609
+    },
+    {
+      "decile": 7,
+      "n_traders": 3725,
+      "avg_bargain_score": 0.013356788003515987,
+      "avg_profit_when_correct": 0.2093831648748812,
+      "avg_excess_hr": 0.10928351507602328,
+      "avg_hr": 0.682944077433752,
+      "avg_entry_price": 0.6452586126121037
+    },
+    {
+      "decile": 8,
+      "n_traders": 3725,
+      "avg_bargain_score": 0.022392223783048996,
+      "avg_profit_when_correct": 0.17578355752459068,
+      "avg_excess_hr": 0.21174677724109808,
+      "avg_hr": 0.7854073395988296,
+      "avg_entry_price": 0.7374030172170537
+    },
+    {
+      "decile": 9,
+      "n_traders": 3725,
+      "avg_bargain_score": 0.03284191980591717,
+      "avg_profit_when_correct": 0.21570966514158482,
+      "avg_excess_hr": 0.20677207764706212,
+      "avg_hr": 0.7804326400047914,
+      "avg_entry_price": 0.7036160020496076
+    },
+    {
+      "decile": 10,
+      "n_traders": 3725,
+      "avg_bargain_score": 0.07299837916588395,
+      "avg_profit_when_correct": 0.298670902998548,
+      "avg_excess_hr": 0.2621547659422065,
+      "avg_hr": 0.8358153282999378,
+      "avg_entry_price": 0.6507430370069869
+    }
+  ],
+  "corr_bargain": {
+    "corr_bargain_excess_hr": 0.8243556634144282
+  },
+  "pop_yes_hr": [
+    {
+      "bucket": "0-20",
+      "n": 636129,
+      "pop_hr": 0.20693758655870115
+    },
+    {
+      "bucket": "20-40",
+      "n": 174545,
+      "pop_hr": 0.38611246383454123
+    },
+    {
+      "bucket": "40-60",
+      "n": 157554,
+      "pop_hr": 0.5230333726849207
+    },
+    {
+      "bucket": "60-80",
+      "n": 123997,
+      "pop_hr": 0.718356089260224
+    },
+    {
+      "bucket": "80-100",
+      "n": 180764,
+      "pop_hr": 0.9400378393927995
+    }
+  ],
+  "no_metrics": [
+    {
+      "bucket": "0-20",
+      "n": 582006,
+      "pop_hr": 0.06850616660309344
+    },
+    {
+      "bucket": "20-40",
+      "n": 839765,
+      "pop_hr": 0.11910832197102761
+    },
+    {
+      "bucket": "40-60",
+      "n": 1015341,
+      "pop_hr": 0.4635427900577245
+    },
+    {
+      "bucket": "60-80",
+      "n": 840629,
+      "pop_hr": 0.8724074472805483
+    },
+    {
+      "bucket": "80-100",
+      "n": 1796262,
+      "pop_hr": 0.9779542182599198
+    }
+  ],
+  "ic_summary": {
+    "IC_sure_thing_ratio": 0.4450366804458082,
+    "IC_avg_profit_correct": -0.4942916281536122,
+    "IC_bargain_score": 0.8243556634144282,
+    "IC_avg_entry_price": 0.8763639438055058,
+    "IC_neg_entry_price": -0.8763639438055058,
+    "IC_hr_in_cheap_bucket": 0.2989640103500931,
+    "IC_hr_in_surething_bucket": 0.25053589846084146
+  },
+  "top_bargain_hunters": [
+    {
+      "trader": "0xa05c4259e96b0ae00feaa737214bf8bf4e8b6f9f",
+      "n_positions": 60,
+      "hit_rate": 1.0,
+      "excess_hr": 0.4263394376422721,
+      "avg_profit_when_correct": 0.9731769096116154,
+      "bargain_score": 0.41490369637026037,
+      "avg_entry_price": 0.026823090388384863,
+      "sure_thing_ratio": 0.016666666666666666,
+      "n_cheap": "59",
+      "n_surething": "1"
+    },
+    {
+      "trader": "0x65cf7a7c9a56e64c26b844cb49d839f5fee659c1",
+      "n_positions": 34,
+      "hit_rate": 0.9411764705882353,
+      "excess_hr": 0.3675159082305074,
+      "avg_profit_when_correct": 0.8757491891036,
+      "bargain_score": 0.32185175861553994,
+      "avg_entry_price": 0.1203473870545482,
+      "sure_thing_ratio": 0.09375,
+      "n_cheap": "30",
+      "n_surething": "3"
+    },
+    {
+      "trader": "0x5849c946be5a6895a83d004edccaa8c3191ca99e",
+      "n_positions": 123,
+      "hit_rate": 0.926829268292683,
+      "excess_hr": 0.3531687059349551,
+      "avg_profit_when_correct": 0.8716313425375026,
+      "bargain_score": 0.3078329132963174,
+      "avg_entry_price": 0.13221265626518525,
+      "sure_thing_ratio": 0.05263157894736842,
+      "n_cheap": "105",
+      "n_surething": "6"
+    },
+    {
+      "trader": "0x1c02dd7d794d27682774b4d8cc6f061bc4dad7dc",
+      "n_positions": 390,
+      "hit_rate": 0.9051282051282051,
+      "excess_hr": 0.33146764277047724,
+      "avg_profit_when_correct": 0.9140265747406073,
+      "bargain_score": 0.30297023415884256,
+      "avg_entry_price": 0.08869984957810641,
+      "sure_thing_ratio": 0.025495750708215296,
+      "n_cheap": "363",
+      "n_surething": "10"
+    },
+    {
+      "trader": "0xf8ccc51356ad11e3d884f4beeaca81bb08fe028a",
+      "n_positions": 939,
+      "hit_rate": 0.9073482428115016,
+      "excess_hr": 0.3336876804537737,
+      "avg_profit_when_correct": 0.8765472554122522,
+      "bargain_score": 0.292493020466636,
+      "avg_entry_price": 0.13168052718573417,
+      "sure_thing_ratio": 0.04460093896713615,
+      "n_cheap": "753",
+      "n_surething": "40"
+    },
+    {
+      "trader": "0x201a27948e7be02570458b1c49c88826e35467ca",
+      "n_positions": 43,
+      "hit_rate": 0.9069767441860465,
+      "excess_hr": 0.33331618182831857,
+      "avg_profit_when_correct": 0.7598254631294995,
+      "bargain_score": 0.2532621222262586,
+      "avg_entry_price": 0.2445389915640282,
+      "sure_thing_ratio": 0.1794871794871795,
+      "n_cheap": "32",
+      "n_surething": "7"
+    },
+    {
+      "trader": "0xa445c59c0531d28a13550f29d734b33520530286",
+      "n_positions": 49,
+      "hit_rate": 0.9387755102040817,
+      "excess_hr": 0.3651149478463538,
+      "avg_profit_when_correct": 0.6931285851475656,
+      "bargain_score": 0.2530716072169704,
+      "avg_entry_price": 0.3254821386410809,
+      "sure_thing_ratio": 0.21739130434782608,
+      "n_cheap": "31",
+      "n_surething": "11"
+    },
+    {
+      "trader": "0x7dfae6b042538c9a232bfb5708fa782cb3b273ac",
+      "n_positions": 207,
+      "hit_rate": 0.9082125603864735,
+      "excess_hr": 0.3345519980287456,
+      "avg_profit_when_correct": 0.7323793226096327,
+      "bargain_score": 0.24501896569399184,
+      "avg_entry_price": 0.27501042297675155,
+      "sure_thing_ratio": 0.05319148936170213,
+      "n_cheap": "106",
+      "n_surething": "12"
+    },
+    {
+      "trader": "0xf5e814660a5a5ac071390a36122e7bc7c1309fbd",
+      "n_positions": 84,
+      "hit_rate": 0.8452380952380952,
+      "excess_hr": 0.27157753288036734,
+      "avg_profit_when_correct": 0.8717334451505896,
+      "bargain_score": 0.23674321836330015,
+      "avg_entry_price": 0.16575699681568312,
+      "sure_thing_ratio": 0.014084507042253521,
+      "n_cheap": "62",
+      "n_surething": "3"
+    },
+    {
+      "trader": "0x453abdc4213206c6e075e9528bdc0f1c6aeffdb8",
+      "n_positions": 300,
+      "hit_rate": 0.85,
+      "excess_hr": 0.2763394376422721,
+      "avg_profit_when_correct": 0.8561841354772853,
+      "bargain_score": 0.23659744251602793,
+      "avg_entry_price": 0.17668078723477448,
+      "sure_thing_ratio": 0.10980392156862745,
+      "n_cheap": "251",
+      "n_surething": "43"
+    }
+  ],
+  "top_surething_pilers": [
+    {
+      "trader": "0x711da0ef0b3295100b87effb8e6323bffecb4c8f",
+      "n_positions": 7931,
+      "hit_rate": 0.00037826251418484426,
+      "excess_hr": -0.5732822998435431,
+      "avg_profit_when_correct": 0.0715999282025949,
+      "bargain_score": -0.04104697150861617,
+      "avg_entry_price": 0.3960076141314271,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "750",
+      "n_surething": "50"
+    },
+    {
+      "trader": "0xa4c601e7455d6c4416f9a5c3f7bd2b00f5093668",
+      "n_positions": 3593,
+      "hit_rate": 0.0005566379070414695,
+      "excess_hr": -0.5731039244506864,
+      "avg_profit_when_correct": 0.09489989258328912,
+      "bargain_score": -0.05438750086943158,
+      "avg_entry_price": 0.3733977533938683,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "456",
+      "n_surething": "15"
+    },
+    {
+      "trader": "0x3329cfc2b8d8ceb8d198f081bdf4262f421f43a6",
+      "n_positions": 4024,
+      "hit_rate": 0.0009940357852882703,
+      "excess_hr": -0.5726665265724397,
+      "avg_profit_when_correct": 0.050076996774390536,
+      "bargain_score": -0.028677419803969494,
+      "avg_entry_price": 0.29225523710504164,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "1446",
+      "n_surething": "37"
+    },
+    {
+      "trader": "0x3c17a6c31e42bc80433c019d1fc4260b48800458",
+      "n_positions": 763,
+      "hit_rate": 0.001310615989515072,
+      "excess_hr": -0.5723499463682128,
+      "avg_profit_when_correct": 0.0367728753851555,
+      "bargain_score": -0.021046953254498724,
+      "avg_entry_price": 0.24589576233691454,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "373",
+      "n_surething": "11"
+    },
+    {
+      "trader": "0x2b5c71495f094c8718fa796d95e0a34f12328ce5",
+      "n_positions": 271,
+      "hit_rate": 0.0036900369003690036,
+      "excess_hr": -0.5699705254573589,
+      "avg_profit_when_correct": 0.047718679055874125,
+      "bargain_score": -0.027198240575607643,
+      "avg_entry_price": 0.4121369070112957,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "65",
+      "n_surething": "7"
+    },
+    {
+      "trader": "0xc2cff03b155ddc3fec3f06cc6c6e85867048be64",
+      "n_positions": 244,
+      "hit_rate": 0.004098360655737705,
+      "excess_hr": -0.5695622017019902,
+      "avg_profit_when_correct": 0.039294909597602845,
+      "bargain_score": -0.022380895226091345,
+      "avg_entry_price": 0.32691366184360093,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "38",
+      "n_surething": "2"
+    },
+    {
+      "trader": "0xd2818af38ecf10a546758d077f95941d1112d750",
+      "n_positions": 236,
+      "hit_rate": 0.00423728813559322,
+      "excess_hr": -0.5694232742221347,
+      "avg_profit_when_correct": 0.1319792572535936,
+      "bargain_score": -0.07515206079474669,
+      "avg_entry_price": 0.1883254737041196,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "158",
+      "n_surething": "4"
+    },
+    {
+      "trader": "0x9a2f6520977f3ef9d009577532fd98f262e51f59",
+      "n_positions": 235,
+      "hit_rate": 0.00425531914893617,
+      "excess_hr": -0.5694052432087917,
+      "avg_profit_when_correct": 0.1319792572535936,
+      "bargain_score": -0.07514968107499816,
+      "avg_entry_price": 0.1879026365995511,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "157",
+      "n_surething": "4"
+    },
+    {
+      "trader": "0x82e6090c2e85651949381f7ac14efd85f191c1bf",
+      "n_positions": 230,
+      "hit_rate": 0.004347826086956522,
+      "excess_hr": -0.5693127362707714,
+      "avg_profit_when_correct": 0.1319792572535936,
+      "bargain_score": -0.07513747207802743,
+      "avg_entry_price": 0.18897175949099063,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "155",
+      "n_surething": "4"
+    },
+    {
+      "trader": "0xb5db95df39f3f5ebc44862207636a2a4fb574301",
+      "n_positions": 60,
+      "hit_rate": 0.016666666666666666,
+      "excess_hr": -0.5569938956910612,
+      "avg_profit_when_correct": 0.14444615689999196,
+      "bargain_score": -0.08045562764932877,
+      "avg_entry_price": 0.17034973487145394,
+      "sure_thing_ratio": 1.0,
+      "n_cheap": "43",
+      "n_surething": "1"
+    }
+  ]
+}

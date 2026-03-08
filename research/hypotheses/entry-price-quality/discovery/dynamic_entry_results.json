@@ -1,0 +1,844 @@
+{
+  "avg_payoff_deciles": [
+    {
+      "payoff_decile": 1,
+      "n_traders": 5548,
+      "med_avg_payoff": 0.0373,
+      "med_entry_price": 0.9518,
+      "med_hit_rate": 0.9167,
+      "med_positions": 24.0
+    },
+    {
+      "payoff_decile": 2,
+      "n_traders": 5548,
+      "med_avg_payoff": 0.0826,
+      "med_entry_price": 0.5984,
+      "med_hit_rate": 0.6087,
+      "med_positions": 27.0
+    },
+    {
+      "payoff_decile": 3,
+      "n_traders": 5548,
+      "med_avg_payoff": 0.165,
+      "med_entry_price": 0.5921,
+      "med_hit_rate": 0.6,
+      "med_positions": 31.0
+    },
+    {
+      "payoff_decile": 4,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.2556,
+      "med_entry_price": 0.555,
+      "med_hit_rate": 0.5692,
+      "med_positions": 37.0
+    },
+    {
+      "payoff_decile": 5,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.3233,
+      "med_entry_price": 0.506,
+      "med_hit_rate": 0.5167,
+      "med_positions": 41.0
+    },
+    {
+      "payoff_decile": 6,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.3747,
+      "med_entry_price": 0.4899,
+      "med_hit_rate": 0.5,
+      "med_positions": 39.0
+    },
+    {
+      "payoff_decile": 7,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.4158,
+      "med_entry_price": 0.4793,
+      "med_hit_rate": 0.4872,
+      "med_positions": 37.0
+    },
+    {
+      "payoff_decile": 8,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.4495,
+      "med_entry_price": 0.4731,
+      "med_hit_rate": 0.4762,
+      "med_positions": 37.0
+    },
+    {
+      "payoff_decile": 9,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.5004,
+      "med_entry_price": 0.3802,
+      "med_hit_rate": 0.4003,
+      "med_positions": 48.0
+    },
+    {
+      "payoff_decile": 10,
+      "n_traders": 5547,
+      "med_avg_payoff": 0.6219,
+      "med_entry_price": 0.2333,
+      "med_hit_rate": 0.2631,
+      "med_positions": 47.0
+    }
+  ],
+  "payoff_hr_ic": -0.6632,
+  "rr_ratio_deciles": [
+    {
+      "rr_decile": 1,
+      "n_traders": 5448,
+      "med_rr_ratio": 0.067,
+      "med_payoff_correct": 0.049,
+      "med_loss_incorrect": 0.886,
+      "med_hit_rate": 0.909
+    },
+    {
+      "rr_decile": 2,
+      "n_traders": 5448,
+      "med_rr_ratio": 0.531,
+      "med_payoff_correct": 0.195,
+      "med_loss_incorrect": 0.39,
+      "med_hit_rate": 0.621
+    },
+    {
+      "rr_decile": 3,
+      "n_traders": 5448,
+      "med_rr_ratio": 0.721,
+      "med_payoff_correct": 0.332,
+      "med_loss_incorrect": 0.461,
+      "med_hit_rate": 0.573
+    },
+    {
+      "rr_decile": 4,
+      "n_traders": 5448,
+      "med_rr_ratio": 0.841,
+      "med_payoff_correct": 0.366,
+      "med_loss_incorrect": 0.428,
+      "med_hit_rate": 0.538
+    },
+    {
+      "rr_decile": 5,
+      "n_traders": 5448,
+      "med_rr_ratio": 0.998,
+      "med_payoff_correct": 0.352,
+      "med_loss_incorrect": 0.353,
+      "med_hit_rate": 0.517
+    },
+    {
+      "rr_decile": 6,
+      "n_traders": 5448,
+      "med_rr_ratio": 1.177,
+      "med_payoff_correct": 0.373,
+      "med_loss_incorrect": 0.316,
+      "med_hit_rate": 0.485
+    },
+    {
+      "rr_decile": 7,
+      "n_traders": 5447,
+      "med_rr_ratio": 1.418,
+      "med_payoff_correct": 0.387,
+      "med_loss_incorrect": 0.272,
+      "med_hit_rate": 0.458
+    },
+    {
+      "rr_decile": 8,
+      "n_traders": 5447,
+      "med_rr_ratio": 1.78,
+      "med_payoff_correct": 0.419,
+      "med_loss_incorrect": 0.235,
+      "med_hit_rate": 0.417
+    },
+    {
+      "rr_decile": 9,
+      "n_traders": 5447,
+      "med_rr_ratio": 2.445,
+      "med_payoff_correct": 0.465,
+      "med_loss_incorrect": 0.187,
+      "med_hit_rate": 0.356
+    },
+    {
+      "rr_decile": 10,
+      "n_traders": 5447,
+      "med_rr_ratio": 4.725,
+      "med_payoff_correct": 0.579,
+      "med_loss_incorrect": 0.105,
+      "med_hit_rate": 0.235
+    }
+  ],
+  "rr_hr_ic": -0.3486,
+  "price_hold_grid": [
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "A_<1h",
+      "n": 509,
+      "hit_rate": 0.047
+    },
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "B_1-24h",
+      "n": 882138,
+      "hit_rate": 0.07
+    },
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "C_1-3d",
+      "n": 209283,
+      "hit_rate": 0.118
+    },
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "D_3-7d",
+      "n": 161729,
+      "hit_rate": 0.118
+    },
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "E_7-30d",
+      "n": 157375,
+      "hit_rate": 0.142
+    },
+    {
+      "price_bucket": "A_<0.10",
+      "hold_bucket": "F_30d+",
+      "n": 147577,
+      "hit_rate": 0.112
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "A_<1h",
+      "n": 27,
+      "hit_rate": 0.593
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "B_1-24h",
+      "n": 378503,
+      "hit_rate": 0.203
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "C_1-3d",
+      "n": 113634,
+      "hit_rate": 0.226
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "D_3-7d",
+      "n": 82180,
+      "hit_rate": 0.215
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "E_7-30d",
+      "n": 82033,
+      "hit_rate": 0.241
+    },
+    {
+      "price_bucket": "B_0.10-0.25",
+      "hold_bucket": "F_30d+",
+      "n": 65820,
+      "hit_rate": 0.217
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "A_<1h",
+      "n": 9,
+      "hit_rate": 0.778
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "B_1-24h",
+      "n": 431640,
+      "hit_rate": 0.33
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "C_1-3d",
+      "n": 97736,
+      "hit_rate": 0.36
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "D_3-7d",
+      "n": 53332,
+      "hit_rate": 0.357
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "E_7-30d",
+      "n": 53540,
+      "hit_rate": 0.374
+    },
+    {
+      "price_bucket": "C_0.25-0.40",
+      "hold_bucket": "F_30d+",
+      "n": 41655,
+      "hit_rate": 0.361
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "A_<1h",
+      "n": 26,
+      "hit_rate": 0.769
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "B_1-24h",
+      "n": 792503,
+      "hit_rate": 0.484
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "C_1-3d",
+      "n": 115063,
+      "hit_rate": 0.5
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "D_3-7d",
+      "n": 50358,
+      "hit_rate": 0.507
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "E_7-30d",
+      "n": 45173,
+      "hit_rate": 0.518
+    },
+    {
+      "price_bucket": "D_0.40-0.55",
+      "hold_bucket": "F_30d+",
+      "n": 35065,
+      "hit_rate": 0.52
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "A_<1h",
+      "n": 13,
+      "hit_rate": 0.923
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "B_1-24h",
+      "n": 501215,
+      "hit_rate": 0.623
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "C_1-3d",
+      "n": 89788,
+      "hit_rate": 0.638
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "D_3-7d",
+      "n": 46398,
+      "hit_rate": 0.642
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "E_7-30d",
+      "n": 48473,
+      "hit_rate": 0.661
+    },
+    {
+      "price_bucket": "E_0.55-0.70",
+      "hold_bucket": "F_30d+",
+      "n": 37339,
+      "hit_rate": 0.672
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "A_<1h",
+      "n": 28,
+      "hit_rate": 0.821
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "B_1-24h",
+      "n": 320820,
+      "hit_rate": 0.784
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "C_1-3d",
+      "n": 85197,
+      "hit_rate": 0.794
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "D_3-7d",
+      "n": 58258,
+      "hit_rate": 0.795
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "E_7-30d",
+      "n": 63494,
+      "hit_rate": 0.805
+    },
+    {
+      "price_bucket": "F_0.70-0.85",
+      "hold_bucket": "F_30d+",
+      "n": 50773,
+      "hit_rate": 0.844
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "A_<1h",
+      "n": 452,
+      "hit_rate": 1.0
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "B_1-24h",
+      "n": 437111,
+      "hit_rate": 0.944
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "C_1-3d",
+      "n": 155344,
+      "hit_rate": 0.951
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "D_3-7d",
+      "n": 114260,
+      "hit_rate": 0.952
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "E_7-30d",
+      "n": 135252,
+      "hit_rate": 0.961
+    },
+    {
+      "price_bucket": "G_0.85+",
+      "hold_bucket": "F_30d+",
+      "n": 159882,
+      "hit_rate": 0.973
+    }
+  ],
+  "entry_timing_deciles": [
+    {
+      "lag_decile": 1,
+      "n_traders": 5563,
+      "med_lag_hours": 25.5,
+      "med_hit_rate": 0.4872,
+      "med_entry_price": 0.5021,
+      "med_frac_early": 0.425
+    },
+    {
+      "lag_decile": 2,
+      "n_traders": 5563,
+      "med_lag_hours": 56.5,
+      "med_hit_rate": 0.4573,
+      "med_entry_price": 0.4462,
+      "med_frac_early": 0.214
+    },
+    {
+      "lag_decile": 3,
+      "n_traders": 5563,
+      "med_lag_hours": 99.0,
+      "med_hit_rate": 0.5,
+      "med_entry_price": 0.5006,
+      "med_frac_early": 0.114
+    },
+    {
+      "lag_decile": 4,
+      "n_traders": 5562,
+      "med_lag_hours": 131.0,
+      "med_hit_rate": 0.5,
+      "med_entry_price": 0.4926,
+      "med_frac_early": 0.091
+    },
+    {
+      "lag_decile": 5,
+      "n_traders": 5562,
+      "med_lag_hours": 151.0,
+      "med_hit_rate": 0.556,
+      "med_entry_price": 0.5346,
+      "med_frac_early": 0.048
+    },
+    {
+      "lag_decile": 6,
+      "n_traders": 5562,
+      "med_lag_hours": 158.0,
+      "med_hit_rate": 0.5882,
+      "med_entry_price": 0.5606,
+      "med_frac_early": 0.03
+    },
+    {
+      "lag_decile": 7,
+      "n_traders": 5562,
+      "med_lag_hours": 212.0,
+      "med_hit_rate": 0.4822,
+      "med_entry_price": 0.4669,
+      "med_frac_early": 0.055
+    },
+    {
+      "lag_decile": 8,
+      "n_traders": 5562,
+      "med_lag_hours": 324.5,
+      "med_hit_rate": 0.4793,
+      "med_entry_price": 0.4653,
+      "med_frac_early": 0.045
+    },
+    {
+      "lag_decile": 9,
+      "n_traders": 5562,
+      "med_lag_hours": 1070.0,
+      "med_hit_rate": 0.5417,
+      "med_entry_price": 0.5223,
+      "med_frac_early": 0.0
+    },
+    {
+      "lag_decile": 10,
+      "n_traders": 5562,
+      "med_lag_hours": 2507.5,
+      "med_hit_rate": 0.5385,
+      "med_entry_price": 0.5288,
+      "med_frac_early": 0.0
+    }
+  ],
+  "entry_lag_hr_ic": 0.0238,
+  "early_cheap_cross": [
+    {
+      "entry_timing": "early",
+      "price_bucket": "cheap",
+      "n": 629354,
+      "hit_rate": 0.149
+    },
+    {
+      "entry_timing": "early",
+      "price_bucket": "expensive",
+      "n": 162062,
+      "hit_rate": 0.909
+    },
+    {
+      "entry_timing": "early",
+      "price_bucket": "mid",
+      "n": 459138,
+      "hit_rate": 0.542
+    },
+    {
+      "entry_timing": "late",
+      "price_bucket": "cheap",
+      "n": 2329438,
+      "hit_rate": 0.188
+    },
+    {
+      "entry_timing": "late",
+      "price_bucket": "expensive",
+      "n": 1194411,
+      "hit_rate": 0.922
+    },
+    {
+      "entry_timing": "late",
+      "price_bucket": "mid",
+      "n": 1526693,
+      "hit_rate": 0.578
+    }
+  ],
+  "bargain_consistency": [
+    {
+      "cheap_quintile": 1,
+      "n_traders": 11125,
+      "med_cheap_ratio": 0.0,
+      "med_exp_ratio": 0.556,
+      "med_hit_rate": 0.75
+    },
+    {
+      "cheap_quintile": 2,
+      "n_traders": 11125,
+      "med_cheap_ratio": 0.25,
+      "med_exp_ratio": 0.333,
+      "med_hit_rate": 0.6069
+    },
+    {
+      "cheap_quintile": 3,
+      "n_traders": 11125,
+      "med_cheap_ratio": 0.4,
+      "med_exp_ratio": 0.333,
+      "med_hit_rate": 0.5417
+    },
+    {
+      "cheap_quintile": 4,
+      "n_traders": 11124,
+      "med_cheap_ratio": 0.528,
+      "med_exp_ratio": 0.233,
+      "med_hit_rate": 0.4474
+    },
+    {
+      "cheap_quintile": 5,
+      "n_traders": 11124,
+      "med_cheap_ratio": 0.754,
+      "med_exp_ratio": 0.069,
+      "med_hit_rate": 0.2778
+    }
+  ],
+  "cheap_ratio_hr_ic": -0.8014,
+  "expensive_ratio_hr_ic": 0.7862,
+  "tag_entry_quality": [
+    {
+      "tag_id": 1,
+      "n": 3573201,
+      "base_hr": 0.435,
+      "avg_entry_price": 0.419,
+      "avg_ep_correct": 0.601,
+      "avg_ep_incorrect": 0.278,
+      "ep_correct_minus_incorrect": 0.323
+    },
+    {
+      "tag_id": 100639,
+      "n": 3284223,
+      "base_hr": 0.431,
+      "avg_entry_price": 0.417,
+      "avg_ep_correct": 0.587,
+      "avg_ep_incorrect": 0.288,
+      "ep_correct_minus_incorrect": 0.299
+    },
+    {
+      "tag_id": 2,
+      "n": 1104497,
+      "base_hr": 0.509,
+      "avg_entry_price": 0.459,
+      "avg_ep_correct": 0.694,
+      "avg_ep_incorrect": 0.215,
+      "ep_correct_minus_incorrect": 0.479
+    },
+    {
+      "tag_id": 100350,
+      "n": 867737,
+      "base_hr": 0.464,
+      "avg_entry_price": 0.449,
+      "avg_ep_correct": 0.616,
+      "avg_ep_incorrect": 0.305,
+      "ep_correct_minus_incorrect": 0.31
+    },
+    {
+      "tag_id": 28,
+      "n": 864786,
+      "base_hr": 0.4,
+      "avg_entry_price": 0.389,
+      "avg_ep_correct": 0.58,
+      "avg_ep_incorrect": 0.261,
+      "ep_correct_minus_incorrect": 0.319
+    },
+    {
+      "tag_id": 745,
+      "n": 743613,
+      "base_hr": 0.434,
+      "avg_entry_price": 0.422,
+      "avg_ep_correct": 0.58,
+      "avg_ep_incorrect": 0.3,
+      "ep_correct_minus_incorrect": 0.281
+    },
+    {
+      "tag_id": 101757,
+      "n": 739072,
+      "base_hr": 0.495,
+      "avg_entry_price": 0.457,
+      "avg_ep_correct": 0.747,
+      "avg_ep_incorrect": 0.174,
+      "ep_correct_minus_incorrect": 0.573
+    },
+    {
+      "tag_id": 102169,
+      "n": 722869,
+      "base_hr": 0.47,
+      "avg_entry_price": 0.437,
+      "avg_ep_correct": 0.746,
+      "avg_ep_incorrect": 0.163,
+      "ep_correct_minus_incorrect": 0.583
+    },
+    {
+      "tag_id": 21,
+      "n": 597560,
+      "base_hr": 0.54,
+      "avg_entry_price": 0.504,
+      "avg_ep_correct": 0.759,
+      "avg_ep_incorrect": 0.203,
+      "ep_correct_minus_incorrect": 0.556
+    },
+    {
+      "tag_id": 596,
+      "n": 559160,
+      "base_hr": 0.476,
+      "avg_entry_price": 0.425,
+      "avg_ep_correct": 0.703,
+      "avg_ep_incorrect": 0.173,
+      "ep_correct_minus_incorrect": 0.53
+    },
+    {
+      "tag_id": 64,
+      "n": 521817,
+      "base_hr": 0.372,
+      "avg_entry_price": 0.351,
+      "avg_ep_correct": 0.588,
+      "avg_ep_incorrect": 0.21,
+      "ep_correct_minus_incorrect": 0.378
+    },
+    {
+      "tag_id": 1312,
+      "n": 494598,
+      "base_hr": 0.548,
+      "avg_entry_price": 0.517,
+      "avg_ep_correct": 0.778,
+      "avg_ep_incorrect": 0.201,
+      "ep_correct_minus_incorrect": 0.578
+    },
+    {
+      "tag_id": 126,
+      "n": 414794,
+      "base_hr": 0.505,
+      "avg_entry_price": 0.455,
+      "avg_ep_correct": 0.665,
+      "avg_ep_incorrect": 0.241,
+      "ep_correct_minus_incorrect": 0.425
+    },
+    {
+      "tag_id": 102264,
+      "n": 365664,
+      "base_hr": 0.523,
+      "avg_entry_price": 0.502,
+      "avg_ep_correct": 0.808,
+      "avg_ep_incorrect": 0.165,
+      "ep_correct_minus_incorrect": 0.643
+    },
+    {
+      "tag_id": 84,
+      "n": 313302,
+      "base_hr": 0.419,
+      "avg_entry_price": 0.366,
+      "avg_ep_correct": 0.656,
+      "avg_ep_incorrect": 0.157,
+      "ep_correct_minus_incorrect": 0.499
+    },
+    {
+      "tag_id": 101970,
+      "n": 309619,
+      "base_hr": 0.54,
+      "avg_entry_price": 0.486,
+      "avg_ep_correct": 0.713,
+      "avg_ep_incorrect": 0.22,
+      "ep_correct_minus_incorrect": 0.493
+    },
+    {
+      "tag_id": 100265,
+      "n": 294245,
+      "base_hr": 0.533,
+      "avg_entry_price": 0.476,
+      "avg_ep_correct": 0.681,
+      "avg_ep_incorrect": 0.242,
+      "ep_correct_minus_incorrect": 0.439
+    },
+    {
+      "tag_id": 100396,
+      "n": 289331,
+      "base_hr": 0.372,
+      "avg_entry_price": 0.36,
+      "avg_ep_correct": 0.607,
+      "avg_ep_incorrect": 0.214,
+      "ep_correct_minus_incorrect": 0.392
+    },
+    {
+      "tag_id": 102114,
+      "n": 265915,
+      "base_hr": 0.383,
+      "avg_entry_price": 0.372,
+      "avg_ep_correct": 0.604,
+      "avg_ep_incorrect": 0.228,
+      "ep_correct_minus_incorrect": 0.376
+    },
+    {
+      "tag_id": 235,
+      "n": 259812,
+      "base_hr": 0.548,
+      "avg_entry_price": 0.513,
+      "avg_ep_correct": 0.755,
+      "avg_ep_incorrect": 0.22,
+      "ep_correct_minus_incorrect": 0.535
+    }
+  ],
+  "composite_ic": {
+    "ic_payoff": -0.647,
+    "ic_cheap_ratio": -0.7926,
+    "ic_rr_ratio": -0.3486,
+    "ic_lag": 0.0349,
+    "ic_composite": -0.8131
+  },
+  "hold_cheap_quality": [
+    {
+      "qual_decile": 1,
+      "n_traders": 5563,
+      "med_qual_rate": 0.0,
+      "med_cheap_lh_frac": 0.009,
+      "med_hit_rate": 0.5484
+    },
+    {
+      "qual_decile": 2,
+      "n_traders": 5563,
+      "med_qual_rate": 0.0,
+      "med_cheap_lh_frac": 0.011,
+      "med_hit_rate": 0.5488
+    },
+    {
+      "qual_decile": 3,
+      "n_traders": 5563,
+      "med_qual_rate": 0.0,
+      "med_cheap_lh_frac": 0.008,
+      "med_hit_rate": 0.5484
+    },
+    {
+      "qual_decile": 4,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0,
+      "med_cheap_lh_frac": 0.01,
+      "med_hit_rate": 0.5455
+    },
+    {
+      "qual_decile": 5,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0,
+      "med_cheap_lh_frac": 0.02,
+      "med_hit_rate": 0.5259
+    },
+    {
+      "qual_decile": 6,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0223,
+      "med_cheap_lh_frac": 0.131,
+      "med_hit_rate": 0.4912
+    },
+    {
+      "qual_decile": 7,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0385,
+      "med_cheap_lh_frac": 0.286,
+      "med_hit_rate": 0.4894
+    },
+    {
+      "qual_decile": 8,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0517,
+      "med_cheap_lh_frac": 0.318,
+      "med_hit_rate": 0.4706
+    },
+    {
+      "qual_decile": 9,
+      "n_traders": 5562,
+      "med_qual_rate": 0.0833,
+      "med_cheap_lh_frac": 0.377,
+      "med_hit_rate": 0.4545
+    },
+    {
+      "qual_decile": 10,
+      "n_traders": 5562,
+      "med_qual_rate": 0.1316,
+      "med_cheap_lh_frac": 0.462,
+      "med_hit_rate": 0.4615
+    }
+  ],
+  "qual_trade_hr_ic": -0.1484
+}

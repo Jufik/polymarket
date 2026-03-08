@@ -1,0 +1,3060 @@
+{
+  "hypothesis": "copy-trader-contamination",
+  "timestamp": "2026-03-06T17:26:35.669880",
+  "note": "Investigates whether pool growth is driven by copy-traders. Uses same pool qualification as validation R2.",
+  "tags": {
+    "Esports": {
+      "config": {
+        "meh_pp": 10,
+        "mpe": 0.8,
+        "consensus_n": 4
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "test_base_rate": 0.3677,
+          "train_base_rate": 0.3426,
+          "n_test_markets": 223,
+          "pool_size": 50,
+          "n_test_positions": 459,
+          "n_active_markets": 163,
+          "n_active_traders": 31,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 16,
+                "pct": 5.4,
+                "avg_gap_min": 1.8,
+                "median_gap_min": 1.5
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 58,
+                "pct": 19.6,
+                "avg_gap_min": 15.5,
+                "median_gap_min": 15.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 104,
+                "pct": 35.1,
+                "avg_gap_min": 68.9,
+                "median_gap_min": 65.0
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 110,
+                "pct": 37.2,
+                "avg_gap_min": 374.1,
+                "median_gap_min": 261.0
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 8,
+                "pct": 2.7,
+                "avg_gap_min": 3458.5,
+                "median_gap_min": 2911.5
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 18,
+              "avg_individual_hr": 0.5312,
+              "avg_markets_per_trader": 16.8,
+              "avg_entry_order": 1.94,
+              "excess_hr_over_base": 16.35
+            },
+            "followers_summary": {
+              "n_traders": 8,
+              "avg_individual_hr": 0.6279,
+              "avg_markets_per_trader": 18.9,
+              "avg_entry_order": 3.48,
+              "excess_hr_over_base": 26.02
+            },
+            "base_rate": 0.3677,
+            "top_10_leaders": [
+              {
+                "trader": "0x8b3234f9027f4e994e949df4b48b90ab79015950",
+                "n_markets": 6,
+                "avg_entry_order": 1.0,
+                "times_first": "6",
+                "times_top2": "6",
+                "leader_score": 1.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xc613e6707bd115e5c04d303d944568232697662b",
+                "n_markets": 19,
+                "avg_entry_order": 1.05,
+                "times_first": "18",
+                "times_top2": "19",
+                "leader_score": 1.0,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0xaacf24a7c9a2025fc49ee6539608edd6d0ef5f84",
+                "n_markets": 3,
+                "avg_entry_order": 1.67,
+                "times_first": "1",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0xbdd83006e997298c8e690ef17ca928996f222ee5",
+                "n_markets": 5,
+                "avg_entry_order": 1.8,
+                "times_first": "1",
+                "times_top2": "5",
+                "leader_score": 1.0,
+                "individual_hr": 0.6
+              },
+              {
+                "trader": "0x94a16d28320dca00e581e19011e60c321dcfec2f",
+                "n_markets": 14,
+                "avg_entry_order": 1.57,
+                "times_first": "8",
+                "times_top2": "12",
+                "leader_score": 0.857,
+                "individual_hr": 0.7143
+              },
+              {
+                "trader": "0x3078db4a9737866b4d6529f655025b3a20f80389",
+                "n_markets": 21,
+                "avg_entry_order": 1.71,
+                "times_first": "12",
+                "times_top2": "17",
+                "leader_score": 0.81,
+                "individual_hr": 0.2857
+              },
+              {
+                "trader": "0x53abaa0952659af1fbcc5293c77b72e1138365aa",
+                "n_markets": 39,
+                "avg_entry_order": 1.62,
+                "times_first": "24",
+                "times_top2": "31",
+                "leader_score": 0.795,
+                "individual_hr": 0.6154
+              },
+              {
+                "trader": "0x41b7ebfa4948c4201d3a852c8533cf68bc17f6ba",
+                "n_markets": 16,
+                "avg_entry_order": 1.75,
+                "times_first": "8",
+                "times_top2": "12",
+                "leader_score": 0.75,
+                "individual_hr": 0.625
+              },
+              {
+                "trader": "0xf5201f998333d228dafba270d01d8ff82b2c0637",
+                "n_markets": 40,
+                "avg_entry_order": 1.88,
+                "times_first": "19",
+                "times_top2": "29",
+                "leader_score": 0.725,
+                "individual_hr": 0.475
+              },
+              {
+                "trader": "0x7600ac7e3fe8097be7909ad78224aefd0baf4478",
+                "n_markets": 29,
+                "avg_entry_order": 2.28,
+                "times_first": "7",
+                "times_top2": "21",
+                "leader_score": 0.724,
+                "individual_hr": 0.4483
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0x6ffb4354cbe6e0f9989e3b55564ec5fb8646a834",
+                "n_markets": 10,
+                "avg_entry_order": 4.2,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.1,
+                "individual_hr": 0.4
+              },
+              {
+                "trader": "0x4ad6cadefae3c28f5b2caa32a99ebba3a614464c",
+                "n_markets": 40,
+                "avg_entry_order": 3.63,
+                "times_first": "3",
+                "times_top2": "11",
+                "leader_score": 0.275,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x68df14033523fbe2e6c34a375fcfc257d75df665",
+                "n_markets": 3,
+                "avg_entry_order": 3.0,
+                "times_first": "0",
+                "times_top2": "1",
+                "leader_score": 0.333,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0xe21659928b43141b8f3f00111ebf322642f2cd12",
+                "n_markets": 39,
+                "avg_entry_order": 3.0,
+                "times_first": "8",
+                "times_top2": "14",
+                "leader_score": 0.359,
+                "individual_hr": 0.6154
+              },
+              {
+                "trader": "0x4c54c453ae6b083bcc37ccbc2bccb84064eacc1e",
+                "n_markets": 27,
+                "avg_entry_order": 3.3,
+                "times_first": "5",
+                "times_top2": "12",
+                "leader_score": 0.444,
+                "individual_hr": 0.7407
+              },
+              {
+                "trader": "0x27653cd5aab78f00563f50a03c12504a9b877ee4",
+                "n_markets": 20,
+                "avg_entry_order": 3.5,
+                "times_first": "3",
+                "times_top2": "10",
+                "leader_score": 0.5,
+                "individual_hr": 0.6
+              },
+              {
+                "trader": "0xb10047d6a254b2ebb306d7a7d13bf59171ab6461",
+                "n_markets": 4,
+                "avg_entry_order": 4.5,
+                "times_first": "0",
+                "times_top2": "2",
+                "leader_score": 0.5,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x46a62a13ce082ca73148c2723e5e7c9227338c21",
+                "n_markets": 8,
+                "avg_entry_order": 2.75,
+                "times_first": "2",
+                "times_top2": "4",
+                "leader_score": 0.5,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xde5314ddd05574a22cdaeef4e9ab2c02ce90e5be",
+                "n_markets": 15,
+                "avg_entry_order": 2.67,
+                "times_first": "3",
+                "times_top2": "8",
+                "leader_score": 0.533,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0x14a056c698f46d181d1e650e7a7a0f7d1d8a22bb",
+                "n_markets": 28,
+                "avg_entry_order": 2.64,
+                "times_first": "9",
+                "times_top2": "16",
+                "leader_score": 0.571,
+                "individual_hr": 0.4643
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.3677,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 163,
+                "n_wins": 77,
+                "hr": 0.4724,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 163,
+                "n_wins": 77,
+                "hr": 0.4724,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 116,
+                "n_wins": 67,
+                "hr": 0.5776,
+                "excess_hr_pp": 20.99
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 163,
+                "n_wins": 77,
+                "hr": 0.4724,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 116,
+                "n_wins": 67,
+                "hr": 0.5776,
+                "excess_hr_pp": 20.99
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 78,
+                "n_wins": 50,
+                "hr": 0.641,
+                "excess_hr_pp": 27.33
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 163,
+                "n_wins": 77,
+                "hr": 0.4724,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 116,
+                "n_wins": 67,
+                "hr": 0.5776,
+                "excess_hr_pp": 20.99
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 78,
+                "n_wins": 50,
+                "hr": 0.641,
+                "excess_hr_pp": 27.33
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 163,
+                "n_wins": 77,
+                "hr": 0.4724,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 116,
+                "n_wins": 67,
+                "hr": 0.5776,
+                "excess_hr_pp": 20.99
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 78,
+                "n_wins": 50,
+                "hr": 0.641,
+                "excess_hr_pp": 27.33
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.3677,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 15,
+                "n_wins": 7,
+                "hr": 0.4667,
+                "avg_n_entries": 4.6,
+                "avg_min_gap": 1.6,
+                "avg_avg_gap": 150.1,
+                "excess_hr_pp": 9.9
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 40,
+                "n_wins": 31,
+                "hr": 0.775,
+                "avg_n_entries": 4.3,
+                "avg_min_gap": 15.0,
+                "avg_avg_gap": 137.9,
+                "excess_hr_pp": 40.73
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 33,
+                "n_wins": 15,
+                "hr": 0.4545,
+                "avg_n_entries": 3.3,
+                "avg_min_gap": 68.3,
+                "avg_avg_gap": 226.4,
+                "excess_hr_pp": 8.68
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 28,
+                "n_wins": 14,
+                "hr": 0.5,
+                "avg_n_entries": 2.3,
+                "avg_min_gap": 737.2,
+                "avg_avg_gap": 809.5,
+                "excess_hr_pp": 13.23
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.3677,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 163,
+                "n_markets": 163,
+                "hr": 0.4724,
+                "avg_pnl": -197.64,
+                "excess_hr_pp": 10.47
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 116,
+                "n_markets": 116,
+                "hr": 0.5776,
+                "avg_pnl": 210.93,
+                "excess_hr_pp": 20.99
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 78,
+                "n_markets": 78,
+                "hr": 0.641,
+                "avg_pnl": -58.93,
+                "excess_hr_pp": 27.33
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 51,
+                "n_markets": 51,
+                "hr": 0.7255,
+                "avg_pnl": 136.71,
+                "excess_hr_pp": 35.78
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 29,
+                "n_markets": 29,
+                "hr": 0.7241,
+                "avg_pnl": -113.02,
+                "excess_hr_pp": 35.64
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 12,
+                "n_markets": 12,
+                "hr": 0.8333,
+                "avg_pnl": -2.49,
+                "excess_hr_pp": 46.56
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 5,
+                "n_markets": 5,
+                "hr": 0.8,
+                "avg_pnl": -27.49,
+                "excess_hr_pp": 43.23
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 2,
+                "n_markets": 2,
+                "hr": 0.5,
+                "avg_pnl": -111.22,
+                "excess_hr_pp": 13.23
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 2,
+                "n_markets": 2,
+                "hr": 0.5,
+                "avg_pnl": -360.31,
+                "excess_hr_pp": 13.23
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 1,
+                "n_markets": 1,
+                "hr": 0.0,
+                "avg_pnl": 86.5,
+                "excess_hr_pp": -36.77
+              }
+            ]
+          },
+          "elapsed_s": 2.4
+        },
+        {
+          "fold": "2025-10-01",
+          "test_base_rate": 0.6537,
+          "train_base_rate": 0.4432,
+          "n_test_markets": 1441,
+          "pool_size": 197,
+          "n_test_positions": 2003,
+          "n_active_markets": 498,
+          "n_active_traders": 115,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 395,
+                "pct": 26.2,
+                "avg_gap_min": 1.6,
+                "median_gap_min": 1.0
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 414,
+                "pct": 27.5,
+                "avg_gap_min": 12.9,
+                "median_gap_min": 11.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 302,
+                "pct": 20.1,
+                "avg_gap_min": 66.8,
+                "median_gap_min": 63.5
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 349,
+                "pct": 23.2,
+                "avg_gap_min": 423.8,
+                "median_gap_min": 343.0
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 45,
+                "pct": 3.0,
+                "avg_gap_min": 3788.7,
+                "median_gap_min": 2743.0
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 18,
+              "avg_individual_hr": 0.6342,
+              "avg_markets_per_trader": 36.3,
+              "avg_entry_order": 2.61,
+              "excess_hr_over_base": -1.95
+            },
+            "followers_summary": {
+              "n_traders": 72,
+              "avg_individual_hr": 0.6741,
+              "avg_markets_per_trader": 18.3,
+              "avg_entry_order": 7.03,
+              "excess_hr_over_base": 2.04
+            },
+            "base_rate": 0.6537,
+            "top_10_leaders": [
+              {
+                "trader": "0x29c0a89b23af58739b6a4ab5f9c8b459af4aefaa",
+                "n_markets": 57,
+                "avg_entry_order": 1.14,
+                "times_first": "49",
+                "times_top2": "57",
+                "leader_score": 1.0,
+                "individual_hr": 0.5965
+              },
+              {
+                "trader": "0x25869d34ca274c24da62b7d62e3c2f692d1df071",
+                "n_markets": 21,
+                "avg_entry_order": 3.19,
+                "times_first": "17",
+                "times_top2": "18",
+                "leader_score": 0.857,
+                "individual_hr": 0.9048
+              },
+              {
+                "trader": "0xbdd83006e997298c8e690ef17ca928996f222ee5",
+                "n_markets": 5,
+                "avg_entry_order": 1.6,
+                "times_first": "3",
+                "times_top2": "4",
+                "leader_score": 0.8,
+                "individual_hr": 0.8
+              },
+              {
+                "trader": "0x53abaa0952659af1fbcc5293c77b72e1138365aa",
+                "n_markets": 75,
+                "avg_entry_order": 1.91,
+                "times_first": "41",
+                "times_top2": "59",
+                "leader_score": 0.787,
+                "individual_hr": 0.5467
+              },
+              {
+                "trader": "0x68df14033523fbe2e6c34a375fcfc257d75df665",
+                "n_markets": 9,
+                "avg_entry_order": 2.0,
+                "times_first": "3",
+                "times_top2": "7",
+                "leader_score": 0.778,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0xc4d9e96dda5dc19f789930c461838f3ab59e4d8b",
+                "n_markets": 52,
+                "avg_entry_order": 1.94,
+                "times_first": "26",
+                "times_top2": "40",
+                "leader_score": 0.769,
+                "individual_hr": 0.6154
+              },
+              {
+                "trader": "0x58f8f1138be2192696378629fc9aa23c7910dc70",
+                "n_markets": 14,
+                "avg_entry_order": 3.21,
+                "times_first": "9",
+                "times_top2": "10",
+                "leader_score": 0.714,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x98233b6e9caab911505c3cbb0f82073e258102db",
+                "n_markets": 140,
+                "avg_entry_order": 2.62,
+                "times_first": "82",
+                "times_top2": "100",
+                "leader_score": 0.714,
+                "individual_hr": 0.6643
+              },
+              {
+                "trader": "0xcda0af091886f0129ba5e4984697334392dca51a",
+                "n_markets": 12,
+                "avg_entry_order": 3.5,
+                "times_first": "6",
+                "times_top2": "8",
+                "leader_score": 0.667,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x6c82c87d030fdb221042328ee4a1edd00a756150",
+                "n_markets": 40,
+                "avg_entry_order": 2.8,
+                "times_first": "15",
+                "times_top2": "26",
+                "leader_score": 0.65,
+                "individual_hr": 0.625
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0x9e59f4f36a1f590b3fcd2e298de6257a3f04a17c",
+                "n_markets": 17,
+                "avg_entry_order": 11.76,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.9412
+              },
+              {
+                "trader": "0xce6d28f3ddddcfcde1b90683525d5a2759d16130",
+                "n_markets": 17,
+                "avg_entry_order": 11.88,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.8824
+              },
+              {
+                "trader": "0xc24a73ae80c45982cb44da2c52869aa454dcfdbc",
+                "n_markets": 9,
+                "avg_entry_order": 9.56,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0xec41bea5cba6366ec364ded806e24ee1a3e91134",
+                "n_markets": 14,
+                "avg_entry_order": 12.79,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.9286
+              },
+              {
+                "trader": "0x87c775b9afa9c36eed6b86c21fad737a366e29ae",
+                "n_markets": 6,
+                "avg_entry_order": 11.67,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0x9cb48ddd4185f3e947edf596589e40e574588285",
+                "n_markets": 3,
+                "avg_entry_order": 4.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0x49abfb5b5bf506f3bafae94d2d791418e5a8f2a9",
+                "n_markets": 8,
+                "avg_entry_order": 8.13,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xed5096327eccbef94ac7154d93bd63ff40e69e1f",
+                "n_markets": 16,
+                "avg_entry_order": 12.31,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.8125
+              },
+              {
+                "trader": "0xee035898c9ec311c6692e08b465ea388380c3eea",
+                "n_markets": 5,
+                "avg_entry_order": 6.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.8
+              },
+              {
+                "trader": "0x0e91aca46ad28dfe99f1fd512b03bee76e92ea34",
+                "n_markets": 24,
+                "avg_entry_order": 12.04,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.9167
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.6537,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 498,
+                "n_wins": 295,
+                "hr": 0.5924,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 498,
+                "n_wins": 295,
+                "hr": 0.5924,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 279,
+                "n_wins": 162,
+                "hr": 0.5806,
+                "excess_hr_pp": -7.31
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 498,
+                "n_wins": 295,
+                "hr": 0.5924,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 279,
+                "n_wins": 162,
+                "hr": 0.5806,
+                "excess_hr_pp": -7.31
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 207,
+                "n_wins": 125,
+                "hr": 0.6039,
+                "excess_hr_pp": -4.98
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 498,
+                "n_wins": 295,
+                "hr": 0.5924,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 279,
+                "n_wins": 162,
+                "hr": 0.5806,
+                "excess_hr_pp": -7.31
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 207,
+                "n_wins": 125,
+                "hr": 0.6039,
+                "excess_hr_pp": -4.98
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 498,
+                "n_wins": 295,
+                "hr": 0.5924,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 279,
+                "n_wins": 162,
+                "hr": 0.5806,
+                "excess_hr_pp": -7.31
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 207,
+                "n_wins": 125,
+                "hr": 0.6039,
+                "excess_hr_pp": -4.98
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.6537,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 113,
+                "n_wins": 73,
+                "hr": 0.646,
+                "avg_n_entries": 10.7,
+                "avg_min_gap": 0.8,
+                "avg_avg_gap": 180.4,
+                "excess_hr_pp": -0.77
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 55,
+                "n_wins": 34,
+                "hr": 0.6182,
+                "avg_n_entries": 4.5,
+                "avg_min_gap": 15.0,
+                "avg_avg_gap": 163.4,
+                "excess_hr_pp": -3.55
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 58,
+                "n_wins": 29,
+                "hr": 0.5,
+                "avg_n_entries": 3.7,
+                "avg_min_gap": 57.9,
+                "avg_avg_gap": 276.3,
+                "excess_hr_pp": -15.37
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 53,
+                "n_wins": 26,
+                "hr": 0.4906,
+                "avg_n_entries": 2.2,
+                "avg_min_gap": 643.3,
+                "avg_avg_gap": 721.3,
+                "excess_hr_pp": -16.31
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.6537,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 498,
+                "n_markets": 498,
+                "hr": 0.5924,
+                "avg_pnl": -228.98,
+                "excess_hr_pp": -6.13
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 279,
+                "n_markets": 279,
+                "hr": 0.5806,
+                "avg_pnl": 64.92,
+                "excess_hr_pp": -7.31
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 207,
+                "n_markets": 207,
+                "hr": 0.6039,
+                "avg_pnl": -178.23,
+                "excess_hr_pp": -4.98
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 166,
+                "n_markets": 166,
+                "hr": 0.6084,
+                "avg_pnl": 128.51,
+                "excess_hr_pp": -4.53
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 133,
+                "n_markets": 133,
+                "hr": 0.6391,
+                "avg_pnl": 124.44,
+                "excess_hr_pp": -1.46
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 109,
+                "n_markets": 109,
+                "hr": 0.6789,
+                "avg_pnl": 546.87,
+                "excess_hr_pp": 2.52
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 92,
+                "n_markets": 92,
+                "hr": 0.6848,
+                "avg_pnl": -159.22,
+                "excess_hr_pp": 3.11
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 83,
+                "n_markets": 83,
+                "hr": 0.6988,
+                "avg_pnl": 216.85,
+                "excess_hr_pp": 4.51
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 70,
+                "n_markets": 70,
+                "hr": 0.7429,
+                "avg_pnl": 259.41,
+                "excess_hr_pp": 8.92
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 58,
+                "n_markets": 58,
+                "hr": 0.7931,
+                "avg_pnl": -11.45,
+                "excess_hr_pp": 13.94
+              }
+            ]
+          },
+          "elapsed_s": 2.5
+        },
+        {
+          "fold": "2026-01-01",
+          "test_base_rate": 0.4558,
+          "train_base_rate": 0.507,
+          "n_test_markets": 13538,
+          "pool_size": 517,
+          "n_test_positions": 4571,
+          "n_active_markets": 2379,
+          "n_active_traders": 212,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 466,
+                "pct": 21.3,
+                "avg_gap_min": 2.0,
+                "median_gap_min": 2.0
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 804,
+                "pct": 36.7,
+                "avg_gap_min": 13.5,
+                "median_gap_min": 12.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 488,
+                "pct": 22.3,
+                "avg_gap_min": 63.0,
+                "median_gap_min": 58.0
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 396,
+                "pct": 18.1,
+                "avg_gap_min": 408.8,
+                "median_gap_min": 282.5
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 38,
+                "pct": 1.7,
+                "avg_gap_min": 5363.8,
+                "median_gap_min": 2940.0
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 94,
+              "avg_individual_hr": 0.5985,
+              "avg_markets_per_trader": 36.4,
+              "avg_entry_order": 2.0,
+              "excess_hr_over_base": 14.27
+            },
+            "followers_summary": {
+              "n_traders": 72,
+              "avg_individual_hr": 0.6371,
+              "avg_markets_per_trader": 15.2,
+              "avg_entry_order": 4.39,
+              "excess_hr_over_base": 18.13
+            },
+            "base_rate": 0.4558,
+            "top_10_leaders": [
+              {
+                "trader": "0x2315f80ffce3a02d4f81d1b1c0ddb536660e39b1",
+                "n_markets": 40,
+                "avg_entry_order": 1.13,
+                "times_first": "35",
+                "times_top2": "40",
+                "leader_score": 1.0,
+                "individual_hr": 0.75
+              },
+              {
+                "trader": "0xdf434cabf51bf8c2390fc038a28cdd8496e5ae9a",
+                "n_markets": 9,
+                "avg_entry_order": 1.22,
+                "times_first": "7",
+                "times_top2": "9",
+                "leader_score": 1.0,
+                "individual_hr": 0.7778
+              },
+              {
+                "trader": "0x97e0e30dd7ef720a85a90b8c79a03a8f91288194",
+                "n_markets": 3,
+                "avg_entry_order": 1.33,
+                "times_first": "2",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xe24528090f13deba01d2dc28e3150551cfb83bc8",
+                "n_markets": 3,
+                "avg_entry_order": 1.0,
+                "times_first": "3",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0xa97215d23ce1deffbc04c77cd4c7cf6bfdb89817",
+                "n_markets": 4,
+                "avg_entry_order": 1.25,
+                "times_first": "3",
+                "times_top2": "4",
+                "leader_score": 1.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x3ffb453b82491003c4fefa798c4d32aa1e73df76",
+                "n_markets": 5,
+                "avg_entry_order": 1.4,
+                "times_first": "3",
+                "times_top2": "5",
+                "leader_score": 1.0,
+                "individual_hr": 0.8
+              },
+              {
+                "trader": "0xc84dbc6a2edf90dcfbae87d96318374efb4701e2",
+                "n_markets": 3,
+                "avg_entry_order": 1.67,
+                "times_first": "1",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0x6bcf201047f30b5d609a298b4de533f663444272",
+                "n_markets": 9,
+                "avg_entry_order": 1.33,
+                "times_first": "6",
+                "times_top2": "9",
+                "leader_score": 1.0,
+                "individual_hr": 0.5556
+              },
+              {
+                "trader": "0xb9f65a28ccfcc923900c9be858db4bcf2b92f506",
+                "n_markets": 21,
+                "avg_entry_order": 1.19,
+                "times_first": "17",
+                "times_top2": "21",
+                "leader_score": 1.0,
+                "individual_hr": 0.5714
+              },
+              {
+                "trader": "0xcf9555cef256c96a91dd4cd6c3a159c033867865",
+                "n_markets": 4,
+                "avg_entry_order": 1.5,
+                "times_first": "2",
+                "times_top2": "4",
+                "leader_score": 1.0,
+                "individual_hr": 0.0
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0xa16385eb30eb773cd31ce44254dcb8179abe89b8",
+                "n_markets": 4,
+                "avg_entry_order": 5.25,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0x5061b324b41e1493c540b13ca78e915a579e1b03",
+                "n_markets": 4,
+                "avg_entry_order": 5.25,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xb7a81443dd875bfb4f9b74b225858c829b539c50",
+                "n_markets": 4,
+                "avg_entry_order": 5.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.25
+              },
+              {
+                "trader": "0x24ded84d901a743cfee095f8082b0f9f647183cb",
+                "n_markets": 7,
+                "avg_entry_order": 6.71,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.8571
+              },
+              {
+                "trader": "0x2d01ee03a9b2f99b97eabc87a7a0aefc86a827cb",
+                "n_markets": 6,
+                "avg_entry_order": 6.5,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x02b18dfde01fd53b456cabda7d6ec2403322c764",
+                "n_markets": 5,
+                "avg_entry_order": 6.2,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x52171eb988cc1d8836cfbcc32b51c2e1689fec29",
+                "n_markets": 5,
+                "avg_entry_order": 4.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xe7fb43c2f4f60b0912b35fd202437bd89f8457ab",
+                "n_markets": 3,
+                "avg_entry_order": 11.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0xc76e157220dcd79a51cff75af8d20aa8884bcaa5",
+                "n_markets": 12,
+                "avg_entry_order": 5.92,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.083,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xd114f16434de1ba27698028b96f345c67bbd131b",
+                "n_markets": 9,
+                "avg_entry_order": 5.33,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.111,
+                "individual_hr": 0.7778
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.4558,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 2379,
+                "n_wins": 1215,
+                "hr": 0.5107,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 2379,
+                "n_wins": 1215,
+                "hr": 0.5107,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 825,
+                "n_wins": 536,
+                "hr": 0.6497,
+                "excess_hr_pp": 19.39
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 2379,
+                "n_wins": 1215,
+                "hr": 0.5107,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 825,
+                "n_wins": 536,
+                "hr": 0.6497,
+                "excess_hr_pp": 19.39
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 464,
+                "n_wins": 304,
+                "hr": 0.6552,
+                "excess_hr_pp": 19.94
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 2379,
+                "n_wins": 1215,
+                "hr": 0.5107,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 825,
+                "n_wins": 536,
+                "hr": 0.6497,
+                "excess_hr_pp": 19.39
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 464,
+                "n_wins": 304,
+                "hr": 0.6552,
+                "excess_hr_pp": 19.94
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 2379,
+                "n_wins": 1215,
+                "hr": 0.5107,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 825,
+                "n_wins": 536,
+                "hr": 0.6497,
+                "excess_hr_pp": 19.39
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 464,
+                "n_wins": 304,
+                "hr": 0.6552,
+                "excess_hr_pp": 19.94
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.4558,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 261,
+                "n_wins": 174,
+                "hr": 0.6667,
+                "avg_n_entries": 5.5,
+                "avg_min_gap": 1.5,
+                "avg_avg_gap": 68.6,
+                "excess_hr_pp": 21.09
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 263,
+                "n_wins": 161,
+                "hr": 0.6122,
+                "avg_n_entries": 3.3,
+                "avg_min_gap": 13.5,
+                "avg_avg_gap": 102.9,
+                "excess_hr_pp": 15.64
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 149,
+                "n_wins": 101,
+                "hr": 0.6779,
+                "avg_n_entries": 2.6,
+                "avg_min_gap": 63.6,
+                "avg_avg_gap": 125.6,
+                "excess_hr_pp": 22.21
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 152,
+                "n_wins": 100,
+                "hr": 0.6579,
+                "avg_n_entries": 2.2,
+                "avg_min_gap": 717.5,
+                "avg_avg_gap": 835.6,
+                "excess_hr_pp": 20.21
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.4558,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 2379,
+                "n_markets": 2379,
+                "hr": 0.5107,
+                "avg_pnl": 43.4,
+                "excess_hr_pp": 5.49
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 825,
+                "n_markets": 825,
+                "hr": 0.6497,
+                "avg_pnl": 19.43,
+                "excess_hr_pp": 19.39
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 464,
+                "n_markets": 464,
+                "hr": 0.6552,
+                "avg_pnl": -8.79,
+                "excess_hr_pp": 19.94
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 290,
+                "n_markets": 290,
+                "hr": 0.6483,
+                "avg_pnl": -199.82,
+                "excess_hr_pp": 19.25
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 185,
+                "n_markets": 185,
+                "hr": 0.6649,
+                "avg_pnl": -199.8,
+                "excess_hr_pp": 20.91
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 130,
+                "n_markets": 130,
+                "hr": 0.6615,
+                "avg_pnl": 118.92,
+                "excess_hr_pp": 20.57
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 91,
+                "n_markets": 91,
+                "hr": 0.7143,
+                "avg_pnl": -46.84,
+                "excess_hr_pp": 25.85
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 62,
+                "n_markets": 62,
+                "hr": 0.6613,
+                "avg_pnl": -315.96,
+                "excess_hr_pp": 20.55
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 46,
+                "n_markets": 46,
+                "hr": 0.6957,
+                "avg_pnl": 103.61,
+                "excess_hr_pp": 23.99
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 33,
+                "n_markets": 33,
+                "hr": 0.7576,
+                "avg_pnl": 160.85,
+                "excess_hr_pp": 30.18
+              }
+            ]
+          },
+          "elapsed_s": 2.5
+        }
+      ],
+      "pool_composition": {
+        "description": "Pool composition and turnover across folds",
+        "tag": "Esports",
+        "composition": [
+          {
+            "fold": "2025-07-01",
+            "pool_size": 50,
+            "avg_hr": 0.6065
+          },
+          {
+            "fold": "2025-10-01",
+            "pool_size": 197,
+            "avg_hr": 0.6736,
+            "returning_from_prev": 29,
+            "new_traders": 168,
+            "lost_from_prev": 21,
+            "overlap_pct": 14.7,
+            "returning_avg_hr": 0.6625,
+            "new_trader_avg_hr": 0.6755
+          },
+          {
+            "fold": "2026-01-01",
+            "pool_size": 517,
+            "avg_hr": 0.7325,
+            "returning_from_prev": 114,
+            "new_traders": 403,
+            "lost_from_prev": 83,
+            "overlap_pct": 22.1,
+            "returning_avg_hr": 0.7135,
+            "new_trader_avg_hr": 0.7379
+          }
+        ]
+      }
+    },
+    "Tennis": {
+      "config": {
+        "meh_pp": 20,
+        "mpe": 0.9,
+        "consensus_n": 3
+      },
+      "folds": [
+        {
+          "fold": "2025-07-01",
+          "test_base_rate": 0.2476,
+          "train_base_rate": 0.2239,
+          "n_test_markets": 517,
+          "pool_size": 83,
+          "n_test_positions": 632,
+          "n_active_markets": 193,
+          "n_active_traders": 59,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 33,
+                "pct": 7.5,
+                "avg_gap_min": 1.8,
+                "median_gap_min": 2.0
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 95,
+                "pct": 21.6,
+                "avg_gap_min": 16.8,
+                "median_gap_min": 16.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 108,
+                "pct": 24.6,
+                "avg_gap_min": 68.6,
+                "median_gap_min": 65.0
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 193,
+                "pct": 44.0,
+                "avg_gap_min": 381.8,
+                "median_gap_min": 296.0
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 10,
+                "pct": 2.3,
+                "avg_gap_min": 3651.6,
+                "median_gap_min": 2678.5
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 16,
+              "avg_individual_hr": 0.5073,
+              "avg_markets_per_trader": 16.2,
+              "avg_entry_order": 2.33,
+              "excess_hr_over_base": 25.97
+            },
+            "followers_summary": {
+              "n_traders": 31,
+              "avg_individual_hr": 0.6013,
+              "avg_markets_per_trader": 11.5,
+              "avg_entry_order": 3.87,
+              "excess_hr_over_base": 35.37
+            },
+            "base_rate": 0.2476,
+            "top_10_leaders": [
+              {
+                "trader": "0xdbb9b3616f733e19278d1ca6f3207a8344b5ed8d",
+                "n_markets": 36,
+                "avg_entry_order": 1.31,
+                "times_first": "28",
+                "times_top2": "35",
+                "leader_score": 0.972,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0xafbc5bed0b012923933625789f8f809bc465a8b5",
+                "n_markets": 23,
+                "avg_entry_order": 1.35,
+                "times_first": "17",
+                "times_top2": "22",
+                "leader_score": 0.957,
+                "individual_hr": 0.6087
+              },
+              {
+                "trader": "0xdc4bc68529c164cfe402ae1215876badc02a5a92",
+                "n_markets": 11,
+                "avg_entry_order": 1.55,
+                "times_first": "7",
+                "times_top2": "10",
+                "leader_score": 0.909,
+                "individual_hr": 0.1818
+              },
+              {
+                "trader": "0x55307e57ee66d15af36bc0894bbaca65604dd38d",
+                "n_markets": 15,
+                "avg_entry_order": 1.73,
+                "times_first": "9",
+                "times_top2": "13",
+                "leader_score": 0.867,
+                "individual_hr": 0.7333
+              },
+              {
+                "trader": "0x96df69e2d757f37cc1ba1cffff0a873f9a124caa",
+                "n_markets": 6,
+                "avg_entry_order": 1.67,
+                "times_first": "4",
+                "times_top2": "5",
+                "leader_score": 0.833,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0x6c82c87d030fdb221042328ee4a1edd00a756150",
+                "n_markets": 34,
+                "avg_entry_order": 1.68,
+                "times_first": "19",
+                "times_top2": "28",
+                "leader_score": 0.824,
+                "individual_hr": 0.5588
+              },
+              {
+                "trader": "0xf5201f998333d228dafba270d01d8ff82b2c0637",
+                "n_markets": 38,
+                "avg_entry_order": 2.34,
+                "times_first": "16",
+                "times_top2": "26",
+                "leader_score": 0.684,
+                "individual_hr": 0.6053
+              },
+              {
+                "trader": "0x454c8364b06d56df31531b1fc5bc083f5c1ebd22",
+                "n_markets": 3,
+                "avg_entry_order": 1.67,
+                "times_first": "2",
+                "times_top2": "2",
+                "leader_score": 0.667,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0x0415049d04ba51a1d6ac1eac8e22140522e88ce3",
+                "n_markets": 9,
+                "avg_entry_order": 2.44,
+                "times_first": "4",
+                "times_top2": "6",
+                "leader_score": 0.667,
+                "individual_hr": 0.5556
+              },
+              {
+                "trader": "0x2aa22a2d9379e9adb7cb0d1d760763f697ab4d22",
+                "n_markets": 3,
+                "avg_entry_order": 3.33,
+                "times_first": "0",
+                "times_top2": "2",
+                "leader_score": 0.667,
+                "individual_hr": 0.3333
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0xa89677c4ca4c4777ff2b71970d27ed40ece2e5c1",
+                "n_markets": 5,
+                "avg_entry_order": 5.6,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x573229f597a4820d554265f66faf595814be9030",
+                "n_markets": 7,
+                "avg_entry_order": 3.29,
+                "times_first": "0",
+                "times_top2": "1",
+                "leader_score": 0.143,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x4aefed77846f1b884bcbfb9e63acb351c2be9337",
+                "n_markets": 6,
+                "avg_entry_order": 4.33,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.167,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xe25c28438f4f51bf12efed21efd45f33d8cfae63",
+                "n_markets": 5,
+                "avg_entry_order": 4.0,
+                "times_first": "0",
+                "times_top2": "1",
+                "leader_score": 0.2,
+                "individual_hr": 0.4
+              },
+              {
+                "trader": "0xee00ba338c59557141789b127927a55f5cc5cea1",
+                "n_markets": 10,
+                "avg_entry_order": 3.7,
+                "times_first": "1",
+                "times_top2": "2",
+                "leader_score": 0.2,
+                "individual_hr": 0.7
+              },
+              {
+                "trader": "0x366ca527d1436aae117faf746f17098cf3f66578",
+                "n_markets": 10,
+                "avg_entry_order": 4.7,
+                "times_first": "2",
+                "times_top2": "2",
+                "leader_score": 0.2,
+                "individual_hr": 0.9
+              },
+              {
+                "trader": "0x54e7767240cd6f74b4f934676a4dddb82f22e35f",
+                "n_markets": 22,
+                "avg_entry_order": 4.0,
+                "times_first": "2",
+                "times_top2": "5",
+                "leader_score": 0.227,
+                "individual_hr": 0.8182
+              },
+              {
+                "trader": "0x477fcd39c75956843c18083caa4c8c61f9ca6c45",
+                "n_markets": 4,
+                "avg_entry_order": 3.25,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 0.25
+              },
+              {
+                "trader": "0xe2cd5c454bb3a5aae080093e5c5c061a283bbb91",
+                "n_markets": 4,
+                "avg_entry_order": 7.25,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 0.25
+              },
+              {
+                "trader": "0x141c0e457c8bca38bb700ad38ac9636eb6e57154",
+                "n_markets": 4,
+                "avg_entry_order": 3.75,
+                "times_first": "0",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 0.0
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.2476,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 193,
+                "n_wins": 111,
+                "hr": 0.5751,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 193,
+                "n_wins": 111,
+                "hr": 0.5751,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 138,
+                "n_wins": 85,
+                "hr": 0.6159,
+                "excess_hr_pp": 36.83
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 193,
+                "n_wins": 111,
+                "hr": 0.5751,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 138,
+                "n_wins": 85,
+                "hr": 0.6159,
+                "excess_hr_pp": 36.83
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 94,
+                "n_wins": 61,
+                "hr": 0.6489,
+                "excess_hr_pp": 40.13
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 193,
+                "n_wins": 111,
+                "hr": 0.5751,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 138,
+                "n_wins": 85,
+                "hr": 0.6159,
+                "excess_hr_pp": 36.83
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 94,
+                "n_wins": 61,
+                "hr": 0.6489,
+                "excess_hr_pp": 40.13
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 193,
+                "n_wins": 111,
+                "hr": 0.5751,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 138,
+                "n_wins": 85,
+                "hr": 0.6159,
+                "excess_hr_pp": 36.83
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 94,
+                "n_wins": 61,
+                "hr": 0.6489,
+                "excess_hr_pp": 40.13
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.2476,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 26,
+                "n_wins": 14,
+                "hr": 0.5385,
+                "avg_n_entries": 6.8,
+                "avg_min_gap": 1.5,
+                "avg_avg_gap": 160.7,
+                "excess_hr_pp": 29.09
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 38,
+                "n_wins": 29,
+                "hr": 0.7632,
+                "avg_n_entries": 4.8,
+                "avg_min_gap": 15.2,
+                "avg_avg_gap": 186.6,
+                "excess_hr_pp": 51.56
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 27,
+                "n_wins": 18,
+                "hr": 0.6667,
+                "avg_n_entries": 4.1,
+                "avg_min_gap": 56.4,
+                "avg_avg_gap": 246.2,
+                "excess_hr_pp": 41.91
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 47,
+                "n_wins": 24,
+                "hr": 0.5106,
+                "avg_n_entries": 2.3,
+                "avg_min_gap": 784.5,
+                "avg_avg_gap": 803.1,
+                "excess_hr_pp": 26.3
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.2476,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 193,
+                "n_markets": 193,
+                "hr": 0.5751,
+                "avg_pnl": 37.71,
+                "excess_hr_pp": 32.75
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 138,
+                "n_markets": 138,
+                "hr": 0.6159,
+                "avg_pnl": -0.99,
+                "excess_hr_pp": 36.83
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 94,
+                "n_markets": 94,
+                "hr": 0.6489,
+                "avg_pnl": -49.83,
+                "excess_hr_pp": 40.13
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 67,
+                "n_markets": 67,
+                "hr": 0.6567,
+                "avg_pnl": 89.68,
+                "excess_hr_pp": 40.91
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 46,
+                "n_markets": 46,
+                "hr": 0.6522,
+                "avg_pnl": 286.75,
+                "excess_hr_pp": 40.46
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 34,
+                "n_markets": 34,
+                "hr": 0.6471,
+                "avg_pnl": -114.65,
+                "excess_hr_pp": 39.95
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 21,
+                "n_markets": 21,
+                "hr": 0.7143,
+                "avg_pnl": 14.39,
+                "excess_hr_pp": 46.67
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 16,
+                "n_markets": 16,
+                "hr": 0.6875,
+                "avg_pnl": 312.32,
+                "excess_hr_pp": 43.99
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 9,
+                "n_markets": 9,
+                "hr": 0.5556,
+                "avg_pnl": -19.48,
+                "excess_hr_pp": 30.8
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 6,
+                "n_markets": 6,
+                "hr": 0.6667,
+                "avg_pnl": 63.83,
+                "excess_hr_pp": 41.91
+              }
+            ]
+          },
+          "elapsed_s": 2.4
+        },
+        {
+          "fold": "2025-10-01",
+          "test_base_rate": 0.3955,
+          "train_base_rate": 0.2836,
+          "n_test_markets": 928,
+          "pool_size": 269,
+          "n_test_positions": 1515,
+          "n_active_markets": 583,
+          "n_active_traders": 98,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 81,
+                "pct": 8.7,
+                "avg_gap_min": 1.5,
+                "median_gap_min": 1.0
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 216,
+                "pct": 23.2,
+                "avg_gap_min": 15.9,
+                "median_gap_min": 15.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 304,
+                "pct": 32.6,
+                "avg_gap_min": 68.1,
+                "median_gap_min": 64.0
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 296,
+                "pct": 31.8,
+                "avg_gap_min": 453.8,
+                "median_gap_min": 332.5
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 35,
+                "pct": 3.8,
+                "avg_gap_min": 2265.2,
+                "median_gap_min": 1816.0
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 45,
+              "avg_individual_hr": 0.5144,
+              "avg_markets_per_trader": 24.4,
+              "avg_entry_order": 2.13,
+              "excess_hr_over_base": 11.89
+            },
+            "followers_summary": {
+              "n_traders": 28,
+              "avg_individual_hr": 0.5465,
+              "avg_markets_per_trader": 13.6,
+              "avg_entry_order": 3.47,
+              "excess_hr_over_base": 15.1
+            },
+            "base_rate": 0.3955,
+            "top_10_leaders": [
+              {
+                "trader": "0xe25c28438f4f51bf12efed21efd45f33d8cfae63",
+                "n_markets": 3,
+                "avg_entry_order": 1.33,
+                "times_first": "2",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0xea64572947a01f9938fd5474dc3b7d219352f2a2",
+                "n_markets": 7,
+                "avg_entry_order": 1.43,
+                "times_first": "4",
+                "times_top2": "7",
+                "leader_score": 1.0,
+                "individual_hr": 0.5714
+              },
+              {
+                "trader": "0x29c0a89b23af58739b6a4ab5f9c8b459af4aefaa",
+                "n_markets": 103,
+                "avg_entry_order": 1.04,
+                "times_first": "99",
+                "times_top2": "103",
+                "leader_score": 1.0,
+                "individual_hr": 0.4369
+              },
+              {
+                "trader": "0xdbb9b3616f733e19278d1ca6f3207a8344b5ed8d",
+                "n_markets": 86,
+                "avg_entry_order": 1.55,
+                "times_first": "51",
+                "times_top2": "79",
+                "leader_score": 0.919,
+                "individual_hr": 0.4884
+              },
+              {
+                "trader": "0x51f7c3d9fa8cc71818aede2db6e4496968ecae1f",
+                "n_markets": 22,
+                "avg_entry_order": 1.55,
+                "times_first": "16",
+                "times_top2": "20",
+                "leader_score": 0.909,
+                "individual_hr": 0.1818
+              },
+              {
+                "trader": "0x067f7f6e3d5363f1cf962499d1be2ca6de8be041",
+                "n_markets": 19,
+                "avg_entry_order": 1.58,
+                "times_first": "10",
+                "times_top2": "17",
+                "leader_score": 0.895,
+                "individual_hr": 0.1579
+              },
+              {
+                "trader": "0x6c82c87d030fdb221042328ee4a1edd00a756150",
+                "n_markets": 17,
+                "avg_entry_order": 1.41,
+                "times_first": "12",
+                "times_top2": "15",
+                "leader_score": 0.882,
+                "individual_hr": 0.5294
+              },
+              {
+                "trader": "0x7bb4a115463a341e620d6f4061dd84986bd3acb6",
+                "n_markets": 8,
+                "avg_entry_order": 1.75,
+                "times_first": "3",
+                "times_top2": "7",
+                "leader_score": 0.875,
+                "individual_hr": 0.75
+              },
+              {
+                "trader": "0x97e12cc7391a50e49042b44a2d4a0cef54c8017b",
+                "n_markets": 7,
+                "avg_entry_order": 1.71,
+                "times_first": "4",
+                "times_top2": "6",
+                "leader_score": 0.857,
+                "individual_hr": 0.5714
+              },
+              {
+                "trader": "0x729afcef919d5f2b39549141eae3599f7ebd1e51",
+                "n_markets": 7,
+                "avg_entry_order": 2.86,
+                "times_first": "1",
+                "times_top2": "6",
+                "leader_score": 0.857,
+                "individual_hr": 0.8571
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0x4992655ac75a7cb8648695130dc2f904c4a36f5c",
+                "n_markets": 3,
+                "avg_entry_order": 4.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x0aa3744338ddf9f39fb3a80bc9c916179d0b64e9",
+                "n_markets": 4,
+                "avg_entry_order": 4.75,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x9a753d12065a8143ac69ea1732f67daab67b4347",
+                "n_markets": 8,
+                "avg_entry_order": 4.5,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.125,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xd16a6395ec3c88c564445954c30849ce45187691",
+                "n_markets": 6,
+                "avg_entry_order": 3.67,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.167,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xee00ba338c59557141789b127927a55f5cc5cea1",
+                "n_markets": 10,
+                "avg_entry_order": 4.0,
+                "times_first": "1",
+                "times_top2": "2",
+                "leader_score": 0.2,
+                "individual_hr": 0.7
+              },
+              {
+                "trader": "0xc8b438e4a1c10643ea0ea3e59bcaadc73174f05d",
+                "n_markets": 5,
+                "avg_entry_order": 3.2,
+                "times_first": "0",
+                "times_top2": "1",
+                "leader_score": 0.2,
+                "individual_hr": 0.2
+              },
+              {
+                "trader": "0x74e6c1260ac5448c00eb63e1f6894ecd090c99e8",
+                "n_markets": 5,
+                "avg_entry_order": 3.2,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.2,
+                "individual_hr": 0.4
+              },
+              {
+                "trader": "0xfa011919b3ce3222620052757ee0f0c66c41f0a7",
+                "n_markets": 8,
+                "avg_entry_order": 3.63,
+                "times_first": "2",
+                "times_top2": "2",
+                "leader_score": 0.25,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x362cf3b065f95a8f0f3ec09d87bc7edc35f2ac6e",
+                "n_markets": 4,
+                "avg_entry_order": 3.5,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 0.25
+              },
+              {
+                "trader": "0xf5198df69e13937a40d1c76d6f72d9aa067d906b",
+                "n_markets": 7,
+                "avg_entry_order": 4.29,
+                "times_first": "1",
+                "times_top2": "2",
+                "leader_score": 0.286,
+                "individual_hr": 0.4286
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.3955,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 583,
+                "n_wins": 266,
+                "hr": 0.4563,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 583,
+                "n_wins": 266,
+                "hr": 0.4563,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 390,
+                "n_wins": 186,
+                "hr": 0.4769,
+                "excess_hr_pp": 8.14
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 583,
+                "n_wins": 266,
+                "hr": 0.4563,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 390,
+                "n_wins": 186,
+                "hr": 0.4769,
+                "excess_hr_pp": 8.14
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 250,
+                "n_wins": 133,
+                "hr": 0.532,
+                "excess_hr_pp": 13.65
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 583,
+                "n_wins": 266,
+                "hr": 0.4563,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 390,
+                "n_wins": 186,
+                "hr": 0.4769,
+                "excess_hr_pp": 8.14
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 250,
+                "n_wins": 133,
+                "hr": 0.532,
+                "excess_hr_pp": 13.65
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 583,
+                "n_wins": 266,
+                "hr": 0.4563,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 390,
+                "n_wins": 186,
+                "hr": 0.4769,
+                "excess_hr_pp": 8.14
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 250,
+                "n_wins": 133,
+                "hr": 0.532,
+                "excess_hr_pp": 13.65
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.3955,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 65,
+                "n_wins": 32,
+                "hr": 0.4923,
+                "avg_n_entries": 5.2,
+                "avg_min_gap": 1.3,
+                "avg_avg_gap": 144.0,
+                "excess_hr_pp": 9.68
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 118,
+                "n_wins": 61,
+                "hr": 0.5169,
+                "avg_n_entries": 3.8,
+                "avg_min_gap": 15.1,
+                "avg_avg_gap": 121.1,
+                "excess_hr_pp": 12.14
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 112,
+                "n_wins": 56,
+                "hr": 0.5,
+                "avg_n_entries": 2.8,
+                "avg_min_gap": 68.9,
+                "avg_avg_gap": 195.1,
+                "excess_hr_pp": 10.45
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 95,
+                "n_wins": 37,
+                "hr": 0.3895,
+                "avg_n_entries": 2.3,
+                "avg_min_gap": 675.8,
+                "avg_avg_gap": 807.3,
+                "excess_hr_pp": -0.6
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.3955,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 583,
+                "n_markets": 583,
+                "hr": 0.4563,
+                "avg_pnl": -4.97,
+                "excess_hr_pp": 6.08
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 390,
+                "n_markets": 390,
+                "hr": 0.4769,
+                "avg_pnl": -52.82,
+                "excess_hr_pp": 8.14
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 250,
+                "n_markets": 250,
+                "hr": 0.532,
+                "avg_pnl": 126.64,
+                "excess_hr_pp": 13.65
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 132,
+                "n_markets": 132,
+                "hr": 0.5455,
+                "avg_pnl": -47.66,
+                "excess_hr_pp": 15.0
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 72,
+                "n_markets": 72,
+                "hr": 0.6111,
+                "avg_pnl": 913.37,
+                "excess_hr_pp": 21.56
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 42,
+                "n_markets": 42,
+                "hr": 0.5714,
+                "avg_pnl": -170.31,
+                "excess_hr_pp": 17.59
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 22,
+                "n_markets": 22,
+                "hr": 0.5455,
+                "avg_pnl": 159.89,
+                "excess_hr_pp": 15.0
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 11,
+                "n_markets": 11,
+                "hr": 0.5455,
+                "avg_pnl": -5.4,
+                "excess_hr_pp": 15.0
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 8,
+                "n_markets": 8,
+                "hr": 0.625,
+                "avg_pnl": 14.18,
+                "excess_hr_pp": 22.95
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 5,
+                "n_markets": 5,
+                "hr": 0.6,
+                "avg_pnl": -25.54,
+                "excess_hr_pp": 20.45
+              }
+            ]
+          },
+          "elapsed_s": 2.5
+        },
+        {
+          "fold": "2026-01-01",
+          "test_base_rate": 0.453,
+          "train_base_rate": 0.3476,
+          "n_test_markets": 9474,
+          "pool_size": 315,
+          "n_test_positions": 2178,
+          "n_active_markets": 1091,
+          "n_active_traders": 113,
+          "entry_clustering": {
+            "description": "Gap distribution between consecutive qualified trader entries per market",
+            "rows": [
+              {
+                "gap_type": "1_instant_copy_lt5min",
+                "n_entries": 74,
+                "pct": 6.8,
+                "avg_gap_min": 1.6,
+                "median_gap_min": 1.0
+              },
+              {
+                "gap_type": "2_fast_copy_5_30min",
+                "n_entries": 231,
+                "pct": 21.3,
+                "avg_gap_min": 15.0,
+                "median_gap_min": 14.0
+              },
+              {
+                "gap_type": "3_delayed_30min_2h",
+                "n_entries": 311,
+                "pct": 28.6,
+                "avg_gap_min": 62.8,
+                "median_gap_min": 57.0
+              },
+              {
+                "gap_type": "4_same_day_2h_24h",
+                "n_entries": 405,
+                "pct": 37.3,
+                "avg_gap_min": 507.3,
+                "median_gap_min": 417.0
+              },
+              {
+                "gap_type": "5_independent_gt24h",
+                "n_entries": 66,
+                "pct": 6.1,
+                "avg_gap_min": 4328.8,
+                "median_gap_min": 2551.0
+              }
+            ]
+          },
+          "leader_follower": {
+            "description": "Leaders (entry_order<=2 in >50% of markets) vs followers",
+            "leaders_summary": {
+              "n_traders": 39,
+              "avg_individual_hr": 0.5765,
+              "avg_markets_per_trader": 41.7,
+              "avg_entry_order": 1.9,
+              "excess_hr_over_base": 12.35
+            },
+            "followers_summary": {
+              "n_traders": 40,
+              "avg_individual_hr": 0.7129,
+              "avg_markets_per_trader": 12.7,
+              "avg_entry_order": 3.91,
+              "excess_hr_over_base": 25.99
+            },
+            "base_rate": 0.453,
+            "top_10_leaders": [
+              {
+                "trader": "0xf4ead5ab5acf4c3c00427ac60d52e15668a7ed2e",
+                "n_markets": 16,
+                "avg_entry_order": 1.13,
+                "times_first": "14",
+                "times_top2": "16",
+                "leader_score": 1.0,
+                "individual_hr": 0.8125
+              },
+              {
+                "trader": "0x90954591305e2882d0d2379daa733add13512f3f",
+                "n_markets": 3,
+                "avg_entry_order": 1.0,
+                "times_first": "3",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.6667
+              },
+              {
+                "trader": "0x3a090da22b2bcfee0f3125a26265efbcd356f9f7",
+                "n_markets": 4,
+                "avg_entry_order": 1.75,
+                "times_first": "1",
+                "times_top2": "4",
+                "leader_score": 1.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0xa486f1e84d08b356967943a47b70bb8504dd25d4",
+                "n_markets": 4,
+                "avg_entry_order": 1.0,
+                "times_first": "4",
+                "times_top2": "4",
+                "leader_score": 1.0,
+                "individual_hr": 0.0
+              },
+              {
+                "trader": "0x091eff205c9852cce82b530c6c2c31e530c684bc",
+                "n_markets": 9,
+                "avg_entry_order": 1.0,
+                "times_first": "9",
+                "times_top2": "9",
+                "leader_score": 1.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xce2bf3ba7bb42786d4ccf020b283d85b914408fa",
+                "n_markets": 3,
+                "avg_entry_order": 1.33,
+                "times_first": "2",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0x081cd40e9d1a90896612c189bf470b4fbae4f010",
+                "n_markets": 3,
+                "avg_entry_order": 1.0,
+                "times_first": "3",
+                "times_top2": "3",
+                "leader_score": 1.0,
+                "individual_hr": 0.3333
+              },
+              {
+                "trader": "0x6c82c87d030fdb221042328ee4a1edd00a756150",
+                "n_markets": 27,
+                "avg_entry_order": 1.41,
+                "times_first": "18",
+                "times_top2": "26",
+                "leader_score": 0.963,
+                "individual_hr": 0.4074
+              },
+              {
+                "trader": "0x77894402a40eaa0e43f1b74fc452bc394fbbd6c0",
+                "n_markets": 133,
+                "avg_entry_order": 1.25,
+                "times_first": "108",
+                "times_top2": "128",
+                "leader_score": 0.962,
+                "individual_hr": 0.6692
+              },
+              {
+                "trader": "0x507e52ef684ca2dd91f90a9d26d149dd3288beae",
+                "n_markets": 355,
+                "avg_entry_order": 1.23,
+                "times_first": "312",
+                "times_top2": "332",
+                "leader_score": 0.935,
+                "individual_hr": 0.3944
+              }
+            ],
+            "bottom_10_followers": [
+              {
+                "trader": "0x61fbedcc5b848e3ccae2eac584ef70cc37ad4ebe",
+                "n_markets": 3,
+                "avg_entry_order": 5.33,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0xcc8f0e3bd33b98eb19a0c122397b6ce69cffa7bb",
+                "n_markets": 4,
+                "avg_entry_order": 5.75,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.5
+              },
+              {
+                "trader": "0x9055a9e36aa73274e3a92dc2dbb081bb4d9e756a",
+                "n_markets": 4,
+                "avg_entry_order": 6.5,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x39a8af6edfea73488125fca26668f3b3d1a8f170",
+                "n_markets": 4,
+                "avg_entry_order": 6.0,
+                "times_first": "0",
+                "times_top2": "0",
+                "leader_score": 0.0,
+                "individual_hr": 0.25
+              },
+              {
+                "trader": "0xfa5f472ac88d746f769fcf694c2346e2ec59005f",
+                "n_markets": 14,
+                "avg_entry_order": 5.64,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.071,
+                "individual_hr": 0.7857
+              },
+              {
+                "trader": "0xc85f77ffb48f05ee9568cdafa4d5a952073d15f8",
+                "n_markets": 7,
+                "avg_entry_order": 3.43,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.143,
+                "individual_hr": 0.2857
+              },
+              {
+                "trader": "0x65d4d905958b418a30c9f72046208689ae094e71",
+                "n_markets": 10,
+                "avg_entry_order": 3.9,
+                "times_first": "2",
+                "times_top2": "2",
+                "leader_score": 0.2,
+                "individual_hr": 0.8
+              },
+              {
+                "trader": "0xd1ed12197b7dc22dede923727e9b714024dbd7cb",
+                "n_markets": 10,
+                "avg_entry_order": 4.8,
+                "times_first": "0",
+                "times_top2": "2",
+                "leader_score": 0.2,
+                "individual_hr": 0.8
+              },
+              {
+                "trader": "0xe1b1710550fb8734c648c2f5e93a7b49237f5a9b",
+                "n_markets": 4,
+                "avg_entry_order": 6.0,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 1.0
+              },
+              {
+                "trader": "0x17c155db6bab603ca59716ce3742307f3316a606",
+                "n_markets": 4,
+                "avg_entry_order": 3.75,
+                "times_first": "1",
+                "times_top2": "1",
+                "leader_score": 0.25,
+                "individual_hr": 0.75
+              }
+            ]
+          },
+          "first_mover_hr": {
+            "description": "HR when only counting first K qualified entrants per market",
+            "base_rate": 0.453,
+            "results": [
+              {
+                "first_k": 1,
+                "min_consensus_n": 1,
+                "n_markets": 1091,
+                "n_wins": 572,
+                "hr": 0.5243,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 1,
+                "n_markets": 1091,
+                "n_wins": 572,
+                "hr": 0.5243,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "first_k": 2,
+                "min_consensus_n": 2,
+                "n_markets": 441,
+                "n_wins": 262,
+                "hr": 0.5941,
+                "excess_hr_pp": 14.11
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 1,
+                "n_markets": 1091,
+                "n_wins": 572,
+                "hr": 0.5243,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 2,
+                "n_markets": 441,
+                "n_wins": 262,
+                "hr": 0.5941,
+                "excess_hr_pp": 14.11
+              },
+              {
+                "first_k": 3,
+                "min_consensus_n": 3,
+                "n_markets": 267,
+                "n_wins": 163,
+                "hr": 0.6105,
+                "excess_hr_pp": 15.75
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 1,
+                "n_markets": 1091,
+                "n_wins": 572,
+                "hr": 0.5243,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 2,
+                "n_markets": 441,
+                "n_wins": 262,
+                "hr": 0.5941,
+                "excess_hr_pp": 14.11
+              },
+              {
+                "first_k": 4,
+                "min_consensus_n": 3,
+                "n_markets": 267,
+                "n_wins": 163,
+                "hr": 0.6105,
+                "excess_hr_pp": 15.75
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 1,
+                "n_markets": 1091,
+                "n_wins": 572,
+                "hr": 0.5243,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 2,
+                "n_markets": 441,
+                "n_wins": 262,
+                "hr": 0.5941,
+                "excess_hr_pp": 14.11
+              },
+              {
+                "first_k": 5,
+                "min_consensus_n": 3,
+                "n_markets": 267,
+                "n_wins": 163,
+                "hr": 0.6105,
+                "excess_hr_pp": 15.75
+              }
+            ]
+          },
+          "temporal_independence": {
+            "description": "HR by temporal independence of entries (min gap between any consecutive pair)",
+            "base_rate": 0.453,
+            "rows": [
+              {
+                "independence_level": "1_has_instant_copy_lt5min",
+                "n_markets": 59,
+                "n_wins": 42,
+                "hr": 0.7119,
+                "avg_n_entries": 5.4,
+                "avg_min_gap": 1.3,
+                "avg_avg_gap": 139.1,
+                "excess_hr_pp": 25.89
+              },
+              {
+                "independence_level": "2_has_fast_copy_5_30min",
+                "n_markets": 111,
+                "n_wins": 72,
+                "hr": 0.6486,
+                "avg_n_entries": 4.3,
+                "avg_min_gap": 13.6,
+                "avg_avg_gap": 225.3,
+                "excess_hr_pp": 19.56
+              },
+              {
+                "independence_level": "3_all_delayed_30min_2h",
+                "n_markets": 131,
+                "n_wins": 82,
+                "hr": 0.626,
+                "avg_n_entries": 3.0,
+                "avg_min_gap": 63.6,
+                "avg_avg_gap": 290.2,
+                "excess_hr_pp": 17.3
+              },
+              {
+                "independence_level": "4_all_independent_gt2h",
+                "n_markets": 140,
+                "n_wins": 66,
+                "hr": 0.4714,
+                "avg_n_entries": 2.4,
+                "avg_min_gap": 1161.5,
+                "avg_avg_gap": 1423.4,
+                "excess_hr_pp": 1.84
+              }
+            ]
+          },
+          "entry_order_outcome": {
+            "description": "HR and PnL by entry_order (1=first mover, 2=second, etc.)",
+            "base_rate": 0.453,
+            "rows": [
+              {
+                "entry_order": 1,
+                "n_positions": 1091,
+                "n_markets": 1091,
+                "hr": 0.5243,
+                "avg_pnl": -21.09,
+                "excess_hr_pp": 7.13
+              },
+              {
+                "entry_order": 2,
+                "n_positions": 441,
+                "n_markets": 441,
+                "hr": 0.5941,
+                "avg_pnl": 242.38,
+                "excess_hr_pp": 14.11
+              },
+              {
+                "entry_order": 3,
+                "n_positions": 267,
+                "n_markets": 267,
+                "hr": 0.6105,
+                "avg_pnl": 73.8,
+                "excess_hr_pp": 15.75
+              },
+              {
+                "entry_order": 4,
+                "n_positions": 150,
+                "n_markets": 150,
+                "hr": 0.7,
+                "avg_pnl": 28.98,
+                "excess_hr_pp": 24.7
+              },
+              {
+                "entry_order": 5,
+                "n_positions": 94,
+                "n_markets": 94,
+                "hr": 0.7128,
+                "avg_pnl": -260.53,
+                "excess_hr_pp": 25.98
+              },
+              {
+                "entry_order": 6,
+                "n_positions": 53,
+                "n_markets": 53,
+                "hr": 0.7358,
+                "avg_pnl": 45.44,
+                "excess_hr_pp": 28.28
+              },
+              {
+                "entry_order": 7,
+                "n_positions": 33,
+                "n_markets": 33,
+                "hr": 0.8182,
+                "avg_pnl": 64.96,
+                "excess_hr_pp": 36.52
+              },
+              {
+                "entry_order": 8,
+                "n_positions": 22,
+                "n_markets": 22,
+                "hr": 0.8182,
+                "avg_pnl": -152.63,
+                "excess_hr_pp": 36.52
+              },
+              {
+                "entry_order": 9,
+                "n_positions": 13,
+                "n_markets": 13,
+                "hr": 0.9231,
+                "avg_pnl": 65.38,
+                "excess_hr_pp": 47.01
+              },
+              {
+                "entry_order": 10,
+                "n_positions": 7,
+                "n_markets": 7,
+                "hr": 1.0,
+                "avg_pnl": 53.96,
+                "excess_hr_pp": 54.7
+              }
+            ]
+          },
+          "elapsed_s": 2.5
+        }
+      ],
+      "pool_composition": {
+        "description": "Pool composition and turnover across folds",
+        "tag": "Tennis",
+        "composition": [
+          {
+            "fold": "2025-07-01",
+            "pool_size": 83,
+            "avg_hr": 0.609
+          },
+          {
+            "fold": "2025-10-01",
+            "pool_size": 269,
+            "avg_hr": 0.636,
+            "returning_from_prev": 59,
+            "new_traders": 210,
+            "lost_from_prev": 24,
+            "overlap_pct": 21.9,
+            "returning_avg_hr": 0.6438,
+            "new_trader_avg_hr": 0.6338
+          },
+          {
+            "fold": "2026-01-01",
+            "pool_size": 315,
+            "avg_hr": 0.6904,
+            "returning_from_prev": 141,
+            "new_traders": 174,
+            "lost_from_prev": 128,
+            "overlap_pct": 44.8,
+            "returning_avg_hr": 0.6895,
+            "new_trader_avg_hr": 0.6912
+          }
+        ]
+      }
+    }
+  },
+  "summary": {
+    "hypothesis": "copy-trader contamination causes pool explosion and consensus failure",
+    "verdict": "REJECTED",
+    "key_findings": [
+      {
+        "id": 1,
+        "finding": "Entry time clustering increases over time (Esports: 25% -> 58% within 30min)",
+        "implication": "Copy behavior IS present and growing, but does NOT degrade signal quality"
+      },
+      {
+        "id": 2,
+        "finding": "Followers have HIGHER HR than leaders in ALL folds for BOTH tags",
+        "implication": "Qualified pool filters already exclude bad copiers. Remaining followers are genuinely skilled."
+      },
+      {
+        "id": 3,
+        "finding": "HR monotonically increases with entry order (1st: 47-52% -> 5th: 65-72%)",
+        "implication": "Consensus depth IS the signal. More traders = stronger prediction."
+      },
+      {
+        "id": 4,
+        "finding": "Temporal independence filter reduces sample 60-95% with LOWER HR",
+        "implication": "Clustered entries are actually BETTER than independent ones."
+      },
+      {
+        "id": 5,
+        "finding": "New pool members have equal/higher HR than returning members",
+        "implication": "Pool explosion driven by genuine market growth, not copier invasion."
+      }
+    ],
+    "actual_failure_modes": [
+      "Base rate non-stationarity (Esports 2025-10: 65.4% base destroys ALL signals)",
+      "Fill price compression (avg fill ~0.45-0.55; break-even requires 50%+ HR)",
+      "Sparse market coverage in large regimes (212 traders / 2379 markets = 0.089)"
+    ],
+    "proposed_fixes_all_rejected": [
+      "First-mover filter: HARMFUL (later entrants have higher HR)",
+      "Temporal independence: HARMFUL (reduces sample, no HR improvement)",
+      "Leader-only pool: HARMFUL (leaders have lower HR than followers)",
+      "Entry-order penalty: HARMFUL (penalizes the most informative entries)"
+    ],
+    "recommended_next_steps": [
+      "Deep consensus (N>=4-5): +5-10pp excess over N>=3, 40-60% fewer signals",
+      "Base rate regime gate: skip Esports when train_base > 0.50",
+      "Consensus depth as continuous signal: weight position by n_qualified/5"
+    ]
+  }
+}

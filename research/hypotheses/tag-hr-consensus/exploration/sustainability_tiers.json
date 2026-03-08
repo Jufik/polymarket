@@ -1,0 +1,1424 @@
+{
+  "timestamp": "2026-03-06T17:58:58.496194",
+  "description": "Trader sustainability tiers: split 6-month training into 3x2-month sub-windows. Tier 1=positive excess in all 3, Tier 4=positive in aggregate only. Top-K=50 pool, N=3 consensus. Tags: Esports, Tennis.",
+  "params": {
+    "top_k": 50,
+    "consensus_n": 3,
+    "min_trades_total": 5,
+    "min_trades_per_window": 2,
+    "mpe_thresh": 0.8,
+    "sub_window_months": 2,
+    "tier_weights": {
+      "1": 2.0,
+      "2": 1.5,
+      "3": 1.0,
+      "4": 0.5,
+      "5": 0.25
+    },
+    "base_size_usd": 100.0
+  },
+  "tier_distributions": {
+    "Esports": {
+      "1": {
+        "avg_per_fold": 1.3,
+        "total": 4
+      },
+      "2": {
+        "avg_per_fold": 17.0,
+        "total": 51
+      },
+      "3": {
+        "avg_per_fold": 31.7,
+        "total": 95
+      }
+    },
+    "Tennis": {
+      "1": {
+        "avg_per_fold": 4.0,
+        "total": 12
+      },
+      "2": {
+        "avg_per_fold": 15.0,
+        "total": 45
+      },
+      "3": {
+        "avg_per_fold": 31.0,
+        "total": 93
+      }
+    }
+  },
+  "tier_vs_hr": {
+    "Esports": {
+      "strong (1.5 < avg_tier <= 2.5)": {
+        "total_n": 71,
+        "n_folds": 2,
+        "weighted_hr": 0.831,
+        "avg_excess_pp": 32.12
+      },
+      "moderate (2.5 < avg_tier <= 3.5)": {
+        "total_n": 79,
+        "n_folds": 3,
+        "weighted_hr": 0.5696,
+        "avg_excess_pp": 16.99
+      }
+    },
+    "Tennis": {
+      "strong (1.5 < avg_tier <= 2.5)": {
+        "total_n": 23,
+        "n_folds": 3,
+        "weighted_hr": 0.6522,
+        "avg_excess_pp": 50.13
+      },
+      "moderate (2.5 < avg_tier <= 3.5)": {
+        "total_n": 52,
+        "n_folds": 3,
+        "weighted_hr": 0.7693,
+        "avg_excess_pp": 48.83
+      }
+    }
+  },
+  "sizing_comparison": {
+    "Esports": {
+      "n_signals": 150,
+      "flat_pnl": 5800.0,
+      "tier_weighted_pnl": 7566.74,
+      "uplift_pct": 30.5
+    },
+    "Tennis": {
+      "n_signals": 75,
+      "flat_pnl": 3500.0,
+      "tier_weighted_pnl": 3917.5,
+      "uplift_pct": 11.9
+    }
+  },
+  "verdict": "tiers_predict_hr",
+  "results_by_tag": {
+    "Esports": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.3426,
+        "test_base_rate": 0.3677,
+        "n_test_markets": 223,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 1,
+          "2": 13,
+          "3": 36
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 1,
+            "avg_aggregate_excess_hr": 0.1696
+          },
+          "2": {
+            "n_traders": 13,
+            "avg_aggregate_excess_hr": 0.2652
+          },
+          "3": {
+            "n_traders": 36,
+            "avg_aggregate_excess_hr": 0.2661
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 78,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 31,
+              "hr": 0.8387,
+              "excess_hr_pp": 47.1
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 47,
+              "hr": 0.5106,
+              "excess_hr_pp": 14.29
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 76,
+              "hr": 0.6447,
+              "excess_hr_pp": 27.7
+            },
+            "1 Tier1": {
+              "n": 2,
+              "hr": 0.5,
+              "excess_hr_pp": 13.23
+            },
+            "2+ Tier1": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 78,
+            "flat_pnl": 2200.0,
+            "tier_weighted_pnl": 2931.43,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 33.2
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0x8f69269039...",
+              "rank": 34,
+              "agg_excess_hr": 0.1696,
+              "sw_excess_hrs": [
+                0.2222,
+                0.3108,
+                0.141
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0x4ad6cadefa...",
+              "rank": 1,
+              "agg_excess_hr": 0.6427,
+              "sw_excess_hrs": [
+                null,
+                0.8108,
+                0.5959
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x4e8bd6fbcd...",
+              "rank": 3,
+              "agg_excess_hr": 0.586,
+              "sw_excess_hrs": [
+                null,
+                0.3108,
+                0.6115
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xe21659928b...",
+              "rank": 9,
+              "agg_excess_hr": 0.3744,
+              "sw_excess_hrs": [
+                null,
+                0.8108,
+                0.299
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x1f2df906c5...",
+              "rank": 21,
+              "agg_excess_hr": 0.2574,
+              "sw_excess_hrs": [
+                0.3889,
+                0.4775,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x68df140335...",
+              "rank": 24,
+              "agg_excess_hr": 0.2388,
+              "sw_excess_hrs": [
+                0.3889,
+                null,
+                0.1969
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0x6ffb4354cb...",
+              "rank": 2,
+              "agg_excess_hr": 0.5949,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5401
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x132642aac6...",
+              "rank": 4,
+              "agg_excess_hr": 0.4574,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4115
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x2fbcb1b209...",
+              "rank": 5,
+              "agg_excess_hr": 0.4574,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4115
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x3078db4a97...",
+              "rank": 6,
+              "agg_excess_hr": 0.4266,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.3615
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x2315f80ffc...",
+              "rank": 7,
+              "agg_excess_hr": 0.4074,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.3449
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.4432,
+        "test_base_rate": 0.6537,
+        "n_test_markets": 1441,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 2,
+          "2": 21,
+          "3": 27
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 2,
+            "avg_aggregate_excess_hr": 0.3965
+          },
+          "2": {
+            "n_traders": 21,
+            "avg_aggregate_excess_hr": 0.3733
+          },
+          "3": {
+            "n_traders": 27,
+            "avg_aggregate_excess_hr": 0.3638
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 61,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 40,
+              "hr": 0.825,
+              "excess_hr_pp": 17.13
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 21,
+              "hr": 0.4762,
+              "excess_hr_pp": -17.75
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 46,
+              "hr": 0.6522,
+              "excess_hr_pp": -0.15
+            },
+            "1 Tier1": {
+              "n": 14,
+              "hr": 0.9286,
+              "excess_hr_pp": 27.49
+            },
+            "2+ Tier1": {
+              "n": 1,
+              "hr": 0.0,
+              "excess_hr_pp": -65.37
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 61,
+            "flat_pnl": 2500.0,
+            "tier_weighted_pnl": 3468.64,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 38.7
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0xee00ba338c...",
+              "rank": 13,
+              "agg_excess_hr": 0.4029,
+              "sw_excess_hrs": [
+                0.6423,
+                0.5267,
+                0.3018
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x6ffb4354cb...",
+              "rank": 15,
+              "agg_excess_hr": 0.3901,
+              "sw_excess_hrs": [
+                0.6423,
+                0.2378,
+                0.5161
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0xce6d28f3dd...",
+              "rank": 1,
+              "agg_excess_hr": 0.4901,
+              "sw_excess_hrs": [
+                null,
+                0.5156,
+                0.4685
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x4e8bd6fbcd...",
+              "rank": 2,
+              "agg_excess_hr": 0.4799,
+              "sw_excess_hrs": [
+                0.4995,
+                0.6267,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x2615e0c509...",
+              "rank": 4,
+              "agg_excess_hr": 0.4659,
+              "sw_excess_hrs": [
+                null,
+                0.5433,
+                0.4161
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x6828e04b46...",
+              "rank": 9,
+              "agg_excess_hr": 0.4139,
+              "sw_excess_hrs": [
+                null,
+                0.6267,
+                0.3161
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xe38ef5d1b9...",
+              "rank": 10,
+              "agg_excess_hr": 0.4139,
+              "sw_excess_hrs": [
+                null,
+                0.6267,
+                0.0161
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0xd3776b51dd...",
+              "rank": 3,
+              "agg_excess_hr": 0.4735,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4252
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xbf6fba3c14...",
+              "rank": 5,
+              "agg_excess_hr": 0.4568,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5161
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xf508c2ce8c...",
+              "rank": 6,
+              "agg_excess_hr": 0.4457,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.405
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x3493f828a2...",
+              "rank": 7,
+              "agg_excess_hr": 0.4139,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.3494
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x2a019dc008...",
+              "rank": 8,
+              "agg_excess_hr": 0.4139,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.3732
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.507,
+        "test_base_rate": 0.4558,
+        "n_test_markets": 13538,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 1,
+          "2": 17,
+          "3": 32
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 1,
+            "avg_aggregate_excess_hr": 0.368
+          },
+          "2": {
+            "n_traders": 17,
+            "avg_aggregate_excess_hr": 0.3918
+          },
+          "3": {
+            "n_traders": 32,
+            "avg_aggregate_excess_hr": 0.3998
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 11,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 11,
+              "hr": 1.0,
+              "excess_hr_pp": 54.42
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 11,
+              "hr": 1.0,
+              "excess_hr_pp": 54.42
+            },
+            "1 Tier1": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "2+ Tier1": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 11,
+            "flat_pnl": 1100.0,
+            "tier_weighted_pnl": 1166.67,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 6.1
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0xb96057aeba...",
+              "rank": 36,
+              "agg_excess_hr": 0.368,
+              "sw_excess_hrs": [
+                0.3828,
+                0.3788,
+                0.5253
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0xcdb1f1ef82...",
+              "rank": 2,
+              "agg_excess_hr": 0.4667,
+              "sw_excess_hrs": [
+                null,
+                0.3788,
+                0.4698
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x908ad3d16d...",
+              "rank": 4,
+              "agg_excess_hr": 0.4636,
+              "sw_excess_hrs": [
+                null,
+                0.3788,
+                0.4912
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xd1c9b41b43...",
+              "rank": 10,
+              "agg_excess_hr": 0.4375,
+              "sw_excess_hrs": [
+                0.5703,
+                0.3788,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xafb8523f97...",
+              "rank": 14,
+              "agg_excess_hr": 0.4263,
+              "sw_excess_hrs": [
+                null,
+                0.3199,
+                0.4484
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xc35049bc7b...",
+              "rank": 20,
+              "agg_excess_hr": 0.4041,
+              "sw_excess_hrs": [
+                null,
+                0.0038,
+                0.4983
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0xd14015609f...",
+              "rank": 1,
+              "agg_excess_hr": 0.4815,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5138
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x39bbcfb540...",
+              "rank": 3,
+              "agg_excess_hr": 0.4652,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4975
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x5c8997e0c8...",
+              "rank": 5,
+              "agg_excess_hr": 0.4627,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.495
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x07e0bdbc1f...",
+              "rank": 6,
+              "agg_excess_hr": 0.4585,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4908
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xcd3675803a...",
+              "rank": 7,
+              "agg_excess_hr": 0.4489,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4813
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      }
+    ],
+    "Tennis": [
+      {
+        "fold": "2025-07-01",
+        "train_base_rate": 0.2239,
+        "test_base_rate": 0.2476,
+        "n_test_markets": 517,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 2,
+          "2": 10,
+          "3": 38
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 2,
+            "avg_aggregate_excess_hr": 0.4308
+          },
+          "2": {
+            "n_traders": 10,
+            "avg_aggregate_excess_hr": 0.431
+          },
+          "3": {
+            "n_traders": 38,
+            "avg_aggregate_excess_hr": 0.4437
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 66,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 20,
+              "hr": 0.6,
+              "excess_hr_pp": 35.24
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 46,
+              "hr": 0.7609,
+              "excess_hr_pp": 51.33
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 44,
+              "hr": 0.75,
+              "excess_hr_pp": 50.24
+            },
+            "1 Tier1": {
+              "n": 20,
+              "hr": 0.65,
+              "excess_hr_pp": 40.24
+            },
+            "2+ Tier1": {
+              "n": 2,
+              "hr": 0.5,
+              "excess_hr_pp": 25.24
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 66,
+            "flat_pnl": 2800.0,
+            "tier_weighted_pnl": 3063.33,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 9.4
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0xee00ba338c...",
+              "rank": 17,
+              "agg_excess_hr": 0.4718,
+              "sw_excess_hrs": [
+                0.4058,
+                0.8923,
+                0.4234
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x27653cd5aa...",
+              "rank": 29,
+              "agg_excess_hr": 0.3898,
+              "sw_excess_hrs": [
+                0.5308,
+                0.3923,
+                0.362
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0xad9de61ec4...",
+              "rank": 8,
+              "agg_excess_hr": 0.5761,
+              "sw_excess_hrs": [
+                0.7808,
+                null,
+                0.7568
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xc613e6707b...",
+              "rank": 9,
+              "agg_excess_hr": 0.5539,
+              "sw_excess_hrs": [
+                null,
+                0.2673,
+                0.6496
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x742ff6df87...",
+              "rank": 13,
+              "agg_excess_hr": 0.4904,
+              "sw_excess_hrs": [
+                null,
+                0.559,
+                0.484
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xd34bf81524...",
+              "rank": 21,
+              "agg_excess_hr": 0.4428,
+              "sw_excess_hrs": [
+                0.7808,
+                -0.1077,
+                0.7568
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xe25c28438f...",
+              "rank": 23,
+              "agg_excess_hr": 0.4232,
+              "sw_excess_hrs": [
+                0.2808,
+                null,
+                0.4491
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0x3e774311e7...",
+              "rank": 1,
+              "agg_excess_hr": 0.6333,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.6139
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x573229f597...",
+              "rank": 2,
+              "agg_excess_hr": 0.6333,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.6139
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xc7ed9805c6...",
+              "rank": 3,
+              "agg_excess_hr": 0.6333,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.6139
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xa7b3dd59e4...",
+              "rank": 4,
+              "agg_excess_hr": 0.6095,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5901
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xf8d4a7a380...",
+              "rank": 5,
+              "agg_excess_hr": 0.5857,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5663
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      },
+      {
+        "fold": "2025-10-01",
+        "train_base_rate": 0.2836,
+        "test_base_rate": 0.3955,
+        "n_test_markets": 928,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 4,
+          "2": 19,
+          "3": 27
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 4,
+            "avg_aggregate_excess_hr": 0.5193
+          },
+          "2": {
+            "n_traders": 19,
+            "avg_aggregate_excess_hr": 0.5134
+          },
+          "3": {
+            "n_traders": 27,
+            "avg_aggregate_excess_hr": 0.544
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 7,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 2,
+              "hr": 1.0,
+              "excess_hr_pp": 60.45
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 5,
+              "hr": 0.8,
+              "excess_hr_pp": 40.45
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 6,
+              "hr": 0.8333,
+              "excess_hr_pp": 43.79
+            },
+            "1 Tier1": {
+              "n": 1,
+              "hr": 1.0,
+              "excess_hr_pp": 60.45
+            },
+            "2+ Tier1": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 7,
+            "flat_pnl": 500.0,
+            "tier_weighted_pnl": 600.0,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 20.0
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0x6ffb4354cb...",
+              "rank": 10,
+              "agg_excess_hr": 0.5792,
+              "sw_excess_hrs": [
+                0.8077,
+                0.5196,
+                0.561
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0xf8d4a7a380...",
+              "rank": 15,
+              "agg_excess_hr": 0.5498,
+              "sw_excess_hrs": [
+                0.8077,
+                0.5729,
+                0.4927
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0xa89677c4ca...",
+              "rank": 34,
+              "agg_excess_hr": 0.5021,
+              "sw_excess_hrs": [
+                0.3077,
+                0.6392,
+                0.3388
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0xa486f1e84d...",
+              "rank": 50,
+              "agg_excess_hr": 0.4462,
+              "sw_excess_hrs": [
+                0.3077,
+                0.4646,
+                0.4579
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0x9a753d1206...",
+              "rank": 1,
+              "agg_excess_hr": 0.6764,
+              "sw_excess_hrs": [
+                null,
+                0.7503,
+                0.6096
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x3e774311e7...",
+              "rank": 9,
+              "agg_excess_hr": 0.5964,
+              "sw_excess_hrs": [
+                null,
+                0.6551,
+                0.4221
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x7c1049ce7e...",
+              "rank": 12,
+              "agg_excess_hr": 0.5736,
+              "sw_excess_hrs": [
+                null,
+                0.5003,
+                0.6721
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xc9228fb6f7...",
+              "rank": 17,
+              "agg_excess_hr": 0.5498,
+              "sw_excess_hrs": [
+                null,
+                0.7503,
+                0.1721
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x4aefed7784...",
+              "rank": 21,
+              "agg_excess_hr": 0.5346,
+              "sw_excess_hrs": [
+                null,
+                0.6253,
+                0.6721
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0xd47086b98d...",
+              "rank": 2,
+              "agg_excess_hr": 0.6395,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5952
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xee035898c9...",
+              "rank": 3,
+              "agg_excess_hr": 0.6255,
+              "sw_excess_hrs": [
+                null,
+                0.6503,
+                null
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0xaacf24a7c9...",
+              "rank": 4,
+              "agg_excess_hr": 0.6164,
+              "sw_excess_hrs": [
+                null,
+                0.6503,
+                null
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x334932d9cb...",
+              "rank": 5,
+              "agg_excess_hr": 0.6164,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5721
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x31b5d60d82...",
+              "rank": 6,
+              "agg_excess_hr": 0.6164,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.5721
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      },
+      {
+        "fold": "2026-01-01",
+        "train_base_rate": 0.3476,
+        "test_base_rate": 0.453,
+        "n_test_markets": 9474,
+        "pool_size": 50,
+        "tier_distribution": {
+          "1": 6,
+          "2": 16,
+          "3": 28
+        },
+        "tier_aggregate_stats": {
+          "1": {
+            "n_traders": 6,
+            "avg_aggregate_excess_hr": 0.5329
+          },
+          "2": {
+            "n_traders": 16,
+            "avg_aggregate_excess_hr": 0.512
+          },
+          "3": {
+            "n_traders": 28,
+            "avg_aggregate_excess_hr": 0.5075
+          }
+        },
+        "tier_hr_analysis": {
+          "n_consensus_markets": 2,
+          "avg_tier_bucket_hr": {
+            "elite (avg_tier <= 1.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            },
+            "strong (1.5 < avg_tier <= 2.5)": {
+              "n": 1,
+              "hr": 1.0,
+              "excess_hr_pp": 54.7
+            },
+            "moderate (2.5 < avg_tier <= 3.5)": {
+              "n": 1,
+              "hr": 1.0,
+              "excess_hr_pp": 54.7
+            },
+            "weak (avg_tier > 3.5)": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "n_tier1_in_consensus_hr": {
+            "0 Tier1": {
+              "n": 1,
+              "hr": 1.0,
+              "excess_hr_pp": 54.7
+            },
+            "1 Tier1": {
+              "n": 1,
+              "hr": 1.0,
+              "excess_hr_pp": 54.7
+            },
+            "2+ Tier1": {
+              "n": 0,
+              "hr": null,
+              "excess_hr_pp": null
+            }
+          },
+          "sizing_sim": {
+            "n_signals": 2,
+            "flat_pnl": 200.0,
+            "tier_weighted_pnl": 254.17,
+            "flat_avg_size": 100.0,
+            "tier_weighted_uplift_pct": 27.1
+          }
+        },
+        "top_traders_by_tier": {
+          "1": [
+            {
+              "trader": "0x227e059f84...",
+              "rank": 1,
+              "agg_excess_hr": 0.642,
+              "sw_excess_hrs": [
+                0.7683,
+                0.573,
+                0.5966
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x9a753d1206...",
+              "rank": 2,
+              "agg_excess_hr": 0.6246,
+              "sw_excess_hrs": [
+                0.7128,
+                0.5864,
+                0.5966
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x334932d9cb...",
+              "rank": 7,
+              "agg_excess_hr": 0.5524,
+              "sw_excess_hrs": [
+                0.6433,
+                0.5864,
+                0.4966
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x31b5d60d82...",
+              "rank": 41,
+              "agg_excess_hr": 0.4649,
+              "sw_excess_hrs": [
+                0.6255,
+                0.4435,
+                0.0966
+              ],
+              "n_positive_windows": 3
+            },
+            {
+              "trader": "0x6a9743e787...",
+              "rank": 42,
+              "agg_excess_hr": 0.4609,
+              "sw_excess_hrs": [
+                0.6255,
+                0.3271,
+                0.5197
+              ],
+              "n_positive_windows": 3
+            }
+          ],
+          "2": [
+            {
+              "trader": "0xd47086b98d...",
+              "rank": 4,
+              "agg_excess_hr": 0.6024,
+              "sw_excess_hrs": [
+                0.3683,
+                0.5864,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x0aa3744338...",
+              "rank": 9,
+              "agg_excess_hr": 0.5524,
+              "sw_excess_hrs": [
+                0.435,
+                0.5864,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x6ffb4354cb...",
+              "rank": 10,
+              "agg_excess_hr": 0.5463,
+              "sw_excess_hrs": [
+                0.5683,
+                0.5586,
+                null
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0xad46366dd2...",
+              "rank": 16,
+              "agg_excess_hr": 0.5274,
+              "sw_excess_hrs": [
+                null,
+                0.5864,
+                0.43
+              ],
+              "n_positive_windows": 2
+            },
+            {
+              "trader": "0x55fb495a92...",
+              "rank": 19,
+              "agg_excess_hr": 0.5274,
+              "sw_excess_hrs": [
+                null,
+                0.3864,
+                0.5966
+              ],
+              "n_positive_windows": 2
+            }
+          ],
+          "3": [
+            {
+              "trader": "0x465a35c281...",
+              "rank": 3,
+              "agg_excess_hr": 0.6089,
+              "sw_excess_hrs": [
+                null,
+                0.5429,
+                null
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x8f053ac26c...",
+              "rank": 5,
+              "agg_excess_hr": 0.5691,
+              "sw_excess_hrs": [
+                null,
+                0.503,
+                null
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x9b979a0656...",
+              "rank": 6,
+              "agg_excess_hr": 0.5615,
+              "sw_excess_hrs": [
+                0.6683,
+                null,
+                null
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x0554756f09...",
+              "rank": 8,
+              "agg_excess_hr": 0.5524,
+              "sw_excess_hrs": [
+                null,
+                null,
+                0.4855
+              ],
+              "n_positive_windows": 1
+            },
+            {
+              "trader": "0x3e774311e7...",
+              "rank": 11,
+              "agg_excess_hr": 0.5413,
+              "sw_excess_hrs": [
+                0.6572,
+                null,
+                null
+              ],
+              "n_positive_windows": 1
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

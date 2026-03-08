@@ -1,0 +1,1124 @@
+{
+  "hypothesis": "tag-hr-consensus",
+  "round": "3-duckdb",
+  "timestamp": "2026-03-06T16:25:26.630534",
+  "max_hold_hours": 48,
+  "cs_formula": "excess_hr * median_pnl_usd / median_hold_days",
+  "note": "UPPER BOUNDS \u2014 vectorized. Pool filtered by min_excess_hr (swept) and max_pool_entry_price (swept).",
+  "params": {
+    "consensus_n": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "price_ceil": [
+      0.75,
+      1.0
+    ],
+    "min_excess_hr": [
+      0.05,
+      0.1,
+      0.15,
+      0.2
+    ],
+    "max_pool_entry_price": [
+      0.7,
+      0.8,
+      0.9
+    ],
+    "min_trades": 20,
+    "bot_guard": 10000
+  },
+  "verdict": "pending",
+  "tags": {
+    "Esports": {
+      "buy_only_top15": [
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6922,
+          "avg_excess_hr_pp": 19.98,
+          "median_pnl_usd": 206.73,
+          "avg_pnl_usd": 222.72,
+          "avg_hold_hours": 2.33,
+          "total_signals": 421,
+          "signals_per_fold": 140.3,
+          "compounding_score": 424.9273
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.8334,
+          "avg_excess_hr_pp": 42.16,
+          "median_pnl_usd": 93.46,
+          "avg_pnl_usd": 273.43,
+          "avg_hold_hours": 2.5,
+          "total_signals": 105,
+          "signals_per_fold": 52.5,
+          "compounding_score": 378.2655
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.8122,
+          "avg_excess_hr_pp": 31.98,
+          "median_pnl_usd": 81.12,
+          "avg_pnl_usd": 137.71,
+          "avg_hold_hours": 2.33,
+          "total_signals": 327,
+          "signals_per_fold": 109.0,
+          "compounding_score": 266.8426
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.74,
+          "avg_excess_hr_pp": 24.76,
+          "median_pnl_usd": 86.36,
+          "avg_pnl_usd": -120.94,
+          "avg_hold_hours": 2.33,
+          "total_signals": 233,
+          "signals_per_fold": 77.7,
+          "compounding_score": 219.931
+        },
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7332,
+          "avg_excess_hr_pp": 24.08,
+          "median_pnl_usd": 71.51,
+          "avg_pnl_usd": 68.53,
+          "avg_hold_hours": 2.33,
+          "total_signals": 162,
+          "signals_per_fold": 54.0,
+          "compounding_score": 177.1099
+        },
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7185,
+          "avg_excess_hr_pp": 22.61,
+          "median_pnl_usd": 71.55,
+          "avg_pnl_usd": 71.18,
+          "avg_hold_hours": 2.33,
+          "total_signals": 331,
+          "signals_per_fold": 110.3,
+          "compounding_score": 166.4174
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.7417,
+          "avg_excess_hr_pp": 32.99,
+          "median_pnl_usd": 49.63,
+          "avg_pnl_usd": -107.93,
+          "avg_hold_hours": 2.5,
+          "total_signals": 66,
+          "signals_per_fold": 33.0,
+          "compounding_score": 157.1697
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.8734,
+          "avg_excess_hr_pp": 46.16,
+          "median_pnl_usd": 24.91,
+          "avg_pnl_usd": 47.99,
+          "avg_hold_hours": 2.0,
+          "total_signals": 80,
+          "signals_per_fold": 40.0,
+          "compounding_score": 137.9884
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7256,
+          "avg_excess_hr_pp": 23.32,
+          "median_pnl_usd": 49.52,
+          "avg_pnl_usd": -261.44,
+          "avg_hold_hours": 2.33,
+          "total_signals": 171,
+          "signals_per_fold": 57.0,
+          "compounding_score": 118.7802
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7113,
+          "avg_excess_hr_pp": 21.89,
+          "median_pnl_usd": 44.72,
+          "avg_pnl_usd": -218.03,
+          "avg_hold_hours": 2.33,
+          "total_signals": 421,
+          "signals_per_fold": 140.3,
+          "compounding_score": 100.7044
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6687,
+          "avg_excess_hr_pp": 17.63,
+          "median_pnl_usd": 53.92,
+          "avg_pnl_usd": -183.51,
+          "avg_hold_hours": 2.33,
+          "total_signals": 486,
+          "signals_per_fold": 162.0,
+          "compounding_score": 97.7848
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 2,
+          "avg_hr": 0.7237,
+          "avg_excess_hr_pp": 31.19,
+          "median_pnl_usd": 23.51,
+          "avg_pnl_usd": -25.32,
+          "avg_hold_hours": 2.5,
+          "total_signals": 127,
+          "signals_per_fold": 63.5,
+          "compounding_score": 70.4021
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6559,
+          "avg_excess_hr_pp": 16.35,
+          "median_pnl_usd": 40.21,
+          "avg_pnl_usd": 146.64,
+          "avg_hold_hours": 2.67,
+          "total_signals": 421,
+          "signals_per_fold": 140.3,
+          "compounding_score": 59.1758
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.7401,
+          "avg_excess_hr_pp": 32.84,
+          "median_pnl_usd": 11.7,
+          "avg_pnl_usd": -112.57,
+          "avg_hold_hours": 2.0,
+          "total_signals": 275,
+          "signals_per_fold": 137.5,
+          "compounding_score": 46.109
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.624,
+          "avg_excess_hr_pp": 13.16,
+          "median_pnl_usd": 37.85,
+          "avg_pnl_usd": 209.45,
+          "avg_hold_hours": 2.67,
+          "total_signals": 803,
+          "signals_per_fold": 267.7,
+          "compounding_score": 44.8153
+        }
+      ],
+      "directional_top15": [
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.4627,
+          "avg_excess_hr_pp": 5.1,
+          "median_pnl_usd": 9.31,
+          "avg_pnl_usd": 81.76,
+          "avg_hold_hours": 2.5,
+          "total_signals": 84,
+          "signals_per_fold": 42.0,
+          "compounding_score": 4.5563
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4335,
+          "avg_excess_hr_pp": 1.24,
+          "median_pnl_usd": 8.77,
+          "avg_pnl_usd": -150.57,
+          "avg_hold_hours": 3.12,
+          "total_signals": 788,
+          "signals_per_fold": 197.0,
+          "compounding_score": 0.8369
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.4294,
+          "avg_excess_hr_pp": 1.76,
+          "median_pnl_usd": 5.67,
+          "avg_pnl_usd": 75.24,
+          "avg_hold_hours": 3.0,
+          "total_signals": 187,
+          "signals_per_fold": 93.5,
+          "compounding_score": 0.7984
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.3953,
+          "avg_excess_hr_pp": -1.64,
+          "median_pnl_usd": 4.61,
+          "avg_pnl_usd": 48.48,
+          "avg_hold_hours": 2.5,
+          "total_signals": 395,
+          "signals_per_fold": 197.5,
+          "compounding_score": -0.7259
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.4015,
+          "avg_excess_hr_pp": -1.03,
+          "median_pnl_usd": 7.31,
+          "avg_pnl_usd": -0.17,
+          "avg_hold_hours": 2.0,
+          "total_signals": 429,
+          "signals_per_fold": 214.5,
+          "compounding_score": -0.8991
+        },
+        {
+          "params": {
+            "consensus_n": 5,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.3791,
+          "avg_excess_hr_pp": -3.27,
+          "median_pnl_usd": 3.88,
+          "avg_pnl_usd": -9.51,
+          "avg_hold_hours": 2.5,
+          "total_signals": 183,
+          "signals_per_fold": 91.5,
+          "compounding_score": -1.2177
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3704,
+          "avg_excess_hr_pp": -5.06,
+          "median_pnl_usd": 3.61,
+          "avg_pnl_usd": -30.66,
+          "avg_hold_hours": 3.12,
+          "total_signals": 1008,
+          "signals_per_fold": 252.0,
+          "compounding_score": -1.4036
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3774,
+          "avg_excess_hr_pp": -4.37,
+          "median_pnl_usd": 4.67,
+          "avg_pnl_usd": -80.91,
+          "avg_hold_hours": 3.25,
+          "total_signals": 1246,
+          "signals_per_fold": 311.5,
+          "compounding_score": -1.5052
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3773,
+          "avg_excess_hr_pp": -4.37,
+          "median_pnl_usd": 5.05,
+          "avg_pnl_usd": -2.74,
+          "avg_hold_hours": 3.0,
+          "total_signals": 1516,
+          "signals_per_fold": 379.0,
+          "compounding_score": -1.7682
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3839,
+          "avg_excess_hr_pp": -3.71,
+          "median_pnl_usd": 5.01,
+          "avg_pnl_usd": 36.93,
+          "avg_hold_hours": 2.5,
+          "total_signals": 1025,
+          "signals_per_fold": 256.2,
+          "compounding_score": -1.7832
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.3818,
+          "avg_excess_hr_pp": -3.0,
+          "median_pnl_usd": 5.28,
+          "avg_pnl_usd": 7.02,
+          "avg_hold_hours": 2.0,
+          "total_signals": 604,
+          "signals_per_fold": 302.0,
+          "compounding_score": -1.8967
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3832,
+          "avg_excess_hr_pp": -3.78,
+          "median_pnl_usd": 7.59,
+          "avg_pnl_usd": -33.54,
+          "avg_hold_hours": 3.25,
+          "total_signals": 2293,
+          "signals_per_fold": 573.2,
+          "compounding_score": -2.1199
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3778,
+          "avg_excess_hr_pp": -4.32,
+          "median_pnl_usd": 6.33,
+          "avg_pnl_usd": -64.63,
+          "avg_hold_hours": 3.0,
+          "total_signals": 1565,
+          "signals_per_fold": 391.2,
+          "compounding_score": -2.1881
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3895,
+          "avg_excess_hr_pp": -3.15,
+          "median_pnl_usd": 10.62,
+          "avg_pnl_usd": -95.56,
+          "avg_hold_hours": 3.5,
+          "total_signals": 408,
+          "signals_per_fold": 102.0,
+          "compounding_score": -2.2985
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 4,
+          "avg_hr": 0.4034,
+          "avg_excess_hr_pp": -1.76,
+          "median_pnl_usd": 15.68,
+          "avg_pnl_usd": -65.83,
+          "avg_hold_hours": 2.88,
+          "total_signals": 957,
+          "signals_per_fold": 239.2,
+          "compounding_score": -2.3076
+        }
+      ],
+      "n_folds": 5,
+      "fold_base_rates": [
+        {
+          "fold": "2025-01-01",
+          "base": 0.1,
+          "n": 10
+        },
+        {
+          "fold": "2025-04-01",
+          "base": 0.2069,
+          "n": 29
+        },
+        {
+          "fold": "2025-07-01",
+          "base": 0.3677,
+          "n": 223
+        },
+        {
+          "fold": "2025-10-01",
+          "base": 0.6537,
+          "n": 1441
+        },
+        {
+          "fold": "2026-01-01",
+          "base": 0.4558,
+          "n": 13538
+        }
+      ]
+    },
+    "Tennis": {
+      "buy_only_top15": [
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 2,
+          "avg_hr": 0.8572,
+          "avg_excess_hr_pp": 53.56,
+          "median_pnl_usd": 67.69,
+          "avg_pnl_usd": 123.22,
+          "avg_hold_hours": 3.25,
+          "total_signals": 19,
+          "signals_per_fold": 9.5,
+          "compounding_score": 267.7291
+        },
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 2,
+          "avg_hr": 0.8637,
+          "avg_excess_hr_pp": 43.94,
+          "median_pnl_usd": 44.32,
+          "avg_pnl_usd": 55.69,
+          "avg_hold_hours": 2.5,
+          "total_signals": 21,
+          "signals_per_fold": 10.5,
+          "compounding_score": 186.9524
+        },
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.85,
+          "avg_excess_hr_pp": 42.57,
+          "median_pnl_usd": 39.69,
+          "avg_pnl_usd": 53.65,
+          "avg_hold_hours": 2.5,
+          "total_signals": 20,
+          "signals_per_fold": 10.0,
+          "compounding_score": 162.2099
+        },
+        {
+          "params": {
+            "consensus_n": 5,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 2,
+          "avg_hr": 0.7425,
+          "avg_excess_hr_pp": 31.82,
+          "median_pnl_usd": 33.27,
+          "avg_pnl_usd": -11.13,
+          "avg_hold_hours": 2.75,
+          "total_signals": 17,
+          "signals_per_fold": 8.5,
+          "compounding_score": 92.3922
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.8199,
+          "avg_excess_hr_pp": 45.45,
+          "median_pnl_usd": 21.72,
+          "avg_pnl_usd": 37.48,
+          "avg_hold_hours": 3.0,
+          "total_signals": 44,
+          "signals_per_fold": 14.7,
+          "compounding_score": 78.9919
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.8222,
+          "avg_excess_hr_pp": 45.69,
+          "median_pnl_usd": 21.57,
+          "avg_pnl_usd": 36.59,
+          "avg_hold_hours": 3.0,
+          "total_signals": 41,
+          "signals_per_fold": 13.7,
+          "compounding_score": 78.8247
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.8005,
+          "avg_excess_hr_pp": 43.51,
+          "median_pnl_usd": 21.32,
+          "avg_pnl_usd": 67.96,
+          "avg_hold_hours": 3.33,
+          "total_signals": 107,
+          "signals_per_fold": 35.7,
+          "compounding_score": 66.7889
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7262,
+          "avg_excess_hr_pp": 36.08,
+          "median_pnl_usd": 23.39,
+          "avg_pnl_usd": 54.18,
+          "avg_hold_hours": 3.17,
+          "total_signals": 43,
+          "signals_per_fold": 14.3,
+          "compounding_score": 63.9591
+        },
+        {
+          "params": {
+            "consensus_n": 4,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6508,
+          "avg_excess_hr_pp": 28.54,
+          "median_pnl_usd": 33.82,
+          "avg_pnl_usd": 245.16,
+          "avg_hold_hours": 3.67,
+          "total_signals": 27,
+          "signals_per_fold": 9.0,
+          "compounding_score": 63.186
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7815,
+          "avg_excess_hr_pp": 41.62,
+          "median_pnl_usd": 17.78,
+          "avg_pnl_usd": 66.51,
+          "avg_hold_hours": 3.0,
+          "total_signals": 171,
+          "signals_per_fold": 57.0,
+          "compounding_score": 59.2088
+        },
+        {
+          "params": {
+            "consensus_n": 5,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 2,
+          "avg_hr": 0.7445,
+          "avg_excess_hr_pp": 32.02,
+          "median_pnl_usd": 21.05,
+          "avg_pnl_usd": -69.53,
+          "avg_hold_hours": 3.0,
+          "total_signals": 14,
+          "signals_per_fold": 7.0,
+          "compounding_score": 53.9217
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7583,
+          "avg_excess_hr_pp": 39.29,
+          "median_pnl_usd": 16.81,
+          "avg_pnl_usd": 19.64,
+          "avg_hold_hours": 3.0,
+          "total_signals": 181,
+          "signals_per_fold": 60.3,
+          "compounding_score": 52.8382
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 3,
+          "avg_hr": 0.7103,
+          "avg_excess_hr_pp": 34.5,
+          "median_pnl_usd": 15.22,
+          "avg_pnl_usd": 18.99,
+          "avg_hold_hours": 3.33,
+          "total_signals": 87,
+          "signals_per_fold": 29.0,
+          "compounding_score": 37.8005
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6919,
+          "avg_excess_hr_pp": 32.65,
+          "median_pnl_usd": 14.59,
+          "avg_pnl_usd": 3.24,
+          "avg_hold_hours": 3.33,
+          "total_signals": 89,
+          "signals_per_fold": 29.7,
+          "compounding_score": 34.3114
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.6656,
+          "avg_excess_hr_pp": 30.02,
+          "median_pnl_usd": 17.15,
+          "avg_pnl_usd": 58.55,
+          "avg_hold_hours": 3.67,
+          "total_signals": 187,
+          "signals_per_fold": 62.3,
+          "compounding_score": 33.6942
+        }
+      ],
+      "directional_top15": [
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3665,
+          "avg_excess_hr_pp": 8.81,
+          "median_pnl_usd": 16.45,
+          "avg_pnl_usd": 35.56,
+          "avg_hold_hours": 3.5,
+          "total_signals": 588,
+          "signals_per_fold": 117.6,
+          "compounding_score": 9.9349
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3602,
+          "avg_excess_hr_pp": 8.18,
+          "median_pnl_usd": 16.72,
+          "avg_pnl_usd": 39.37,
+          "avg_hold_hours": 3.6,
+          "total_signals": 1238,
+          "signals_per_fold": 247.6,
+          "compounding_score": 9.1143
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3547,
+          "avg_excess_hr_pp": 2.59,
+          "median_pnl_usd": 109.87,
+          "avg_pnl_usd": 165.81,
+          "avg_hold_hours": 7.5,
+          "total_signals": 487,
+          "signals_per_fold": 121.8,
+          "compounding_score": 9.0974
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3526,
+          "avg_excess_hr_pp": 7.42,
+          "median_pnl_usd": 17.35,
+          "avg_pnl_usd": 49.66,
+          "avg_hold_hours": 3.7,
+          "total_signals": 1000,
+          "signals_per_fold": 200.0,
+          "compounding_score": 8.3473
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.353,
+          "avg_excess_hr_pp": 7.46,
+          "median_pnl_usd": 14.68,
+          "avg_pnl_usd": 38.1,
+          "avg_hold_hours": 3.5,
+          "total_signals": 1531,
+          "signals_per_fold": 306.2,
+          "compounding_score": 7.5033
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3459,
+          "avg_excess_hr_pp": 6.75,
+          "median_pnl_usd": 15.19,
+          "avg_pnl_usd": 33.08,
+          "avg_hold_hours": 3.5,
+          "total_signals": 646,
+          "signals_per_fold": 129.2,
+          "compounding_score": 7.0244
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3412,
+          "avg_excess_hr_pp": 6.27,
+          "median_pnl_usd": 16.8,
+          "avg_pnl_usd": 42.36,
+          "avg_hold_hours": 3.7,
+          "total_signals": 1021,
+          "signals_per_fold": 204.2,
+          "compounding_score": 6.8342
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3494,
+          "avg_excess_hr_pp": 7.1,
+          "median_pnl_usd": 13.54,
+          "avg_pnl_usd": 32.14,
+          "avg_hold_hours": 3.5,
+          "total_signals": 1243,
+          "signals_per_fold": 248.6,
+          "compounding_score": 6.5879
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 5,
+            "max_pool_entry_price": 0.8
+          },
+          "n_folds": 5,
+          "avg_hr": 0.3427,
+          "avg_excess_hr_pp": 6.43,
+          "median_pnl_usd": 10.17,
+          "avg_pnl_usd": 32.86,
+          "avg_hold_hours": 3.4,
+          "total_signals": 1537,
+          "signals_per_fold": 307.4,
+          "compounding_score": 4.6156
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3328,
+          "avg_excess_hr_pp": 0.4,
+          "median_pnl_usd": 108.21,
+          "avg_pnl_usd": 176.4,
+          "avg_hold_hours": 7.75,
+          "total_signals": 899,
+          "signals_per_fold": 224.8,
+          "compounding_score": 1.3488
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 15,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.3763,
+          "avg_excess_hr_pp": 1.09,
+          "median_pnl_usd": 5.7,
+          "avg_pnl_usd": 21.71,
+          "avg_hold_hours": 3.33,
+          "total_signals": 626,
+          "signals_per_fold": 208.7,
+          "compounding_score": 0.4473
+        },
+        {
+          "params": {
+            "consensus_n": 5,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.3701,
+          "avg_excess_hr_pp": 0.47,
+          "median_pnl_usd": 4.02,
+          "avg_pnl_usd": 16.46,
+          "avg_hold_hours": 3.0,
+          "total_signals": 526,
+          "signals_per_fold": 175.3,
+          "compounding_score": 0.1524
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 20,
+            "max_pool_entry_price": 0.9
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3314,
+          "avg_excess_hr_pp": 0.25,
+          "median_pnl_usd": 13.33,
+          "avg_pnl_usd": 62.15,
+          "avg_hold_hours": 7.25,
+          "total_signals": 396,
+          "signals_per_fold": 99.0,
+          "compounding_score": 0.1126
+        },
+        {
+          "params": {
+            "consensus_n": 3,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 3,
+          "avg_hr": 0.3662,
+          "avg_excess_hr_pp": 0.09,
+          "median_pnl_usd": 3.5,
+          "avg_pnl_usd": 14.16,
+          "avg_hold_hours": 3.17,
+          "total_signals": 912,
+          "signals_per_fold": 304.0,
+          "compounding_score": 0.023
+        },
+        {
+          "params": {
+            "consensus_n": 2,
+            "price_ceil": 0.75,
+            "min_excess_hr_pp": 10,
+            "max_pool_entry_price": 0.7
+          },
+          "n_folds": 4,
+          "avg_hr": 0.3288,
+          "avg_excess_hr_pp": -0.01,
+          "median_pnl_usd": 105.23,
+          "avg_pnl_usd": 165.23,
+          "avg_hold_hours": 7.75,
+          "total_signals": 1115,
+          "signals_per_fold": 278.8,
+          "compounding_score": -0.0163
+        }
+      ],
+      "n_folds": 5,
+      "fold_base_rates": [
+        {
+          "fold": "2025-01-01",
+          "base": 0.2192,
+          "n": 73
+        },
+        {
+          "fold": "2025-04-01",
+          "base": 0.0769,
+          "n": 39
+        },
+        {
+          "fold": "2025-07-01",
+          "base": 0.2476,
+          "n": 517
+        },
+        {
+          "fold": "2025-10-01",
+          "base": 0.3955,
+          "n": 928
+        },
+        {
+          "fold": "2026-01-01",
+          "base": 0.453,
+          "n": 9474
+        }
+      ]
+    }
+  }
+}

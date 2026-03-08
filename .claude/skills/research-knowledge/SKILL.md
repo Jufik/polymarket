@@ -232,13 +232,15 @@ After completing a research task, validate knowledge consistency:
    └── Surface CRITICAL/WARNING to user
 
 2. DISCOVER (vectorized, cheap)
-   ├── CH SQL parameter sweeps
+   ├── DuckDB parameter sweeps (primary, ~1500x faster than CH)
+   ├── CH SQL only for classifications / live data
    ├── Use knowledge/queries/ for base queries
    ├── Report results as UPPER BOUNDS
    └── Flag surprises → Phase 3 enrichment
 
-3. VALIDATE (tick-by-tick, expensive)
-   ├── ReplayRunner with real trades
+3. VALIDATE (tick-by-tick, moderate)
+   ├── SyncReplayRunner with Parquet snapshot trades
+   ├── run_fast_backtest() or direct SyncReplayRunner
    ├── Apply ALL loaded CRITICAL admonitions
    ├── Compare with vectorized — expect 20-40pp degradation
    └── Flag surprises → Phase 3 enrichment
@@ -251,7 +253,7 @@ After completing a research task, validate knowledge consistency:
 
 5. DEPLOY (production code)
    ├── Strategy protocol implementation
-   ├── Provider with CH-backed features
+   ├── Provider with DuckDB features (research) or CH features (live)
    ├── TOML config + CLI registration
    └── Verify all CRITICAL admonitions are addressed in code
 ```
