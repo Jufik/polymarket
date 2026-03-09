@@ -1,0 +1,37 @@
+# Crypto GBM mid-window repricing — paper execution config
+# Watches BTC exchange prices during PM 5m/15m "Up or Down" windows,
+# computes GBM fair value, buys underpriced side when PM lags.
+
+[strategy.crypto_gbm]
+enabled = true
+mode = "paper_dev"
+capital_usd = 500
+max_position_usd = 50
+max_open_positions = 20
+cooldown_s = 0
+features = ["crypto_windows", "exchange_prices"]
+
+[strategy.crypto_gbm.params]
+threshold = 0.10
+base_bet_usd = 50
+min_sigma = 1e-7
+max_spread = 0.04
+min_time_remaining_min = 2.0
+skip_minute_zero = true
+fee_pct = 0.03
+min_gbm_deviation = 0.05
+primary_exchange = "BINANCE"
+primary_symbol = "BTC-USDT"
+
+[provider.crypto_windows]
+enabled = true
+refresh_interval_s = 60
+
+[provider.exchange_prices]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.exchange_prices.params]
+primary_exchange = "BINANCE"
+primary_symbol = "BTC-USDT"
+sigma_lookback_min = 1440
