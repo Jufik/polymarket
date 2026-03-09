@@ -1,0 +1,186 @@
+{
+  "hypothesis": "crypto-scalp",
+  "timestamp": "2026-03-08T08:25:28Z",
+  "verdict": "promising",
+  "phase": "phase0_gbm_calibration",
+  "note": "UPPER BOUNDS — these are vectorized results from Binance 1m candle data, NOT from Polymarket trade flow. Basis risk vs Chainlink oracle not accounted for.",
+  "universe": {
+    "data_source": "Binance BTCUSDT 1m klines",
+    "total_5m_windows": 8640,
+    "total_15m_windows": 2879,
+    "windows_per_day": 288,
+    "date_range": ["2026-02-06", "2026-03-08"],
+    "n_days": 30,
+    "assets": ["BTCUSDT"]
+  },
+  "base_rates": {
+    "5m_up_pct": 0.5068,
+    "5m_down_pct": 0.4932,
+    "15m_up_pct": 0.5099,
+    "15m_down_pct": 0.4901,
+    "note": "Near 50/50 — BTC 5-min moves are essentially a fair coin over 30 days"
+  },
+  "gbm_calibration": {
+    "slope": 0.9406,
+    "intercept": 0.0371,
+    "r_squared": 0.2185,
+    "brier_score_gbm": 0.19562,
+    "brier_score_naive": 0.24995,
+    "brier_skill_score": 0.2174,
+    "verdict": "WELL_CALIBRATED",
+    "notes": "Slope 0.94 is close to 1.0. GBM slightly over-weights current move (mild mean-reversion bias), but not exploitable in isolation. At t=2 min, buckets are well-calibrated across all return levels — no systematic GBM mispricing."
+  },
+  "feature_significance": {
+    "momentum_5m": {"chi2": 107.67, "p_val": 0.0, "significant": true, "max_accuracy": 0.5882},
+    "momentum_15m": {"chi2": 18.68, "p_val": 0.0003, "significant": true, "max_accuracy": 0.5382},
+    "volume_ratio": {"chi2": 9.48, "p_val": 0.0235, "significant": true, "max_accuracy": 0.5299},
+    "taker_buy_ratio": {"chi2": 5.87, "p_val": 0.118, "significant": false, "max_accuracy": 0.5248},
+    "volatility_regime": {"chi2": 4.82, "p_val": 0.186, "significant": false, "max_accuracy": 0.5192},
+    "best_feature": "momentum_5m",
+    "key_finding": "Prior 5-min momentum is by far the strongest predictor. Top Q (positive momentum) achieves 58.8% UP accuracy. Bottom Q (negative momentum) achieves 56.7% DOWN accuracy. Both exceed the 53% profitability threshold."
+  },
+  "top_conditions": [
+    {
+      "rank": 1,
+      "condition": "Strong UP momentum (top Q mom_5m)",
+      "direction": "UP",
+      "hit_rate": 0.5882,
+      "vs_base_pp": 8.14,
+      "e_pnl_per_dollar": 0.0732,
+      "n_signals": 2159,
+      "signals_per_day": 72,
+      "fragile": null,
+      "notes": "Q4 of prior 5m return: return > +0.09%. Extremely significant (chi2=107.67, p<0.001)."
+    },
+    {
+      "rank": 2,
+      "condition": "High taker buy + UP momentum",
+      "direction": "UP",
+      "hit_rate": 0.5787,
+      "vs_base_pp": 7.18,
+      "e_pnl_per_dollar": 0.0636,
+      "n_signals": 1049,
+      "signals_per_day": 35,
+      "fragile": null,
+      "notes": "Combining top-Q taker buy ratio AND top-Q 5m momentum. Smaller universe but concentrated signal."
+    },
+    {
+      "rank": 3,
+      "condition": "Low taker buy + DN momentum",
+      "direction": "DN",
+      "hit_rate": 0.5703,
+      "vs_base_pp": 6.35,
+      "e_pnl_per_dollar": 0.0553,
+      "n_signals": 1031,
+      "signals_per_day": 34,
+      "fragile": null,
+      "notes": "Symmetric DN signal. Buy NO when prior momentum negative AND low taker pressure."
+    },
+    {
+      "rank": 4,
+      "condition": "High vol + DN momentum",
+      "direction": "DN",
+      "hit_rate": 0.5687,
+      "vs_base_pp": 6.18,
+      "e_pnl_per_dollar": 0.0537,
+      "n_signals": 728,
+      "signals_per_day": 24,
+      "fragile": null,
+      "notes": "High volume spike + negative 5m momentum. Smaller n but good hit rate."
+    },
+    {
+      "rank": 5,
+      "condition": "Strong DN momentum (bot Q mom_5m)",
+      "direction": "DN",
+      "hit_rate": 0.5674,
+      "vs_base_pp": 6.06,
+      "e_pnl_per_dollar": 0.0524,
+      "n_signals": 2159,
+      "signals_per_day": 72,
+      "fragile": null,
+      "notes": "Q1 of prior 5m return: return < -0.08%. Strong momentum continuation in both directions."
+    }
+  ],
+  "alpha_estimate_upper_bound": {
+    "best_accuracy": 0.5882,
+    "gross_edge_pct": 8.82,
+    "taker_fee_pct": 1.5,
+    "net_edge_pct": 7.32,
+    "windows_per_day": 288,
+    "qualifying_signals_per_day": 72,
+    "daily_pnl_per_dollar_trade": 5.27,
+    "daily_pnl_per_100_trade": 527,
+    "caveats": [
+      "Binance candles ≠ Chainlink oracle — basis risk unquantified",
+      "Signal uses prior 5-min window close as timing anchor — need to verify alignment with Polymarket window start",
+      "30-day sample may not capture regime changes",
+      "Polymarket 5-min market liquidity and spread costs not modeled",
+      "Look-ahead: entry at window open, feature computed from prior window — timing feasible but needs verification",
+      "Momentum continuation is well-known; question is whether Polymarket odds already price it in"
+    ]
+  },
+  "gbm_vs_reality": {
+    "verdict": "GBM IS WELL-CALIBRATED at t=2 min",
+    "key_finding": "No bucket shows >5pp GBM mispricing. Actual outcomes closely match GBM predictions across all return levels. Brier skill score of 0.217 means GBM explains ~22% of outcome variance (good for 5-min prediction).",
+    "implication": "If Polymarket market makers use GBM pricing, there is NO systematic mispricing from the GBM model itself. Alpha must come from MOMENTUM persistence, not from GBM model error.",
+    "slope_interpretation": "slope=0.94 suggests very mild mean-reversion (GBM slightly over-predicts extreme outcomes). Not exploitable standalone."
+  },
+  "sell_dual_test": {
+    "applicable": false,
+    "reason": "This is a pure price-prediction hypothesis, not a copy-trade hypothesis. No SELL/BUY distinction applies. Signal is directional (BUY UP or BUY DN market contracts) based on momentum features."
+  },
+  "spawned_ideas": [
+    {
+      "id": "crypto-scalp-eth",
+      "title": "Same analysis on ETHUSDT and SOLUSDT",
+      "rationale": "Data already available. ETH/SOL may have different momentum persistence characteristics.",
+      "priority": "medium"
+    },
+    {
+      "id": "chainlink-oracle-calibration",
+      "title": "Use Chainlink BTC/USD oracle data directly",
+      "rationale": "Polymarket resolves on Chainlink, not Binance. Basis risk between Binance and Chainlink is unquantified. Need to verify momentum signal holds on oracle data.",
+      "priority": "high"
+    },
+    {
+      "id": "polymarket-odds-momentum",
+      "title": "Test whether Polymarket odds already price in momentum",
+      "rationale": "If market makers observe BTC price mid-window and update odds, the 5-min contract may already reflect momentum. Check live order flow.",
+      "priority": "high"
+    },
+    {
+      "id": "crypto-scalp-15m",
+      "title": "Test 15-minute crypto prediction markets",
+      "rationale": "15m windows show similar momentum signal (Q4 = 53.8%). Longer windows may have better liquidity and less execution risk.",
+      "priority": "medium"
+    },
+    {
+      "id": "hour-of-day-filter",
+      "title": "Add hour-of-day filter to momentum signal",
+      "rationale": "Hour 15 UTC shows 56.9% Up rate vs base. US market open hours (13-16 UTC) may have stronger momentum. Combine with momentum filter.",
+      "priority": "low"
+    }
+  ],
+  "knowledge_captures": [
+    {
+      "topic": "BTC 5-min base rates",
+      "finding": "5-min BTC Up/Down is nearly 50/50 (50.68% Up over 30 days). Do not assume 62% NO base rate for crypto scalp markets — that applies only to non-crypto Polymarket yes/no markets."
+    },
+    {
+      "topic": "GBM calibration quality",
+      "finding": "Standard GBM (zero drift, 30m realized vol) is well-calibrated for 5-min BTC outcomes (slope=0.94, BSS=0.217). No systematic GBM mispricing found. Alpha must come from momentum persistence, not from model error."
+    },
+    {
+      "topic": "Momentum persistence in BTC",
+      "finding": "Prior 5-min BTC return strongly predicts next 5-min direction (chi2=107.67, p<0.001). Top quartile momentum achieves 58.8% directional accuracy — well above 53% fee threshold. This is a textbook short-term momentum effect."
+    }
+  ],
+  "classifications_used": [],
+  "classifications_proposed": [],
+  "next_steps": [
+    "Phase 1: Validate on Chainlink oracle data (not Binance) — critical for Polymarket relevance",
+    "Phase 1: Check Polymarket 5-min BTC market live prices during mid-window price moves — are they already updated?",
+    "Phase 1: Tick-by-tick replay on actual Polymarket order flow for 5-min BTC markets",
+    "Phase 1: Sensitivity analysis — does the signal hold in different volatility regimes?"
+  ]
+}
