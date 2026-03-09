@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     clob_markets_events_topic: str = "markets.events"
     clob_orderbook_max_connections: int = 30  # max targeted WS connections (500 assets each)
 
+    # Exchange feed (cryptofeed → 1s bars → Kafka)
+    exchange_feed_enabled: bool = False
+    exchange_feed_symbols: str = "BTC-USDT"  # comma-separated
+    exchange_feed_exchanges: str = "BINANCE,OKX,KRAKEN,BYBIT"  # comma-separated
+    exchange_feed_topic: str = "exchange.bars"
+    exchange_feed_bar_interval_s: int = 1
+    exchange_feed_flush_delay_s: int = 2
+
     # CLOB API (execution)
     clob_api_url: str = "https://clob.polymarket.com"
     clob_api_key: str = ""

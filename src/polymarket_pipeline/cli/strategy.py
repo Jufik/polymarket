@@ -53,6 +53,14 @@ def _register_providers() -> None:
 
     _PROVIDER_REGISTRY["hr_pool"] = HRPoolProvider
 
+    from polymarket_pipeline.strategies_impl.crypto_gbm.providers import (
+        CryptoWindowProvider,
+        ExchangePriceProvider,
+    )
+
+    _PROVIDER_REGISTRY["crypto_windows"] = CryptoWindowProvider
+    _PROVIDER_REGISTRY["exchange_prices"] = ExchangePriceProvider
+
 
 # ---------------------------------------------------------------------------
 # Strategy factory registry
@@ -105,10 +113,18 @@ def _make_hr_pool(config: StrategyConfig) -> Any:
     return HRPoolStrategy(config=HRPoolConfig(**config.params))
 
 
+def _make_crypto_gbm(config: StrategyConfig) -> Any:
+    from polymarket_pipeline.strategies_impl.crypto_gbm.config import CryptoGBMConfig
+    from polymarket_pipeline.strategies_impl.crypto_gbm.strategy import CryptoGBMStrategy
+
+    return CryptoGBMStrategy(config=CryptoGBMConfig(**config.params))
+
+
 def _register_strategies() -> None:
     """Register known strategy factories."""
     _STRATEGY_FACTORIES["will_no"] = _make_will_no
     _STRATEGY_FACTORIES["hr_pool"] = _make_hr_pool
+    _STRATEGY_FACTORIES["crypto_gbm"] = _make_crypto_gbm
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +194,10 @@ def _build_runner(
                 )
 
                 provider = _PROVIDER_REGISTRY[pname](config=_HRPoolConfig(**params))
+            elif pname == "exchange_prices":
+                provider = _PROVIDER_REGISTRY[pname](**params)
+            elif pname == "crypto_windows":
+                provider = _PROVIDER_REGISTRY[pname](**params)
             else:
                 provider = _PROVIDER_REGISTRY[pname](**params)
 
@@ -227,6 +247,11 @@ def _build_runner(
         database=settings.ch_database,
     )
 
+    # crypto_gbm needs fast timer (5s) for mid-window repricing
+    timer_interval = 60.0
+    if any(s.name == "crypto_gbm" for s, _ in strategies):
+        timer_interval = 5.0
+
     return LiveRunner(
         strategies=strategies,
         providers=providers,
@@ -234,6 +259,7 @@ def _build_runner(
         ctx=ctx,
         backend=backend,
         intent_cb=None,  # wired at runtime when broker is available
+        timer_interval_s=timer_interval,
     )
 
 
@@ -457,6 +483,20 @@ def run(
 
             data = json.loads(msg)
             runner.handle_orderbook(data)
+
+        # Exchange bars subscriber (feeds ExchangePriceProvider for crypto_gbm)
+        _exchange_providers = [
+            p for p in runner.providers if hasattr(p, "handle_bar")
+        ]
+        if _exchange_providers:
+
+            @broker.subscriber("exchange.bars", group_id=group_id)
+            async def handle_exchange_bar(msg: str) -> None:
+                import json
+
+                data = json.loads(msg)
+                for ep in _exchange_providers:
+                    ep.handle_bar(data)
 
         # Check if any strategy opts in to pending.signal
         _pending_strategies = [

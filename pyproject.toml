@@ -6,9 +6,12 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.13.3",
     "marimo>=0.20.2",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
     "plotly>=6.5.2",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
+    "scipy>=1.17.0",
     "structlog>=24.0",
 ]
 
@@ -35,6 +38,7 @@ live = [
     "gql[aiohttp]>=3.5",
     "pydantic-settings>=2.0",
     "uvicorn>=0.30",
+    "cryptofeed>=2.4",
 ]
 mempool = [
     "polymarket-mempool",
@@ -60,6 +64,10 @@ all = [
 ]
 ops = [
     "supervisor>=4.3.0",
+]
+cryptofeed = [
+    "cryptofeed>=2.4",
+    "polars>=1.15.0",
 ]
 
 [tool.pytest.ini_options]
