@@ -119,6 +119,22 @@ async def create_ingestors(
         )
         tasks.append(asyncio.create_task(clob_ob.run()))
 
+    if settings.exchange_feed_enabled:
+        from polymarket_pipeline.live.ingestors.exchange_feed import ExchangeFeedIngestor
+
+        symbols = [s.strip() for s in settings.exchange_feed_symbols.split(",") if s.strip()]
+        exchanges = [e.strip() for e in settings.exchange_feed_exchanges.split(",") if e.strip()]
+        exchange_feed = ExchangeFeedIngestor(
+            broker=broker,
+            topic=settings.exchange_feed_topic,
+            status_topic="pipeline.status",
+            symbols=symbols,
+            exchanges=exchanges,
+            bar_interval_s=settings.exchange_feed_bar_interval_s,
+            flush_delay_s=settings.exchange_feed_flush_delay_s,
+        )
+        tasks.append(asyncio.create_task(exchange_feed.run()))
+
     log.info("orchestrator.ingestors_started", count=len(tasks))
     return tasks
 

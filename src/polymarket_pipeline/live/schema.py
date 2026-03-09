@@ -415,6 +415,63 @@ _DROP_OLD_ORDERBOOK = [
 ]
 
 
+EXCHANGE_BARS_TABLE = """
+CREATE TABLE IF NOT EXISTS exchange_bars (
+    exchange        LowCardinality(String),
+    symbol          LowCardinality(String),
+    ts              DateTime('UTC'),
+    open            Float64,
+    high            Float64,
+    low             Float64,
+    close           Float64,
+    volume          Float64,
+    buy_vol         Float64,
+    trades          UInt32,
+    ingested_at     DateTime64(3, 'UTC') DEFAULT now64(3, 'UTC')
+) ENGINE = ReplacingMergeTree(ingested_at)
+ORDER BY (symbol, exchange, ts)
+PARTITION BY toYYYYMM(ts)
+TTL toDateTime(ts) + INTERVAL 30 DAY
+"""
+
+EXCHANGE_BARS_KAFKA_TABLE = """
+CREATE TABLE IF NOT EXISTS exchange_bars_kafka (
+    exchange        String,
+    symbol          String,
+    ts              UInt32,
+    open            Float64,
+    high            Float64,
+    low             Float64,
+    close           Float64,
+    volume          Float64,
+    buy_vol         Float64,
+    trades          UInt32
+) ENGINE = Kafka
+SETTINGS
+    kafka_broker_list = '{broker_list}',
+    kafka_topic_list = 'exchange.bars',
+    kafka_group_name = 'clickhouse-exchange-bars',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 2
+"""
+
+EXCHANGE_BARS_KAFKA_MV = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS exchange_bars_kafka_mv TO exchange_bars AS
+SELECT
+    exchange,
+    symbol,
+    toDateTime(ts, 'UTC') AS ts,
+    open,
+    high,
+    low,
+    close,
+    volume,
+    buy_vol,
+    trades
+FROM exchange_bars_kafka
+"""
+
+
 def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> None:
     """Create all Kafka engine tables and materialized views.
 
@@ -440,6 +497,11 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
     clickhouse.execute(ORDERBOOK_BARS_1M_MV)  # type: ignore[attr-defined]
     clickhouse.execute(ORDERBOOK_BARS_1H_TABLE)  # type: ignore[attr-defined]
     clickhouse.execute(ORDERBOOK_BARS_1H_MV)  # type: ignore[attr-defined]
+    clickhouse.execute(EXCHANGE_BARS_TABLE)  # type: ignore[attr-defined]
+    clickhouse.execute(  # type: ignore[attr-defined]
+        EXCHANGE_BARS_KAFKA_TABLE.format(broker_list=broker_list)
+    )
+    clickhouse.execute(EXCHANGE_BARS_KAFKA_MV)  # type: ignore[attr-defined]
 
     # Derived feature tables (must come after trades_raw)
     clickhouse.execute(TRADER_VOLUMES_TABLE)  # type: ignore[attr-defined]
