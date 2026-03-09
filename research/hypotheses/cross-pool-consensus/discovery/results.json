@@ -1,0 +1,251 @@
+{
+  "hypothesis": "cross-pool-consensus",
+  "timestamp": "2026-03-09T13:30:00Z",
+  "verdict": "marginal",
+  "verdict_note": "BUY-only too thin (<15 signals/8mo). Directional fires at 0.86 avg price near break-even. No timing advantage (pools fire simultaneously). Score-axis shows real +16pp HR lift but likely negative EV in tick. NO-GO for stated hypothesis.",
+  "note": "ALL RESULTS ARE UPPER BOUNDS. Vectorized backtests are 20-40pp optimistic vs tick.",
+  "universe": {
+    "total_markets": "Sports: ~741 BUY-only signals in K=100 N=1, 8-month window",
+    "trades_per_month_baseline": "741 signals / 8 months = 93/month (K=100 N=1 BUY-only)",
+    "date_range": ["2025-07-01", "2026-03-01"],
+    "train_cutoff": "2025-07-01",
+    "tags": ["Sports", "Politics"],
+    "pool_construction": "4 variants tested: style_split, recency_split, score_axis, random_split",
+    "all_pools_jaccard": 0.000
+  },
+  "base_rates": {
+    "sports": {
+      "tag": "Sports",
+      "yes_pct": 0.3329,
+      "no_pct": 0.6671,
+      "note": "Tag-specific YES base rate from test window"
+    },
+    "politics": {
+      "tag": "Politics",
+      "yes_pct": 0.1882,
+      "no_pct": 0.8118
+    }
+  },
+  "single_pool_baselines": {
+    "k100_n1_buy_only": {"n_signals": 741, "hr_pct": 68.3, "excess_hr_pp": 35.0, "avg_pnl_usd": 0.025, "med_hold_hours": 3.5},
+    "k100_n2_buy_only": {"n_signals": 15, "hr_pct": 46.7, "excess_hr_pp": 13.4, "avg_pnl_usd": -0.066, "med_hold_hours": 4.1},
+    "k100_n1_directional": {"n_signals": 3134, "hr_pct": 69.6, "excess_hr_pp": 36.3, "avg_pnl_usd": -0.003, "med_hold_hours": 3.8},
+    "k100_n2_directional": {"n_signals": 552, "hr_pct": 72.1, "excess_hr_pp": 38.8, "avg_pnl_usd": -0.016, "med_hold_hours": 4.2}
+  },
+  "buy_only_results": {
+    "note": "BUY-only: only BUY trades counted toward consensus. Throughput collapse at N=2 cross-pool.",
+    "top_combos": [
+      {
+        "rank": 1,
+        "variant": "style_split",
+        "params": {"pool_a": "high-vol (n_markets>=100)", "pool_b": "selective (n_markets<=30)", "n_a": 1, "n_b": 1, "k_each": 50},
+        "hr_pct": 88.9,
+        "excess_hr_pp": 55.6,
+        "avg_edge_usd": 0.215,
+        "median_hold_hours": 2.5,
+        "compounding_score": 0.53,
+        "n_signals": 9,
+        "signals_per_month": 1.1,
+        "fragile": true,
+        "fragile_reason": "N=9 signals over 8 months — sampling variance dominates, single market flip = 11pp HR change",
+        "pool_jaccard": 0.0,
+        "med_gap_hours": -0.4,
+        "notes": "Pools fire near-simultaneously. No sequential confirmation."
+      },
+      {
+        "rank": 2,
+        "variant": "recency_split",
+        "params": {"pool_a": "top-50 by 3-month HR", "pool_b": "top-50 by long-term excess_hr (non-overlapping)", "n_a": 1, "n_b": 1, "k_each": 50},
+        "hr_pct": 60.0,
+        "excess_hr_pp": 26.7,
+        "avg_edge_usd": 0.174,
+        "median_hold_hours": 3.0,
+        "compounding_score": 0.15,
+        "n_signals": 5,
+        "signals_per_month": 0.6,
+        "fragile": true,
+        "fragile_reason": "N=5 signals — unreliable estimate",
+        "pool_jaccard": 0.0
+      },
+      {
+        "rank": 3,
+        "variant": "score_axis",
+        "params": {"pool_a": "top-50 by excess_hr", "pool_b": "top-50 by consistency_sharpe (non-overlapping)", "n_a": 1, "n_b": 1, "k_each": 50},
+        "hr_pct": 66.7,
+        "excess_hr_pp": 33.4,
+        "avg_edge_usd": 0.003,
+        "median_hold_hours": 4.3,
+        "compounding_score": 0.02,
+        "n_signals": 3,
+        "signals_per_month": 0.4,
+        "fragile": true,
+        "fragile_reason": "N=3 signals — noise only",
+        "pool_jaccard": 0.0,
+        "med_gap_hours": 2.8,
+        "notes": "Only variant where Pool A (excess_hr) consistently fires 2.8h before Pool B (consistency). Some temporal structure exists."
+      },
+      {
+        "rank": 4,
+        "variant": "random_split",
+        "params": {"pool_a": "rank-even from K=100", "pool_b": "rank-odd from K=100", "n_a": 1, "n_b": 1, "k_total": 100},
+        "hr_pct": 50.0,
+        "excess_hr_pp": 16.7,
+        "avg_edge_usd": -0.055,
+        "median_hold_hours": 3.2,
+        "compounding_score": -0.14,
+        "n_signals": 12,
+        "signals_per_month": 1.5,
+        "fragile": true,
+        "fragile_reason": "Negative PnL, thin signal",
+        "pool_jaccard": 0.0
+      },
+      {
+        "rank": 5,
+        "variant": "style_split_nb2",
+        "params": {"pool_a": "high-vol", "pool_b": "selective", "n_a": 1, "n_b": 2, "k_each": 50},
+        "hr_pct": 100.0,
+        "excess_hr_pp": 66.7,
+        "avg_edge_usd": 0.169,
+        "median_hold_hours": 3.0,
+        "compounding_score": null,
+        "n_signals": 1,
+        "signals_per_month": 0.1,
+        "fragile": true,
+        "fragile_reason": "N=1 signal — meaningless",
+        "pool_jaccard": 0.0
+      }
+    ]
+  },
+  "directional_results": {
+    "note": "Directional: SELL NO = bullish signal. WARNING: fires primarily on near-certainty in-play markets (avg price 0.86). Break-even HR at 0.86 fill = 86%. Likely below break-even in tick.",
+    "top_combos": [
+      {
+        "rank": 1,
+        "variant": "score_axis_nb2",
+        "params": {"pool_a": "top-50 excess_hr", "pool_b": "top-50 consistency (non-overlapping)", "n_a": 1, "n_b": 2, "k_each": 50},
+        "hr_pct": 89.9,
+        "excess_hr_pp": 56.6,
+        "avg_edge_usd": 0.018,
+        "median_hold_hours": 3.2,
+        "avg_signal_price": 0.88,
+        "compounding_score": 0.10,
+        "n_signals": 69,
+        "signals_per_month": 8.6,
+        "fragile": false,
+        "notes": "Highest HR in directional. Break-even = 88% at avg price 0.88. RIGHT at edge. Likely negative in tick after 20-40pp degradation."
+      },
+      {
+        "rank": 2,
+        "variant": "recency_split_nb2",
+        "params": {"pool_a": "top-50 recent HR", "pool_b": "top-50 long-term (non-overlapping)", "n_a": 1, "n_b": 2, "k_each": 50},
+        "hr_pct": 92.9,
+        "excess_hr_pp": 59.6,
+        "avg_edge_usd": 0.026,
+        "median_hold_hours": 2.7,
+        "avg_signal_price": 0.90,
+        "compounding_score": 0.14,
+        "n_signals": 14,
+        "signals_per_month": 1.75,
+        "fragile": true,
+        "fragile_reason": "N=14 signals thin over 8 months, 4 months have no data",
+        "notes": "At 0.90 avg price, break-even = 90%. Vectorized HR = 92.9% is tight. Expected tick HR ~55-70% (20-40pp degradation)."
+      },
+      {
+        "rank": 3,
+        "variant": "score_axis_nb1",
+        "params": {"pool_a": "top-50 excess_hr", "pool_b": "top-50 consistency", "n_a": 1, "n_b": 1, "k_each": 50},
+        "hr_pct": 87.9,
+        "excess_hr_pp": 54.6,
+        "avg_edge_usd": 0.018,
+        "median_hold_hours": 3.3,
+        "avg_signal_price": 0.86,
+        "compounding_score": 0.09,
+        "n_signals": 239,
+        "signals_per_month": 29.9,
+        "fragile": false,
+        "notes": "8/8 months positive. Break-even = 86%. Adjacent to break-even in vectorized; definitely negative in tick."
+      },
+      {
+        "rank": 4,
+        "variant": "recency_split_nb1",
+        "params": {"pool_a": "top-50 recent HR", "pool_b": "top-50 long-term", "n_a": 1, "n_b": 1, "k_each": 50},
+        "hr_pct": 86.9,
+        "excess_hr_pp": 53.6,
+        "avg_edge_usd": 0.015,
+        "median_hold_hours": 2.8,
+        "avg_signal_price": 0.85,
+        "compounding_score": 0.09,
+        "n_signals": 213,
+        "signals_per_month": 26.6,
+        "fragile": false,
+        "notes": "Very consistent: 8/8 months HR 78-93%. But avg price 0.85 = 85% break-even."
+      },
+      {
+        "rank": 5,
+        "variant": "random_split_nb1",
+        "params": {"pool_a": "rank-even K=50", "pool_b": "rank-odd K=50", "n_a": 1, "n_b": 1},
+        "hr_pct": 71.4,
+        "excess_hr_pp": 38.1,
+        "avg_edge_usd": -0.026,
+        "median_hold_hours": 4.8,
+        "compounding_score": -0.09,
+        "n_signals": 377,
+        "signals_per_month": 47.1,
+        "fragile": false,
+        "notes": "Negative PnL baseline. Only 3/8 months positive. Lower HR than score_axis/recency because random split picks less informative pool pairs."
+      }
+    ]
+  },
+  "sell_sensitivity_pp": 40,
+  "sell_sensitivity_note": "BUY-only and directional produce 30x different signal volumes. Directional fires on near-certainty in-play markets (avg 0.86 price) vs BUY-only at 0.55-0.67. This is NOT a minor sensitivity — it fundamentally changes which markets the strategy enters.",
+  "timing_structure": {
+    "finding": "Pools fire near-simultaneously in BUY-only mode (med gap 0-3h). No temporal confirmation structure. Exception: score_axis BUY-only shows Pool A (excess_hr) fires 2.8h before Pool B (consistency). For cross-pool to be a useful sequential signal, the gap needs to be 4-24h.",
+    "implication": "The hypothesis of 'Pool A fires, then we wait for Pool B to confirm' is not supported. Both pools enter the same market within minutes of each other."
+  },
+  "cross_pool_vs_single_pool": {
+    "buy_only": "Cross-pool reduces signal count by ~98% vs single-pool N=1 (12 vs 741). HR improvement: +16-56pp excess vs +35pp single-pool N=1. Cross-pool is better quality but catastrophically lower volume.",
+    "directional": "Score-axis cross-pool (+54.6pp excess) beats single-pool N=2 directional (+38.8pp excess) by 16pp at similar volume (239 vs 552 signals). This is the real finding: score-axis pool construction outperforms single-pool N=2 confirmation."
+  },
+  "spawned_ideas": [
+    {
+      "name": "score-axis-pool-construction",
+      "priority": "MEDIUM",
+      "description": "Use score_axis pool construction (excess_hr vs consistency_sharpe split) as a standalone signal quality filter, not cross-pool confirmation. Apply to existing v3 strategies: only trade markets where BOTH score dimensions agree. Could be a 15-20pp vectorized HR improvement over current v3.",
+      "tags": ["Sports", "Politics"],
+      "basis": "score_axis directional +54.6pp excess vs random +38.1pp — 16pp real improvement from construction method"
+    },
+    {
+      "name": "sequential-cross-pool",
+      "priority": "LOW",
+      "description": "Enforce strict temporal ordering: signal only when Pool A fires > 2h before Pool B. Tests if the subset of markets where there is genuine sequential confirmation (Pool A 'leads') is higher quality than simultaneous agreement.",
+      "tags": ["Sports"],
+      "basis": "score_axis BUY-only shows Pool A first 100% of time with 2.8h gap — only variant with temporal structure"
+    },
+    {
+      "name": "high-vol-selective-agreement",
+      "priority": "LOW",
+      "description": "Instead of cross-pool consensus, require that at least one high-volume (n_markets>=100) trader AND at least one selective (n_markets<=30) trader both enter the same market in the same direction. More targeted version of style_split.",
+      "tags": ["Sports"],
+      "basis": "style_split BUY-only achieved 88.9% HR, suggesting these two trader types rarely agree but are highly predictive when they do"
+    }
+  ],
+  "knowledge_captures": [
+    "Cross-pool BUY-only signal volume scales as K^2 / (market_count) — splitting K=100 into 2xK=50 reduces cross-pool overlap to ~1.6% of K=100 N=1 volume.",
+    "Score-axis pool construction (excess_hr vs consistency_sharpe) achieves Jaccard=0 and delivers 16pp higher HR than random split in directional mode — captures genuinely independent skill dimensions.",
+    "Sports YES directional mode fires predominantly on in-play near-certainty markets (avg price 0.85-0.90). Always apply hold>=4h filter to remove in-play contamination.",
+    "Cross-pool confirmation does not provide sequential timing advantage in Sports — pools fire within minutes of each other due to fast market resolution (~3h hold time)."
+  ],
+  "classifications_used": [],
+  "classifications_proposed": [
+    {
+      "name": "score_axis_pool_a_sports",
+      "description": "Top-50 Sports YES traders by excess_hr (raw skill), training cutoff 2025-07-01",
+      "rule": "top-50 from maker_positions Sports YES where excess_hr > 0 AND n_markets >= 20 AND conviction >= 0.90, ordered by excess_hr DESC"
+    },
+    {
+      "name": "score_axis_pool_b_sports",
+      "description": "Top-50 Sports YES traders by consistency_sharpe, NOT in Pool A",
+      "rule": "top-50 from monthly HR Sharpe computation, excluding score_axis_pool_a traders"
+    }
+  ]
+}

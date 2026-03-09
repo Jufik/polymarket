@@ -1,0 +1,28 @@
+[strategy.sports_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 3000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["consensus_v3"]
+
+[strategy.sports_yes_v3.params]
+n_threshold = 2
+direction_filter = "YES"
+size_usd = 100
+# BEH-gated pool: N=2 gives 3x fills vs v2 N=3 at cost of -9.8pp excess
+# Tick-validated: +30pp excess HR, Sharpe 5.23, 2023 fills/8mo
+
+[provider.consensus_v3]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3.params]
+tag = "Sports"
+k = 25
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"

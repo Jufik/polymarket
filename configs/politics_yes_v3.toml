@@ -1,0 +1,30 @@
+[strategy.politics_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 2000
+max_position_usd = 100
+max_open_positions = 50
+cooldown_s = 60
+features = ["consensus_v3"]
+
+[strategy.politics_yes_v3.params]
+n_threshold = 3
+direction_filter = "YES"
+size_usd = 100
+# No max_price — fill at trigger_price + 0.02 (actual consensus entry prices)
+# Combined YES+NO consensus model: N total pool traders, vol-weighted direction = YES
+# Tick-validated: +43.5pp excess HR, Sharpe 0.56, 351 fills/8mo, $25.4K PnL
+# Alpha in longshot entries (<0.30): 14% of fills = 105% of PnL
+
+[provider.consensus_v3]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3.params]
+tag = "Politics"
+k = 100
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"

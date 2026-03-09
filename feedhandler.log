@@ -1,0 +1,40 @@
+2026-03-09 16:34:49,068 : WARNING : KRAKEN.ws.6: encountered connection issue received 1013 (try again later) Market data unavailable; then sent 1013 (try again later) Market data unavailable - reconnecting in 1.0 seconds...
+Traceback (most recent call last):
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection_handler.py", line 65, in _create_connection
+    await self._handler(connection, self.handler)
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection_handler.py", line 95, in _handler
+    async for message in connection.read():
+    ...<3 lines>...
+        await handler(message, connection, self.conn.last_message)
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection.py", line 339, in read
+    async for data in self.conn:
+    ...<2 lines>...
+        yield data
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/websockets/asyncio/connection.py", line 244, in __aiter__
+    yield await self.recv()
+          ^^^^^^^^^^^^^^^^^
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/websockets/asyncio/connection.py", line 324, in recv
+    raise self.protocol.close_exc from self.recv_exc
+websockets.exceptions.ConnectionClosedError: received 1013 (try again later) Market data unavailable; then sent 1013 (try again later) Market data unavailable
+2026-03-09 16:34:50,565 : ERROR : KRAKEN.ws.6: encountered an exception, reconnecting in 2.0 seconds
+Traceback (most recent call last):
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection_handler.py", line 58, in _create_connection
+    await self.subscribe(connection)
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/exchanges/kraken.py", line 89, in subscribe
+    await conn.write(json.dumps({
+    ...<3 lines>...
+    }))
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection.py", line 346, in write
+    raise ConnectionClosed
+cryptofeed.exceptions.ConnectionClosed
+2026-03-09 16:34:52,733 : ERROR : KRAKEN.ws.6: encountered an exception, reconnecting in 4.0 seconds
+Traceback (most recent call last):
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection_handler.py", line 58, in _create_connection
+    await self.subscribe(connection)
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/exchanges/kraken.py", line 89, in subscribe
+    await conn.write(json.dumps({
+    ...<3 lines>...
+    }))
+  File "/mnt/nvme/git/polymarket/polymarket/.venv/lib/python3.14/site-packages/cryptofeed/connection.py", line 346, in write
+    raise ConnectionClosed
+cryptofeed.exceptions.ConnectionClosed

@@ -45,6 +45,10 @@ class ConsensusV2Strategy:
         Fixed size per signal in USD.
     max_price:
         Maximum fill price. If None, uses triggering_price + 0.02.
+    max_entry_price:
+        Reject signals where triggering_price exceeds this threshold.
+        Acts as an entry filter — only enters cheap/longshot markets.
+        If None, no entry price filtering is applied.
     """
 
     def __init__(
@@ -54,6 +58,7 @@ class ConsensusV2Strategy:
         direction_filter: str | None = "YES",
         size_usd: float | None = None,
         max_price: float | None = None,
+        max_entry_price: float | None = None,
         **kwargs: Any,
     ) -> None:
         self.name: str = cfg.name
@@ -62,6 +67,9 @@ class ConsensusV2Strategy:
         self._direction_filter = direction_filter
         self._size_usd = size_usd or cfg.max_position_usd
         self._max_price = max_price
+        self._max_entry_price = max_entry_price
+        # Feature key = first configured provider (e.g. "consensus_v3_sports")
+        self._feature_key = cfg.features[0] if cfg.features else "consensus_v2"
 
         # State: {condition_id: {trader: {"YES": usd, "NO": usd}}}
         self._market_state: dict[str, dict[str, dict[str, float]]] = {}
@@ -89,8 +97,8 @@ class ConsensusV2Strategy:
             return None
         maker_lower = maker.lower()
 
-        # Load features from provider
-        features = await ctx.get_features("consensus_v2")
+        # Load features from provider (namespaced under provider name)
+        features = await ctx.get_features(self._feature_key)
         if features is None:
             return None
 
@@ -173,6 +181,10 @@ class ConsensusV2Strategy:
 
         # Direction filter
         if self._direction_filter is not None and consensus_dir != self._direction_filter:
+            return None
+
+        # Entry price filter — reject signals where market is too expensive
+        if self._max_entry_price is not None and triggering_price > self._max_entry_price:
             return None
 
         self._signaled.add(condition_id)

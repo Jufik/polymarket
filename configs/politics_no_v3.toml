@@ -1,0 +1,28 @@
+[strategy.politics_no_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 2000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["consensus_v3"]
+
+[strategy.politics_no_v3.params]
+n_threshold = 2
+direction_filter = "NO"
+size_usd = 100
+# Tick-validated: +9.3pp excess HR, Sharpe 0.55, 347 fills/8mo
+# Median hold 7.5 days — long positions, capital-constrained at P=20
+
+[provider.consensus_v3]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3.params]
+tag = "Politics"
+k = 100
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"

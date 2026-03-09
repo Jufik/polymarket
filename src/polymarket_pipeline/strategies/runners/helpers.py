@@ -105,6 +105,10 @@ def check_risk_gate(
     Returns ``(allowed, reason)``.  When *allowed* is ``True``, *reason* is
     the empty string.
     """
+    # SELLs always pass — they free capital, never consume it
+    if intent.side == "SELL":
+        return (True, "")
+
     # 1. Capital check: total cost_basis + intent size <= capital_usd
     total_cost = sum(p.cost_basis for p in positions.values())
     if total_cost + intent.size_usd > config.capital_usd:

@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINKS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/pnl", label: "PnL" },
-  { href: "/insiders", label: "Insiders" },
-] as const;
+const LINKS = [{ href: "/", label: "Dashboard" }] as const;
 
 export function NavBar() {
   const pathname = usePathname();

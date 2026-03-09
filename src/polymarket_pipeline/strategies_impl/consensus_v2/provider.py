@@ -54,6 +54,8 @@ class ConsensusV2Provider:
         Minimum avg conviction (abs_net_usd / volume).
     ch_host / ch_port / ch_database:
         ClickHouse connection params.
+    name:
+        Unique provider name (set by CLI from registry key).
     """
 
     name: str = "consensus_v2"
@@ -70,6 +72,9 @@ class ConsensusV2Provider:
         ch_database: str = "polymarket",
         **kwargs: Any,
     ) -> None:
+        # Allow CLI to override instance name for namespaced features
+        if "name" in kwargs:
+            self.name = kwargs.pop("name")
         self._tag = tag
         self._k = k
         self._lookback_months = lookback_months
@@ -95,7 +100,17 @@ class ConsensusV2Provider:
         )
 
     async def compute(self, backend: Any) -> None:
-        """Build composite pool, tag markets, gambling set, and token_map."""
+        """Build composite pool, tag markets, gambling set, and token_map.
+
+        Runs blocking CH queries in a thread to avoid starving the Kafka
+        consumer heartbeat loop.
+        """
+        import asyncio
+
+        await asyncio.get_event_loop().run_in_executor(None, self._compute_sync)
+
+    def _compute_sync(self) -> None:
+        """Synchronous compute — meant to be run in a thread executor."""
         import datetime
 
         ch = self._get_ch()
@@ -295,11 +310,18 @@ class ConsensusV2Provider:
         await self.compute(backend)
 
     def get_features(self) -> dict[str, Any]:
-        """Expose pool, markets, and token_map for strategy consumption."""
+        """Expose pool, markets, and token_map for strategy consumption.
+
+        Features are namespaced under self.name so multiple providers
+        (e.g. consensus_v3_sports, consensus_v3_politics) don't overwrite
+        each other in the shared context.
+        """
         return {
-            "pool": self._pool,
-            "tag_markets": self._tag_markets,
-            "gambling_markets": self._gambling_markets,
-            "token_map": self._token_map,
-            "pool_traders": self._pool,  # for PG pool publishing
+            self.name: {
+                "pool": self._pool,
+                "tag_markets": self._tag_markets,
+                "gambling_markets": self._gambling_markets,
+                "token_map": self._token_map,
+            },
+            "pool_traders": self._pool,  # for PG pool publishing (flat, last-wins OK)
         }

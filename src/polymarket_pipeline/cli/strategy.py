@@ -70,22 +70,28 @@ def _register_providers() -> None:
     except ImportError:
         logger.warning("provider.skip", name="s3_data_provider", reason="import failed")
 
-<<<<<<< HEAD
-    from polymarket_pipeline.strategies_impl.crypto_gbm.providers import (
-        CryptoWindowProvider,
-        ExchangePriceProvider,
-    )
+    try:
+        from polymarket_pipeline.strategies_impl.crypto_gbm.providers import (
+            CryptoWindowProvider,
+            ExchangePriceProvider,
+        )
 
-    _PROVIDER_REGISTRY["crypto_windows"] = CryptoWindowProvider
-    _PROVIDER_REGISTRY["exchange_prices"] = ExchangePriceProvider
-=======
+        _PROVIDER_REGISTRY["crypto_windows"] = CryptoWindowProvider
+        _PROVIDER_REGISTRY["exchange_prices"] = ExchangePriceProvider
+    except ImportError:
+        logger.warning("provider.skip", name="crypto_gbm", reason="import failed")
+
     try:
         from polymarket_pipeline.strategies_impl.consensus_v2.provider import ConsensusV2Provider
 
         _PROVIDER_REGISTRY["consensus_v2"] = ConsensusV2Provider
+        # v3 variants use the same provider class with different params per tag
+        _PROVIDER_REGISTRY["consensus_v3"] = ConsensusV2Provider
+        _PROVIDER_REGISTRY["consensus_v3_sports"] = ConsensusV2Provider
+        _PROVIDER_REGISTRY["consensus_v3_esports"] = ConsensusV2Provider
+        _PROVIDER_REGISTRY["consensus_v3_politics"] = ConsensusV2Provider
     except ImportError:
         logger.warning("provider.skip", name="consensus_v2", reason="import failed")
->>>>>>> 231d271 (ok, nice promises)
 
 
 # ---------------------------------------------------------------------------
@@ -145,20 +151,23 @@ def _register_strategies() -> None:
     except ImportError:
         logger.warning("strategy.skip", name="s3_no_sniper", reason="import failed")
 
-<<<<<<< HEAD
     _STRATEGY_FACTORIES["crypto_gbm"] = _make_crypto_gbm
-=======
+
     try:
         from polymarket_pipeline.strategies_impl.consensus_v2.strategy import (
             create_consensus_v2_strategy,
         )
 
+        # v2 legacy names
         _STRATEGY_FACTORIES["sports_yes_composite"] = create_consensus_v2_strategy
         _STRATEGY_FACTORIES["politics_yes_composite"] = create_consensus_v2_strategy
-        _STRATEGY_FACTORIES["crypto_yes_hr"] = create_consensus_v2_strategy
+        # v3 portfolio strategies (same factory, params differ via TOML)
+        _STRATEGY_FACTORIES["sports_yes_v3"] = create_consensus_v2_strategy
+        _STRATEGY_FACTORIES["esports_yes_v3"] = create_consensus_v2_strategy
+        _STRATEGY_FACTORIES["politics_no_v3"] = create_consensus_v2_strategy
+        _STRATEGY_FACTORIES["politics_yes_v3"] = create_consensus_v2_strategy
     except ImportError:
         logger.warning("strategy.skip", name="consensus_v2", reason="import failed")
->>>>>>> 231d271 (ok, nice promises)
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +222,7 @@ def _build_runner(
         if pname in _PROVIDER_REGISTRY:
             pcfg = provider_configs.get(pname)
             params = pcfg.params if pcfg else {}
-            provider = _PROVIDER_REGISTRY[pname](**params)
+            provider = _PROVIDER_REGISTRY[pname](name=pname, **params)
             providers.append(provider)
 
     # Create strategies
@@ -316,6 +325,9 @@ def run(
         "logs/paper", "--log-dir", help="Intent/fill log directory"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show all logs on console"),
+    introspect_port: int = typer.Option(
+        8002, "--introspect-port", help="Port for strategy introspection HTTP server (0 to disable)"
+    ),
 ) -> None:
     """Start strategies in paper-dev mode against live Kafka."""
     if log_dir is not None:
@@ -468,6 +480,14 @@ def run(
         await runner.initialize()
         await runner.start_background_loops()
 
+        # Introspection HTTP server
+        introspect_server = None
+        if introspect_port > 0:
+            from polymarket_pipeline.strategies.introspect import IntrospectServer
+
+            introspect_server = IntrospectServer(runner, port=introspect_port)
+            await introspect_server.start()
+
         # Startup summary
         for strategy, cfg in runner.strategies:
             budget = runner.gateway._strategy_budgets.get(strategy.name, float("inf"))
@@ -614,6 +634,8 @@ def run(
         except asyncio.CancelledError:
             pass
         finally:
+            if introspect_server:
+                await introspect_server.stop()
             await runner.stop()
             await broker.close()
             await pg_pool.close()

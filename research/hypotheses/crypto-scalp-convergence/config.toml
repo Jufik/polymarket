@@ -1,0 +1,64 @@
+[strategy]
+name = "crypto_scalp_convergence"
+description = "Scalp BTC Up/Down markets when Binance GBM fair value diverges from PM price by > 10%"
+version = "1.0.0-discovery"
+tags = ["btc", "crypto", "scalp", "gbm", "arbitrage"]
+
+[parameters]
+# Entry threshold: GBM-PM deviation required to trigger (best combo from discovery)
+entry_threshold = 0.10       # 10% — median hold 22s, median net PnL +8.7%
+exit_threshold = 0.02        # 2% — convergence definition
+fee_pct_per_side = 0.03      # 3% Polymarket fee per side
+
+# Alternative configs for testing
+# entry_threshold = 0.05     # 5% — more frequent but 12s median hold (very tight)
+# entry_threshold = 0.15     # 15% — less frequent but 42s median hold (more comfortable)
+
+[filters]
+# Only trade resolved markets (no open-ended)
+require_winner = true
+min_time_remaining_min = 0.5  # Don't enter in final 30s
+max_time_remaining_min = 999  # No upper limit
+
+[position_sizing]
+max_position_usd = 200        # Per scalp — keep small to avoid market impact
+max_open_positions = 5        # Max concurrent scalps
+
+[sigma]
+# GBM model parameters
+lookback_minutes = 1440       # 24h rolling sigma from Binance 1-min bars
+min_samples = 60              # Min data points required
+
+[data_sources]
+# Binance 1s bars for GBM computation
+binance_source = "exchange_bars"
+binance_symbol = "BTC-USDT"
+binance_exchange = "BINANCE"
+
+# PM orderbook for fill prices
+pm_source = "clob_orderbook"
+
+[execution]
+# Must be paper trading first — strategy requires low-latency infrastructure
+mode = "paper_dev"
+executor = "paper"
+
+[harness]
+# NOTE: SimulatedExecutor fills at max_price — NOT valid for this strategy.
+# This strategy's PnL depends on actual orderbook fills, not max_price artifacts.
+# Use tick-by-tick replay with orderbook data for validation.
+executor = "realistic"
+settlement = true
+
+[performance_targets]
+# Based on vectorized upper bound at 10% threshold
+expected_events_per_day = 140
+expected_median_net_pnl_pct = 8.7      # Upper bound
+expected_median_hold_sec = 22
+expected_convergence_rate_pct = 98.4
+
+[notes]
+verdict = "marginal"
+latency_requirement = "< 1.5s round-trip for viable execution"
+key_risk = "Convergence often faster than detectable with standard websocket"
+best_regime = "5-min windows, all volatility levels, 24/7"

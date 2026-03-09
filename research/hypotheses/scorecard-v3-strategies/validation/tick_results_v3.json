@@ -1,0 +1,296 @@
+{
+  "meta": {
+    "generated_at": "2026-03-09 10:27:04",
+    "test_start": "2025-07-01",
+    "test_end": "2026-03-01",
+    "note": "Tick-by-tick validated via SyncReplayRunner. NOT upper bounds."
+  },
+  "results": {
+    "leg1_sports_yes": {
+      "settled": 2023,
+      "hr": 0.6327,
+      "excess_hr": 0.2998,
+      "base_rate": 0.3329,
+      "pct_under_1h": 0.004,
+      "pct_under_4h": 0.522,
+      "pct_under_24h": 0.988,
+      "median_hold_h": 3.9,
+      "total_pnl": 162157.42,
+      "monthly_stats": [
+        {
+          "month": "2025-05-01 00:00:00",
+          "n_fills": 1,
+          "hr": 1.0,
+          "pnl_net": 66.66667130258361
+        },
+        {
+          "month": "2025-06-01 00:00:00",
+          "n_fills": 1,
+          "hr": 0.0,
+          "pnl_net": -100.0
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 242,
+          "hr": 0.640495867768595,
+          "pnl_net": 4432.118708853472
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 360,
+          "hr": 0.6,
+          "pnl_net": 7768.051874255126
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 359,
+          "hr": 0.5905292479108635,
+          "pnl_net": -2193.3749281096293
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 183,
+          "hr": 0.639344262295082,
+          "pnl_net": 7041.634451911685
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 249,
+          "hr": 0.7068273092369478,
+          "pnl_net": 18195.174082386286
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 257,
+          "hr": 0.6498054474708171,
+          "pnl_net": 24304.56308932877
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 211,
+          "hr": 0.6113744075829384,
+          "pnl_net": 52150.17294514637
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 159,
+          "hr": 0.6666666666666666,
+          "pnl_net": 50491.40402350433
+        },
+        {
+          "month": "2026-03-01 00:00:00",
+          "n_fills": 1,
+          "hr": 1.0,
+          "pnl_net": 1.010101010101011
+        }
+      ],
+      "name": "sports_yes_v3_k25_n2",
+      "vectorized_ub_hr": 0.867,
+      "vectorized_ub_excess": 0.534,
+      "v2_tick_excess": 0.398,
+      "total_fills": 2023,
+      "pool_size": 25,
+      "n_threshold": 2,
+      "direction": "YES",
+      "tag": "Sports",
+      "tick_hr": 0.6327,
+      "tick_pnl_net": 162157.42,
+      "tick_sharpe": 5.2264,
+      "tick_max_drawdown": 4566.56,
+      "tick_profit_factor": 3.1825,
+      "tick_avg_hold_h": 6.9,
+      "tick_excess_hr": 0.2998
+    },
+    "leg2_politics_no": {
+      "settled": 346,
+      "hr": 0.8295,
+      "excess_hr": 0.0935,
+      "base_rate": 0.736,
+      "pct_under_1h": 0.0,
+      "pct_under_4h": 0.069,
+      "pct_under_24h": 0.191,
+      "median_hold_h": 180.0,
+      "total_pnl": 33941.52,
+      "monthly_stats": [
+        {
+          "month": "2024-11-01 00:00:00",
+          "n_fills": 2,
+          "hr": 1.0,
+          "pnl_net": 27.21437484151239
+        },
+        {
+          "month": "2024-12-01 00:00:00",
+          "n_fills": 5,
+          "hr": 1.0,
+          "pnl_net": 309.638461988107
+        },
+        {
+          "month": "2025-01-01 00:00:00",
+          "n_fills": 28,
+          "hr": 0.9285714285714286,
+          "pnl_net": 1115.4387884165628
+        },
+        {
+          "month": "2025-02-01 00:00:00",
+          "n_fills": 15,
+          "hr": 0.9333333333333333,
+          "pnl_net": 272.72389092784283
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 50,
+          "hr": 0.86,
+          "pnl_net": 7122.382028862202
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 29,
+          "hr": 0.8275862068965517,
+          "pnl_net": 3827.9764613896305
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 13,
+          "hr": 0.9230769230769231,
+          "pnl_net": 1061.6933974590231
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 19,
+          "hr": 0.8421052631578947,
+          "pnl_net": 1258.2645714991297
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 11,
+          "hr": 0.9090909090909091,
+          "pnl_net": 3902.3937164020845
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 7,
+          "hr": 0.7142857142857143,
+          "pnl_net": -167.2417218543739
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 111,
+          "hr": 0.8018018018018018,
+          "pnl_net": 15731.64451616294
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 56,
+          "hr": 0.7321428571428571,
+          "pnl_net": -520.6101269163551
+        }
+      ],
+      "name": "politics_no_v3_k100_n2",
+      "vectorized_ub_hr": 0.818,
+      "vectorized_ub_excess": 0.088,
+      "v2_tick_excess": null,
+      "total_fills": 347,
+      "pool_size": 100,
+      "n_threshold": 2,
+      "direction": "NO",
+      "tag": "Politics",
+      "tick_hr": 0.8295,
+      "tick_pnl_net": 33941.52,
+      "tick_sharpe": 0.5522,
+      "tick_max_drawdown": 1068.96,
+      "tick_profit_factor": 6.7528,
+      "tick_avg_hold_h": 1308.33,
+      "tick_excess_hr": 0.0935
+    },
+    "leg3_sports_inplay": {
+      "settled": 5930,
+      "hr": 0.6022,
+      "excess_hr": 0.2693,
+      "base_rate": 0.3329,
+      "pct_under_1h": 0.009,
+      "pct_under_4h": 0.37,
+      "pct_under_24h": 0.941,
+      "median_hold_h": 4.9,
+      "total_pnl": 9991.97,
+      "monthly_stats": [
+        {
+          "month": "2025-05-01 00:00:00",
+          "n_fills": 1,
+          "hr": 1.0,
+          "pnl_net": 66.66667130258361
+        },
+        {
+          "month": "2025-06-01 00:00:00",
+          "n_fills": 7,
+          "hr": 0.14285714285714285,
+          "pnl_net": -521.4285782709411
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 482,
+          "hr": 0.6493775933609959,
+          "pnl_net": 3715.962517952218
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 620,
+          "hr": 0.6080645161290322,
+          "pnl_net": 7930.721680597217
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 750,
+          "hr": 0.6146666666666667,
+          "pnl_net": 4343.65034812884
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 592,
+          "hr": 0.6351351351351351,
+          "pnl_net": 2104.724708319729
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 669,
+          "hr": 0.6292974588938715,
+          "pnl_net": 3734.9318725125568
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 826,
+          "hr": 0.576271186440678,
+          "pnl_net": 856.8750383106287
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 983,
+          "hr": 0.6236012207527976,
+          "pnl_net": -6727.066738765055
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 1000,
+          "hr": 0.532,
+          "pnl_net": -5513.07096289504
+        }
+      ],
+      "name": "sports_inplay_v3_k25_n1",
+      "vectorized_ub_hr": 0.675,
+      "vectorized_ub_excess": 0.342,
+      "v2_tick_excess": null,
+      "total_fills": 5936,
+      "pool_size": 25,
+      "n_threshold": 1,
+      "direction": "YES",
+      "tag": "Sports",
+      "note": "N=1 fires on first elite trader entry. Fill model is degradation source. No latency penalty per live_infrastructure.md.",
+      "tick_hr": 0.6022,
+      "tick_pnl_net": 9991.97,
+      "tick_sharpe": 0.2659,
+      "tick_max_drawdown": 13780.02,
+      "tick_profit_factor": 1.0424,
+      "tick_avg_hold_h": 13.54,
+      "tick_excess_hr": 0.2693
+    }
+  }
+}

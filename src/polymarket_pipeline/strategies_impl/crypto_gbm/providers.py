@@ -68,10 +68,14 @@ class ExchangePriceProvider:
                 self._sigma_1m = estimate_rolling_sigma(
                     self._minute_closes, self._sigma_lookback
                 )
+                # Bootstrap latest price from most recent close
+                self._latest_price = self._minute_closes[-1]
+                self._latest_ts = time.time()
                 log.info(
                     "exchange_prices.bootstrapped",
                     minutes=len(self._minute_closes),
                     sigma=f"{self._sigma_1m:.8f}" if self._sigma_1m else "None",
+                    latest_price=f"{self._latest_price:.2f}",
                 )
         except Exception:
             log.info("exchange_prices.bootstrap_skipped", reason="no CH data yet")
@@ -96,6 +100,15 @@ class ExchangePriceProvider:
         """Process a 1-second bar from the exchange.bars topic."""
         exchange = bar.get("exchange", "")
         symbol = bar.get("symbol", "")
+        if self._bar_count == 0:
+            log.info(
+                "exchange_prices.first_bar",
+                exchange=exchange,
+                symbol=symbol,
+                primary_exchange=self._primary_exchange,
+                primary_symbol=self._primary_symbol,
+                keys=list(bar.keys())[:5],
+            )
         if exchange != self._primary_exchange or symbol != self._primary_symbol:
             return
 

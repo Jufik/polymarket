@@ -1,0 +1,133 @@
+# ============================================================================
+# Portfolio v3 — Consensus Strategy Supervisor
+# ============================================================================
+#
+# 4-leg portfolio: Sports YES + Politics NO + Politics YES + Esports YES
+# All legs use BEH-gated composite pools (consensus_v3 provider variant).
+#
+# Expected performance (tick-validated, 8mo test period):
+#   Sports YES:   Sharpe 5.23, +30pp excess,  2023 fills, 0.2d hold
+#   Esports YES:  Sharpe 9.65, +17.7pp excess, 297 fills, 3.8h hold
+#   Politics NO:  Sharpe 0.55, +9.3pp excess,  347 fills, 7.5d hold
+#   Politics YES: Sharpe 0.56, +43.5pp excess, 351 fills, longshot alpha
+#
+# Capital: $10K total. Bottleneck is signal generation, not capital.
+# Sports + Esports churn fast (<1d hold). Politics ties up capital (7+ day holds).
+#
+# Run: pm-strategy run --config configs/portfolio_v3.toml
+# Single leg: pm-strategy run --config configs/portfolio_v3.toml --only sports_yes_v3
+# ============================================================================
+
+# --- Sports YES v3 -----------------------------------------------------------
+[strategy.sports_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 3000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["consensus_v3_sports"]
+
+[strategy.sports_yes_v3.params]
+n_threshold = 2
+direction_filter = "YES"
+size_usd = 100
+
+# --- Esports YES v3 ----------------------------------------------------------
+[strategy.esports_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 10
+cooldown_s = 60
+features = ["consensus_v3_esports"]
+
+[strategy.esports_yes_v3.params]
+n_threshold = 3
+direction_filter = "YES"
+size_usd = 100
+
+# --- Politics NO v3 ----------------------------------------------------------
+[strategy.politics_no_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 3000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 60
+features = ["consensus_v3_politics"]
+
+[strategy.politics_no_v3.params]
+n_threshold = 2
+direction_filter = "NO"
+size_usd = 100
+
+# --- Politics YES v3 ---------------------------------------------------------
+[strategy.politics_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 3000
+max_position_usd = 100
+max_open_positions = 50
+cooldown_s = 60
+features = ["consensus_v3_politics"]
+
+[strategy.politics_yes_v3.params]
+n_threshold = 3
+direction_filter = "YES"
+size_usd = 100
+# No max_price — fill at trigger_price + 0.02 (longshot alpha)
+
+# ============================================================================
+# Providers — one per tag (different pool sizes and parameters)
+# ============================================================================
+
+[provider.consensus_v3_sports]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3_sports.params]
+tag = "Sports"
+k = 25
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"
+
+[provider.consensus_v3_esports]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3_esports.params]
+tag = "Esports"
+k = 50
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"
+
+[provider.consensus_v3_politics]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3_politics.params]
+tag = "Politics"
+k = 100
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"
+
+# ============================================================================
+# Promotion thresholds
+# ============================================================================
+
+[promotion]
+min_trades = 100
+min_sharpe = 0.3
+min_paper_fills = 50
+min_runtime_hours = 168

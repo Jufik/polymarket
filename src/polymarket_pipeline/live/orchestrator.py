@@ -39,9 +39,13 @@ async def create_ingestors(
     broker: KafkaBroker,
     settings: Settings,
     token_map: dict[str, tuple[str, str]],
-) -> list[asyncio.Task[Any]]:
-    """Create and start all enabled ingestors as background tasks."""
+) -> tuple[list[asyncio.Task[Any]], Any]:
+    """Create and start all enabled ingestors as background tasks.
+
+    Returns (tasks, clob_ingestor_or_None).
+    """
     tasks: list[asyncio.Task[Any]] = []
+    clob_ingestor = None
 
     rtds = RTDSIngestor(
         broker=broker,
@@ -90,7 +94,7 @@ async def create_ingestors(
         from polymarket_pipeline.live.ingestors.clob_orderbook import CLOBOrderbookIngestor
 
         # Subscribe to recently active open markets (CH activity → PG filter)
-        open_assets = await _load_open_asset_ids(
+        open_assets = await load_open_asset_ids(
             pg_dsn=settings.pg_dsn,
             ch_host=settings.ch_host,
             ch_port=settings.ch_port,
@@ -117,6 +121,7 @@ async def create_ingestors(
             redis_client=redis_client,
             redis_orderbook_ttl_s=settings.redis_orderbook_ttl_s,
         )
+        clob_ingestor = clob_ob
         tasks.append(asyncio.create_task(clob_ob.run()))
 
     if settings.exchange_feed_enabled:
@@ -136,7 +141,7 @@ async def create_ingestors(
         tasks.append(asyncio.create_task(exchange_feed.run()))
 
     log.info("orchestrator.ingestors_started", count=len(tasks))
-    return tasks
+    return tasks, clob_ingestor
 
 
 async def check_and_recover(
@@ -239,6 +244,7 @@ async def supervise_tasks(
 async def periodic_token_map_refresh(
     token_map: dict[str, tuple[str, str]],
     settings: Settings,
+    clob_ingestor: Any | None = None,
 ) -> None:
     """Periodically fetch open-market tokens and reload the shared token_map.
 
@@ -253,12 +259,14 @@ async def periodic_token_map_refresh(
     while True:
         try:
             log.info("token_map_refresh.sync_start")
-            await _sync_open_tokens(settings.pg_dsn)
+            # Run heavy PG upserts in a separate thread with its own event loop
+            # to avoid starving WS reads on the main loop (~10s of PG I/O).
+            await asyncio.to_thread(_sync_open_tokens_sync, settings.pg_dsn)
         except Exception:
             log.exception("token_map_refresh.sync_error")
 
         try:
-            fresh = await _load_token_map_from_pg(settings.pg_dsn)
+            fresh = await asyncio.to_thread(_load_token_map_from_pg_sync, settings.pg_dsn)
             old_keys = set(token_map.keys())
             new_keys = set(fresh.keys())
 
@@ -281,10 +289,20 @@ async def periodic_token_map_refresh(
                 added=len(added),
                 removed=len(stale_keys),
             )
+
+            # Subscribe new assets to CLOB orderbook listener
+            if added and clob_ingestor is not None:
+                new_asset_ids = list(added)
+                clob_ingestor.add_assets(new_asset_ids)
         except Exception:
             log.exception("token_map_refresh.reload_error")
 
         await asyncio.sleep(settings.token_map_refresh_interval_s)
+
+
+def _sync_open_tokens_sync(pg_dsn: str) -> None:
+    """Sync wrapper: runs the async token sync in a fresh event loop (for thread use)."""
+    asyncio.run(_sync_open_tokens(pg_dsn))
 
 
 async def _sync_open_tokens(pg_dsn: str) -> None:
@@ -309,7 +327,7 @@ async def _sync_open_tokens(pg_dsn: str) -> None:
     )
 
 
-async def _load_open_asset_ids(
+async def load_open_asset_ids(
     pg_dsn: str,
     ch_host: str = "localhost",
     ch_port: int = 18123,
@@ -417,6 +435,11 @@ async def _load_open_asset_ids(
         return assets[:limit]
     finally:
         await conn.close()
+
+
+def _load_token_map_from_pg_sync(pg_dsn: str) -> dict[str, tuple[str, str]]:
+    """Sync wrapper for thread use."""
+    return asyncio.run(_load_token_map_from_pg(pg_dsn))
 
 
 async def _load_token_map_from_pg(pg_dsn: str) -> dict[str, tuple[str, str]]:

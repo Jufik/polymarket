@@ -67,25 +67,58 @@ signals are profitable to copy, hedge, or scalp — across two distinct regimes:
 - Compounding score > 5.0 for at least one strategy track
 - Sample size > 200 trades OOS per strategy track
 
-## Scores
+## Scores (Scorecard v3 — Tick-Validated)
 
 | Metric | Vectorized (UB) | Tick-by-tick | Degradation |
 |--------|----------------|-------------|-------------|
-| Hit Rate | — | — | — |
-| Sharpe | — | — | — |
-| Avg Edge | — | — | — |
-| Compounding | — | — | — |
-| Trades/mo | — | — | — |
+| **Sports YES K=25 N=2** | | | |
+| Hit Rate | 86.7% | 63.3% | -23.4pp |
+| Excess HR | +53.4pp | +30.0pp | -23.4pp |
+| Sharpe | — | 5.23 | — |
+| Fills (8mo) | 30 | 2,023 | — |
+| **Politics NO K=100 N=2** | | | |
+| Hit Rate | 81.8% | 83.0% | +1.2pp |
+| Excess HR | +8.8pp | +9.3pp | +0.6pp |
+| Sharpe | — | 0.55 | — |
+| Fills (8mo) | 66 | 347 | — |
+| **Sports InPlay K=25 N=1** | | | |
+| Hit Rate | 67.5% | 60.2% | -7.3pp |
+| Excess HR | +34.2pp | +26.9pp | -7.3pp |
+| Sharpe | — | 0.27 | — |
+| Fills (8mo) | 320 | 5,936 | — |
 
 ## Decision
 
-{Pending discovery}
+**Partially promoted.** The original hypothesis (promote BEH to primary scoring weight) was
+REJECTED — edge_primary is less stable than composite in walk-forward. But the research
+produced three valuable outputs:
 
-## Anti-Knowledge (if rejected)
+1. **BEH as qualification gate** (not ranking signal): `bucket_excess_hr >= 0.02` removes
+   near-certainty bettors. Integrated into scorecard v3 pool builder.
+2. **NO-direction consensus**: First tick-validated NO strategy (Politics NO K=100 N=2, +9.3pp).
+3. **Direction decomposition**: 51% of traders are NO-skilled vs 12.6% YES-skilled.
+   Per-tag profiles: Sports/Crypto=YES, Esports=pure NO, Politics=both.
 
-What we learned from this failure:
+**Sports YES v3 promoted to paper_dev** (`configs/sports_yes_v3.toml`).
+Politics NO and InPlay classified as MARGINAL/VIABLE — monitoring.
 
-- **Signal tested**: {what didn't work}
-- **Why it failed**: {root cause}
-- **Conditions for revisiting**: {what would need to change}
-- **Generalizable lesson**: {what applies beyond this specific hypothesis}
+## What Worked / Anti-Knowledge
+
+- **BEH as primary weight**: REJECTED. Amplifies bucket-level noise in walk-forward.
+  BEH converges with excess_hr at the top of the distribution (Jaccard=1.0 for top-100).
+  Value is as a screening filter (gate >= 0.02), not as a ranking signal.
+- **Generalizable lesson**: When two correlated signals converge at the extremes,
+  re-weighting them produces identical rankings. The differentiation is in the mid-range
+  (filtering out noise traders), not the top (selecting elite traders).
+- **NO-direction is real but thin**: +9.3pp excess is genuine, but 54-day hold and
+  Sharpe=0.55 make it a satellite position, not a core strategy.
+- **In-play degradation is fill-model, not latency**: Only 7.3pp degradation because
+  sub-second WS delivery captures the 58-min elite lead time.
+
+## Spawned
+
+- `scorecard-v3-strategies` — the v3 implementation (tick-validated)
+- `portfolio-three-tracks` — combined Sports YES + Politics NO + InPlay portfolio
+- `dual-skill-market-selector` — use 964 dual-skilled traders as market quality signal
+- Knowledge entries: `signals/edge_weighted_skill.md`, `signals/no_direction_consensus.md`,
+  `methodology/README.md`

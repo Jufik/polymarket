@@ -1,0 +1,248 @@
+{
+  "hypothesis": "crypto-scalp-convergence",
+  "phase": "tick-by-tick-validation-v2",
+  "timestamp": "2026-03-09T14:02:10.699806+00:00",
+  "parameters": {
+    "entry_threshold": 0.1,
+    "exit_threshold": 0.02,
+    "min_time_remaining_sec": 30,
+    "entry_slippage": 0.01,
+    "exit_slippage": 0.01,
+    "fee_pct": 0.03,
+    "position_usd": 50.0,
+    "latency_sec": 1,
+    "max_fill_wait_sec": 5
+  },
+  "metrics": {
+    "n_windows": "see_markets",
+    "n_signals": 14552,
+    "n_filled": 14497,
+    "n_miss_entry": 55,
+    "fill_rate": 0.9962204507971413,
+    "hit_rate_gbm": 0.4767,
+    "pct_profitable": 0.7108,
+    "median_net_pnl": 0.042,
+    "mean_net_pnl": 0.0375,
+    "median_hold_sec": 14.0,
+    "total_pnl_usd": 27203.69,
+    "sharpe_daily": 16.066,
+    "max_drawdown_usd": 536.84,
+    "exit_reasons": {
+      "converged": 13952,
+      "time_stop": 544,
+      "window_end": 1
+    },
+    "regime": {
+      "duration_5min": {
+        "n": 6352,
+        "median_net_pnl": 0.0385,
+        "pct_profitable": 0.6873,
+        "hit_rate": 0.5087,
+        "median_hold_sec": 10.0,
+        "total_pnl_usd": 12979.22
+      },
+      "duration_15min": {
+        "n": 8145,
+        "median_net_pnl": 0.0439,
+        "pct_profitable": 0.729,
+        "hit_rate": 0.4518,
+        "median_hold_sec": 20.0,
+        "total_pnl_usd": 14224.47
+      },
+      "buy_yes": {
+        "n": 6908,
+        "median_net_pnl": 0.0415,
+        "pct_profitable": 0.7125,
+        "hit_rate": 0.4082,
+        "median_hold_sec": 14.0,
+        "total_pnl_usd": 12426.99
+      },
+      "buy_no": {
+        "n": 7589,
+        "median_net_pnl": 0.0421,
+        "pct_profitable": 0.7092,
+        "hit_rate": 0.5391,
+        "median_hold_sec": 14.0,
+        "total_pnl_usd": 14776.7
+      },
+      "by_hour": {
+        "UTC_00-05": {
+          "n": 3649,
+          "median_net_pnl": 0.0439,
+          "pct_profitable": 0.7005,
+          "hit_rate": 0.4615,
+          "median_hold_sec": 16.0,
+          "total_pnl_usd": 6054.49
+        },
+        "UTC_06-11": {
+          "n": 3658,
+          "median_net_pnl": 0.0451,
+          "pct_profitable": 0.7239,
+          "hit_rate": 0.4379,
+          "median_hold_sec": 16.0,
+          "total_pnl_usd": 5686.12
+        },
+        "UTC_12-17": {
+          "n": 3623,
+          "median_net_pnl": 0.0384,
+          "pct_profitable": 0.7019,
+          "hit_rate": 0.5131,
+          "median_hold_sec": 12.0,
+          "total_pnl_usd": 8097.89
+        },
+        "UTC_18-23": {
+          "n": 3567,
+          "median_net_pnl": 0.0402,
+          "pct_profitable": 0.7168,
+          "hit_rate": 0.4951,
+          "median_hold_sec": 12.0,
+          "total_pnl_usd": 7365.19
+        }
+      },
+      "by_week": {
+        "W01_2025": {
+          "n": 280,
+          "total_pnl_usd": 471.2,
+          "median_net_pnl": 0.0448,
+          "pct_profitable": 0.7357,
+          "hit_rate": 0.4,
+          "median_hold_sec": 22.0
+        },
+        "W01_2026": {
+          "n": 380,
+          "total_pnl_usd": 483.68,
+          "median_net_pnl": 0.0433,
+          "pct_profitable": 0.7237,
+          "hit_rate": 0.4316,
+          "median_hold_sec": 29.5
+        },
+        "W02_2026": {
+          "n": 641,
+          "total_pnl_usd": 1084.63,
+          "median_net_pnl": 0.0494,
+          "pct_profitable": 0.7441,
+          "hit_rate": 0.4914,
+          "median_hold_sec": 25.0
+        },
+        "W03_2026": {
+          "n": 648,
+          "total_pnl_usd": 1316.3,
+          "median_net_pnl": 0.0476,
+          "pct_profitable": 0.7346,
+          "hit_rate": 0.4753,
+          "median_hold_sec": 34.0
+        },
+        "W04_2026": {
+          "n": 645,
+          "total_pnl_usd": 1152.34,
+          "median_net_pnl": 0.05,
+          "pct_profitable": 0.7209,
+          "hit_rate": 0.4465,
+          "median_hold_sec": 34.0
+        },
+        "W05_2026": {
+          "n": 661,
+          "total_pnl_usd": 1015.38,
+          "median_net_pnl": 0.0397,
+          "pct_profitable": 0.711,
+          "hit_rate": 0.413,
+          "median_hold_sec": 22.0
+        },
+        "W06_2026": {
+          "n": 662,
+          "total_pnl_usd": 1255.69,
+          "median_net_pnl": 0.0384,
+          "pct_profitable": 0.7372,
+          "hit_rate": 0.4517,
+          "median_hold_sec": 14.0
+        },
+        "W07_2026": {
+          "n": 1770,
+          "total_pnl_usd": 3598.58,
+          "median_net_pnl": 0.0367,
+          "pct_profitable": 0.6938,
+          "hit_rate": 0.5226,
+          "median_hold_sec": 11.0
+        },
+        "W08_2026": {
+          "n": 2652,
+          "total_pnl_usd": 3911.68,
+          "median_net_pnl": 0.0394,
+          "pct_profitable": 0.6799,
+          "hit_rate": 0.4744,
+          "median_hold_sec": 14.0
+        },
+        "W09_2026": {
+          "n": 2657,
+          "total_pnl_usd": 5823.39,
+          "median_net_pnl": 0.0419,
+          "pct_profitable": 0.7004,
+          "hit_rate": 0.5055,
+          "median_hold_sec": 10.0
+        },
+        "W10_2026": {
+          "n": 1632,
+          "total_pnl_usd": 4194.51,
+          "median_net_pnl": 0.039,
+          "pct_profitable": 0.7445,
+          "hit_rate": 0.4969,
+          "median_hold_sec": 8.0
+        },
+        "W11_2026": {
+          "n": 25,
+          "total_pnl_usd": 32.33,
+          "median_net_pnl": 0.0269,
+          "pct_profitable": 0.68,
+          "hit_rate": 0.52,
+          "median_hold_sec": 7.0
+        },
+        "W50_2025": {
+          "n": 530,
+          "total_pnl_usd": 877.5,
+          "median_net_pnl": 0.046,
+          "pct_profitable": 0.7094,
+          "hit_rate": 0.4604,
+          "median_hold_sec": 18.0
+        },
+        "W51_2025": {
+          "n": 655,
+          "total_pnl_usd": 1073.48,
+          "median_net_pnl": 0.0525,
+          "pct_profitable": 0.7313,
+          "hit_rate": 0.4031,
+          "median_hold_sec": 19.0
+        },
+        "W52_2025": {
+          "n": 659,
+          "total_pnl_usd": 912.99,
+          "median_net_pnl": 0.0445,
+          "pct_profitable": 0.7102,
+          "hit_rate": 0.4461,
+          "median_hold_sec": 32.0
+        }
+      }
+    },
+    "vectorized_vs_tick": {
+      "n_events": {
+        "vectorized": 12564,
+        "tick": 14497
+      },
+      "hit_rate": {
+        "vectorized": 0.4541,
+        "tick": 0.4767,
+        "delta_pp": 2.3
+      },
+      "pct_profitable": {
+        "vectorized": 0.8312,
+        "tick": 0.7108,
+        "delta_pp": -12.0
+      },
+      "median_net_pnl": {
+        "vectorized": 0.0866,
+        "tick": 0.042,
+        "delta_pp": -4.5
+      }
+    },
+    "verdict": "GO"
+  }
+}

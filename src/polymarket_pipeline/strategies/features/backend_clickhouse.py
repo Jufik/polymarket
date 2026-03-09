@@ -83,8 +83,38 @@ class ClickHouseBackend:
         return await self._execute("SELECT * FROM markets")
 
     async def query_custom(self, query: str, **params: Any) -> pl.DataFrame:
-        """Run an arbitrary SQL query."""
+        """Run an arbitrary SQL query with optional CH query parameters."""
+        if params:
+            return await self._execute_with_params(query, params)
         return await self._execute(query)
+
+    async def _execute_with_params(self, query: str, params: dict[str, Any]) -> pl.DataFrame:
+        """Execute a SQL query with ClickHouse query parameters."""
+        import json
+
+        full_query = f"{query} FORMAT JSONEachRow"
+        # CH query params: param_name=value in URL query string
+        url_params: dict[str, str] = {"database": self._database}
+        for key, value in params.items():
+            url_params[f"param_{key}"] = str(value)
+
+        resp = await self._client.post(
+            "/",
+            content=full_query,
+            params=url_params,
+            headers={"Content-Type": "text/plain"},
+        )
+        resp.raise_for_status()
+
+        text = resp.text.strip()
+        if not text:
+            return pl.DataFrame()
+
+        rows = [json.loads(line) for line in text.split("\n") if line.strip()]
+        if not rows:
+            return pl.DataFrame()
+
+        return pl.DataFrame(rows)
 
     # ------------------------------------------------------------------
     # Derived-view query builders (static for testability without httpx)

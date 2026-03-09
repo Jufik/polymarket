@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     clob_orderbook_enabled: bool = False
     clob_orderbook_ws_url: str = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     clob_markets_events_topic: str = "markets.events"
-    clob_orderbook_max_connections: int = 30  # max targeted WS connections (500 assets each)
+    clob_orderbook_max_connections: int = 20  # max targeted WS (500 assets each); event loop supports ~24 total
 
     # Exchange feed (cryptofeed → 1s bars → Kafka)
     exchange_feed_enabled: bool = False

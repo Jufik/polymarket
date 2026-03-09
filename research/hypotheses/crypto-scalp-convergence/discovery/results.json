@@ -1,0 +1,344 @@
+{
+  "hypothesis": "crypto-scalp-convergence",
+  "timestamp": "2026-03-09T13:22:34.807528+00:00",
+  "verdict": "marginal",
+  "note": "All results are UPPER BOUNDS \u2014 vectorized, zero latency, no market impact",
+  "universe": {
+    "total_resolved_windows_90d": 12819,
+    "windows_with_trade_data": 12788,
+    "date_range": [
+      "2025-12-09",
+      "2026-03-09"
+    ],
+    "duration_breakdown": {
+      "5min": 4954,
+      "15min": 7865
+    }
+  },
+  "dislocation_frequency": {
+    "pct_windows_max_dev_gt_5pct": 1.0,
+    "pct_windows_max_dev_gt_10pct": 0.9825,
+    "pct_windows_max_dev_gt_15pct": 0.8601,
+    "deviation_pctiles_all_second_snapshots": {
+      "p10": 0.00823,
+      "p25": 0.02083,
+      "p50": 0.05302,
+      "p75": 0.10226,
+      "p90": 0.15902,
+      "p95": 0.19929,
+      "p99": 0.29282
+    }
+  },
+  "implied_half_spread_p50": 0.01,
+  "fee_pct_per_side": 3.0,
+  "exit_threshold": 0.02,
+  "by_threshold": {
+    "thresh_0.05": {
+      "n_events": 12788,
+      "n_converged": 12706,
+      "convergence_rate": 0.9936,
+      "convergence_time_pctiles_sec": {
+        "p10": 4.0,
+        "p25": 6.0,
+        "p50": 12.0,
+        "p75": 34.0,
+        "p90": 110.0
+      },
+      "mean_gross_pnl": 0.05706,
+      "median_gross_pnl": 0.05,
+      "mean_net_pnl": 0.03027,
+      "median_net_pnl": 0.0276,
+      "hit_rate": 0.4822,
+      "pct_profitable": 0.7541,
+      "events_per_window": 1.0,
+      "regime_breakdown": {
+        "duration_5min": {
+          "n": 4946,
+          "median_net_pnl": 0.033,
+          "median_hold_sec": 10.0,
+          "hit_rate": 0.4988,
+          "convergence_rate": 0.9913
+        },
+        "duration_15min": {
+          "n": 7842,
+          "median_net_pnl": 0.0242,
+          "median_hold_sec": 14.0,
+          "hit_rate": 0.4717,
+          "convergence_rate": 0.995
+        },
+        "buy_yes": {
+          "n": 5512,
+          "median_net_pnl": 0.0276,
+          "hit_rate": 0.4842
+        },
+        "buy_no": {
+          "n": 7276,
+          "median_net_pnl": 0.0276,
+          "hit_rate": 0.4806
+        },
+        "by_hour_utc": {
+          "UTC_00-05": {
+            "n": 3252,
+            "median_net_pnl": 0.0288,
+            "median_hold_sec": 14.0
+          },
+          "UTC_06-11": {
+            "n": 3182,
+            "median_net_pnl": 0.0284,
+            "median_hold_sec": 12.0
+          },
+          "UTC_12-17": {
+            "n": 3174,
+            "median_net_pnl": 0.0236,
+            "median_hold_sec": 12.0
+          },
+          "UTC_18-23": {
+            "n": 3180,
+            "median_net_pnl": 0.03,
+            "median_hold_sec": 10.0
+          }
+        },
+        "by_volatility_quartile": {
+          "Q1_low": {
+            "n": 3197,
+            "median_net_pnl": 0.0242,
+            "median_hold_sec": 16.0
+          },
+          "Q2_med_low": {
+            "n": 3197,
+            "median_net_pnl": 0.0294,
+            "median_hold_sec": 12.0
+          },
+          "Q3_med_high": {
+            "n": 3197,
+            "median_net_pnl": 0.0306,
+            "median_hold_sec": 10.0
+          },
+          "Q4_high": {
+            "n": 3197,
+            "median_net_pnl": 0.0272,
+            "median_hold_sec": 10.0
+          }
+        },
+        "btc_Up": {
+          "n": 6448,
+          "median_net_pnl": 0.0254
+        },
+        "btc_Down": {
+          "n": 6340,
+          "median_net_pnl": 0.03
+        }
+      }
+    },
+    "thresh_0.1": {
+      "n_events": 12564,
+      "n_converged": 12368,
+      "convergence_rate": 0.9844,
+      "convergence_time_pctiles_sec": {
+        "p10": 4.0,
+        "p25": 8.0,
+        "p50": 22.0,
+        "p75": 84.0,
+        "p90": 272.0
+      },
+      "mean_gross_pnl": 0.0956,
+      "median_gross_pnl": 0.11,
+      "mean_net_pnl": 0.07249,
+      "median_net_pnl": 0.0866,
+      "hit_rate": 0.4541,
+      "pct_profitable": 0.8312,
+      "events_per_window": 0.9825,
+      "regime_breakdown": {
+        "duration_5min": {
+          "n": 4884,
+          "median_net_pnl": 0.0868,
+          "median_hold_sec": 16.0,
+          "hit_rate": 0.4748,
+          "convergence_rate": 0.9754
+        },
+        "duration_15min": {
+          "n": 7680,
+          "median_net_pnl": 0.0862,
+          "median_hold_sec": 30.0,
+          "hit_rate": 0.4409,
+          "convergence_rate": 0.9901
+        },
+        "buy_yes": {
+          "n": 5545,
+          "median_net_pnl": 0.086,
+          "hit_rate": 0.4525
+        },
+        "buy_no": {
+          "n": 7019,
+          "median_net_pnl": 0.0868,
+          "hit_rate": 0.4553
+        },
+        "by_hour_utc": {
+          "UTC_00-05": {
+            "n": 3204,
+            "median_net_pnl": 0.0884,
+            "median_hold_sec": 28.0
+          },
+          "UTC_06-11": {
+            "n": 3144,
+            "median_net_pnl": 0.089,
+            "median_hold_sec": 28.0
+          },
+          "UTC_12-17": {
+            "n": 3124,
+            "median_net_pnl": 0.0788,
+            "median_hold_sec": 18.0
+          },
+          "UTC_18-23": {
+            "n": 3092,
+            "median_net_pnl": 0.086,
+            "median_hold_sec": 18.0
+          }
+        },
+        "by_volatility_quartile": {
+          "Q1_low": {
+            "n": 3141,
+            "median_net_pnl": 0.083,
+            "median_hold_sec": 34.0
+          },
+          "Q2_med_low": {
+            "n": 3141,
+            "median_net_pnl": 0.0878,
+            "median_hold_sec": 22.0
+          },
+          "Q3_med_high": {
+            "n": 3141,
+            "median_net_pnl": 0.0878,
+            "median_hold_sec": 20.0
+          },
+          "Q4_high": {
+            "n": 3141,
+            "median_net_pnl": 0.0866,
+            "median_hold_sec": 18.0
+          }
+        },
+        "btc_Up": {
+          "n": 6332,
+          "median_net_pnl": 0.0836
+        },
+        "btc_Down": {
+          "n": 6232,
+          "median_net_pnl": 0.08787
+        }
+      }
+    },
+    "thresh_0.15": {
+      "n_events": 10999,
+      "n_converged": 10545,
+      "convergence_rate": 0.9587,
+      "convergence_time_pctiles_sec": {
+        "p10": 6.0,
+        "p25": 12.0,
+        "p50": 42.0,
+        "p75": 162.0,
+        "p90": 384.0
+      },
+      "mean_gross_pnl": 0.12394,
+      "median_gross_pnl": 0.15,
+      "mean_net_pnl": 0.10447,
+      "median_net_pnl": 0.1312,
+      "hit_rate": 0.4217,
+      "pct_profitable": 0.7484,
+      "events_per_window": 0.8601,
+      "regime_breakdown": {
+        "duration_5min": {
+          "n": 4367,
+          "median_net_pnl": 0.1354,
+          "median_hold_sec": 26.0,
+          "hit_rate": 0.4552,
+          "convergence_rate": 0.9366
+        },
+        "duration_15min": {
+          "n": 6632,
+          "median_net_pnl": 0.1272,
+          "median_hold_sec": 66.0,
+          "hit_rate": 0.3996,
+          "convergence_rate": 0.9733
+        },
+        "buy_yes": {
+          "n": 4878,
+          "median_net_pnl": 0.1268,
+          "hit_rate": 0.4145
+        },
+        "buy_no": {
+          "n": 6121,
+          "median_net_pnl": 0.1336,
+          "hit_rate": 0.4274
+        },
+        "by_hour_utc": {
+          "UTC_00-05": {
+            "n": 2837,
+            "median_net_pnl": 0.135,
+            "median_hold_sec": 52.0
+          },
+          "UTC_06-11": {
+            "n": 2818,
+            "median_net_pnl": 0.1372,
+            "median_hold_sec": 62.0
+          },
+          "UTC_12-17": {
+            "n": 2737,
+            "median_net_pnl": 0.1214,
+            "median_hold_sec": 32.0
+          },
+          "UTC_18-23": {
+            "n": 2607,
+            "median_net_pnl": 0.1302,
+            "median_hold_sec": 32.0
+          }
+        },
+        "by_volatility_quartile": {
+          "Q1_low": {
+            "n": 2750,
+            "median_net_pnl": 0.1289,
+            "median_hold_sec": 61.0
+          },
+          "Q2_med_low": {
+            "n": 2750,
+            "median_net_pnl": 0.1271,
+            "median_hold_sec": 44.0
+          },
+          "Q3_med_high": {
+            "n": 2749,
+            "median_net_pnl": 0.136,
+            "median_hold_sec": 36.0
+          },
+          "Q4_high": {
+            "n": 2750,
+            "median_net_pnl": 0.132,
+            "median_hold_sec": 32.0
+          }
+        },
+        "btc_Up": {
+          "n": 5527,
+          "median_net_pnl": 0.1226
+        },
+        "btc_Down": {
+          "n": 5472,
+          "median_net_pnl": 0.1384
+        }
+      }
+    }
+  },
+  "key_findings": {
+    "median_convergence_sec_at_5pct": 12.0,
+    "median_net_pnl_at_5pct": 0.0276,
+    "convergence_rate_at_5pct": 0.9936,
+    "feasibility_assessment": "borderline"
+  },
+  "spawned_ideas": [
+    "Test if GBM-aware market makers post quotes that track GBM \u2014 if so, bid/ask already corrected",
+    "Test mean-reversion on PM price alone (no GBM) \u2014 simpler and same latency requirements",
+    "Identify wallets trading consistently on GBM deviations > 10% (arbitrageurs)"
+  ],
+  "knowledge_captures": [
+    "BTC Up/Down PM prices consistently lag GBM fair value \u2014 p50 deviation 5.8% across all seconds",
+    "100% of windows show max deviation > 5% at some point in the window",
+    "Key viability gate: convergence time vs achievable latency"
+  ]
+}

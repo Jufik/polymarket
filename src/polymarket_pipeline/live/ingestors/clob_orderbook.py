@@ -35,6 +35,7 @@ _MAX_ASSETS_PER_WS = 500
 _FIREHOSE_STALE_TIMEOUT = 120.0  # Force reconnect if firehose silent for 2 min
 _OB_MAX_DEPTH = 15  # C lib depth (keep a few extra beyond published 10)
 _PUBLISH_DEPTH = 10  # Levels published to Kafka
+_TARGETED_STAGGER_S = 2.0  # Delay between targeted connection starts; allows snapshot Kafka flush
 
 
 class CLOBOrderbookIngestor(BaseIngestor):
@@ -70,6 +71,10 @@ class CLOBOrderbookIngestor(BaseIngestor):
         # Redis orderbook cache
         self._redis = redis_client
         self._redis_ttl_s = redis_orderbook_ttl_s
+        # Track subscribed assets for dynamic additions
+        self._subscribed_assets: set[str] = set()
+        self._targeted_tasks: list[asyncio.Task[Any]] = []
+        self._next_conn_id: int = 0
         self._redis_writes: int = 0
 
     # ── L2 book helpers ───────────────────────────────────────────────
@@ -112,9 +117,12 @@ class CLOBOrderbookIngestor(BaseIngestor):
         if isinstance(msg, list):
             if not msg:
                 return  # empty ack
+            # Initial snapshot: load book state without Kafka publish to avoid
+            # flooding the event loop (500 publishes per connection).
+            # Subsequent price_change events will publish with correct state.
             for entry in msg:
                 if isinstance(entry, dict) and ("bids" in entry or "asks" in entry):
-                    await self._process_orderbook_snapshot(entry)
+                    await self._process_orderbook_snapshot(entry, publish=False)
             return
 
         if not isinstance(msg, dict):
@@ -127,8 +135,10 @@ class CLOBOrderbookIngestor(BaseIngestor):
         elif msg.get("event_type") in ("market_resolved", "new_market"):
             await self._process_market_event(msg)
 
-    async def _process_orderbook_snapshot(self, entry: dict[str, Any]) -> None:
-        """Apply a full orderbook snapshot into the C book, then publish."""
+    async def _process_orderbook_snapshot(
+        self, entry: dict[str, Any], *, publish: bool = True,
+    ) -> None:
+        """Apply a full orderbook snapshot into the C book, optionally publish."""
         asset_id = entry.get("asset_id")
         if not asset_id:
             return
@@ -152,9 +162,10 @@ class CLOBOrderbookIngestor(BaseIngestor):
             if price is not None and size is not None and size > 0:
                 book.asks[price] = size
 
-        mapping = self._token_map.get(asset_id)
-        condition_id = mapping[0] if mapping else entry.get("market", asset_id)
-        await self._maybe_publish(condition_id, asset_id, book, force=True)
+        if publish:
+            mapping = self._token_map.get(asset_id)
+            condition_id = mapping[0] if mapping else entry.get("market", asset_id)
+            await self._maybe_publish(condition_id, asset_id, book, force=True)
 
     async def _process_price_change(self, event: dict[str, Any]) -> None:
         """Apply incremental price changes to the C book, then publish if changed."""
@@ -257,7 +268,7 @@ class CLOBOrderbookIngestor(BaseIngestor):
             self._redis_writes += 1
 
     async def _process_new_market(self, event: dict[str, Any]) -> None:
-        """Forward new market broadcast to the events topic."""
+        """Forward new market broadcast to the events topic + dynamic subscribe."""
         condition_id = event.get("market", "")
         payload = {
             "type": "new_market",
@@ -273,6 +284,15 @@ class CLOBOrderbookIngestor(BaseIngestor):
             source="clob_orderbook",
         )
         self._market_event_count += 1
+
+        # Dynamically subscribe to this market's asset_ids if known
+        if condition_id and self._token_map:
+            new_aids = [
+                aid for aid, (cid, _) in self._token_map.items()
+                if cid == condition_id
+            ]
+            if new_aids:
+                self.add_assets(new_aids)
 
     async def _process_market_event(self, event: dict[str, Any]) -> None:
         """Forward market_resolved / new_market events to the events topic."""
@@ -299,6 +319,8 @@ class CLOBOrderbookIngestor(BaseIngestor):
             "books_tracked": len(self._books),
             "skipped_unchanged": self._skipped_unchanged,
             "redis_writes": self._redis_writes,
+            "subscribed_assets": len(self._subscribed_assets),
+            "targeted_connections": len(self._targeted_tasks),
         }
 
     # ── connection management ────────────────────────────────────────
@@ -330,20 +352,28 @@ class CLOBOrderbookIngestor(BaseIngestor):
                             )
                             break
                         await self._handle_message(str(raw))
-            except websockets.ConnectionClosed:
-                log.warning("clob_orderbook.firehose_disconnected", backoff=backoff)
+            except websockets.ConnectionClosed as exc:
+                log.warning(
+                    "clob_orderbook.firehose_disconnected",
+                    code=exc.code,
+                    reason=exc.reason[:120] if exc.reason else "",
+                    backoff=backoff,
+                )
             except Exception:
                 log.exception("clob_orderbook.firehose_error", backoff=backoff)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, RECONNECT_MAX)
 
-    async def _run_targeted(self, asset_ids: list[str], conn_id: int) -> None:
+    async def _run_targeted(
+        self, asset_ids: list[str], conn_id: int, startup_delay: float = 0.0,
+    ) -> None:
         """Targeted connection: subscribe to specific asset IDs for price data."""
+        if startup_delay > 0:
+            await asyncio.sleep(startup_delay)
         backoff = RECONNECT_BASE
         while True:
             try:
                 async with websockets.connect(self._ws_url, ping_interval=30) as ws:
-                    backoff = RECONNECT_BASE
                     payload = {
                         "type": "market",
                         "markets": [],
@@ -355,12 +385,19 @@ class CLOBOrderbookIngestor(BaseIngestor):
                         conn_id=conn_id,
                         assets=len(asset_ids),
                     )
+                    msg_count = 0
                     async for raw in ws:
+                        msg_count += 1
+                        if msg_count == 1:
+                            backoff = RECONNECT_BASE  # reset only after first msg
                         await self._handle_message(str(raw))
-            except websockets.ConnectionClosed:
+            except websockets.ConnectionClosed as exc:
                 log.warning(
                     "clob_orderbook.targeted_disconnected",
                     conn_id=conn_id,
+                    code=exc.code,
+                    reason=exc.reason[:120] if exc.reason else "",
+                    msgs_received=msg_count,
                     backoff=backoff,
                 )
             except Exception:
@@ -371,6 +408,44 @@ class CLOBOrderbookIngestor(BaseIngestor):
                 )
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, RECONNECT_MAX)
+
+    def add_assets(self, new_asset_ids: list[str]) -> None:
+        """Dynamically subscribe to new asset IDs by spawning targeted connections.
+
+        Safe to call from the event loop (e.g. periodic_token_map_refresh).
+        Skips assets already subscribed and respects the max connections limit.
+        """
+        fresh = [aid for aid in new_asset_ids if aid not in self._subscribed_assets]
+        if not fresh:
+            return
+
+        # How many more assets can we fit?
+        max_total = self._max_ob_conns * _MAX_ASSETS_PER_WS
+        headroom = max_total - len(self._subscribed_assets)
+        if headroom <= 0:
+            log.warning(
+                "clob_orderbook.add_assets_at_capacity",
+                subscribed=len(self._subscribed_assets),
+                max=max_total,
+                dropped=len(fresh),
+            )
+            return
+
+        fresh = fresh[:headroom]
+        self._subscribed_assets.update(fresh)
+
+        for i in range(0, len(fresh), _MAX_ASSETS_PER_WS):
+            batch = fresh[i : i + _MAX_ASSETS_PER_WS]
+            conn_id = self._next_conn_id
+            self._next_conn_id += 1
+            task = asyncio.create_task(self._run_targeted(batch, conn_id))
+            self._targeted_tasks.append(task)
+
+        log.info(
+            "clob_orderbook.assets_added",
+            new=len(fresh),
+            total_subscribed=len(self._subscribed_assets),
+        )
 
     async def run(self) -> None:
         """Run firehose + targeted orderbook connections."""
@@ -385,10 +460,17 @@ class CLOBOrderbookIngestor(BaseIngestor):
         if len(asset_ids) > max_assets:
             asset_ids = asset_ids[:max_assets]
 
+        self._subscribed_assets = set(asset_ids)
+
         for i in range(0, len(asset_ids), _MAX_ASSETS_PER_WS):
             batch = asset_ids[i : i + _MAX_ASSETS_PER_WS]
             conn_id = i // _MAX_ASSETS_PER_WS
-            tasks.append(asyncio.create_task(self._run_targeted(batch, conn_id)))
+            delay = conn_id * _TARGETED_STAGGER_S
+            task = asyncio.create_task(self._run_targeted(batch, conn_id, delay))
+            tasks.append(task)
+            self._targeted_tasks.append(task)
+
+        self._next_conn_id = len(self._targeted_tasks)
 
         log.info(
             "clob_orderbook.started",
@@ -409,6 +491,8 @@ class CLOBOrderbookIngestor(BaseIngestor):
                     log.error("clob_orderbook.task_crashed", error=str(exc))
         finally:
             for task in tasks:
+                task.cancel()
+            for task in self._targeted_tasks:
                 task.cancel()
 
 

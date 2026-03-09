@@ -1,0 +1,29 @@
+[strategy.esports_yes_v3]
+enabled = true
+mode = "paper_dev"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 10
+cooldown_s = 60
+features = ["consensus_v3"]
+
+[strategy.esports_yes_v3.params]
+n_threshold = 3
+direction_filter = "YES"
+size_usd = 100
+# Tick-validated: +17.7pp market excess, Sharpe 9.65, 297 fills/8mo, $14.8K PnL
+# Hold: 3.8h median — fast capital recycling, CS=55
+# 7/8 months profitable (weakest: Jan 2026, 51.7% HR, still positive PnL)
+
+[provider.consensus_v3]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.consensus_v3.params]
+tag = "Esports"
+k = 50
+lookback_months = 12
+min_markets = 20
+min_conviction = 0.90
+beh_gate = 0.02
+pool_version = "v3"

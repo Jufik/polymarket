@@ -37,32 +37,12 @@
 - trader_positions_resolved columns: use `market_volume` not `volume`; `p.volume` does NOT exist
 
 ## Simulation Engine Gaps (for sim-fidelity agent)
-See `research/knowledge/` for full details. Key structural weaknesses:
-1. No orderbook dynamics (only best bid/ask, no depth beyond L1)
-2. No signal aggregation window (each trade triggers immediate decision)
-3. Linear market impact (no convexity, no feedback to next trade)
-4. No partial fills (all-or-nothing; FillStatus.PARTIAL exists but never returned)
-5. Spread calibration from trade prices, not orderbook
-6. No latency distribution model (uniform delay_s only)
-7. Sharpe annualization assumes constant trade frequency
-8. No mark-to-market / unrealized PnL tracking
-9. ledger._buffer access violates encapsulation (getattr hack in replay.py)
-10. Batch resolution enrichment is O(markets × records), not O(records)
+See `research/knowledge/` for full details. Top gaps: no orderbook depth, no partial fills, no mark-to-market.
 
-## S2 Insider Copy -- TICK-BY-TICK VALIDATED (2026-03-02)
-- Vectorized: 83.2% HR (strict tier), 85.9% HR (with price < 0.65) -- UPPER BOUNDS
-- **Tick-by-tick validated**: ALL 8 configs profitable across 3 OOS months (Jul-25, Oct-25, Jan-26)
-- Best HR config: C>=2, no filter: 66.8% HR, $254K PnL, compounding 7.01
-- Best PnL config: C>=3, p<0.65: 57.3% HR, $784K PnL, compounding 12.37
-- Vectorized-to-tick gap: 18-29pp (within expected 20-40pp range)
-- **CRITICAL FINDING**: entry price filter INVERTS in tick-by-tick (-7pp HR vs +2.7pp vectorized)
-  - Reason: tick-by-tick enters at specific trade price, not blended average
-  - Filter creates HR-vs-PnL tradeoff (lower HR but 6x higher PnL)
-- Capital constraint is primary bottleneck: ~130 fills/month from 28K-60K signals
-- NO direction dominates (95%+ of fills); avg hold 25d; pool ~25K traders
-- Validation script: `research/scripts/s2_tick_validation.py`
-- Knowledge: `signals/insider_copy.md`, `pitfalls/entry_price_filter_inversion.md`
-- **Status**: READY for production implementation in strategies_impl/
+## S2 Insider Copy -- VALIDATED (2026-03-02)
+- Best HR: C>=2 66.8% HR, $254K PnL. Best PnL: C>=3 p<0.65 57.3% HR, $784K PnL.
+- Vec-to-tick gap: 18-29pp. Entry price filter INVERTS in tick (-7pp HR vs +2.7pp vec).
+- Status: READY for production. See `signals/insider_copy.md`.
 
 ## ClickHouse SQL Gotchas
 - `FROM table FINAL AS alias` INVALID in CH 24.8 -- use subquery
@@ -73,16 +53,8 @@ See `research/knowledge/` for full details. Key structural weaknesses:
 - `markets_resolved` view exposes `token_won` not `yes_won` -- use `mr.token_won` for base rate computation
 - CTE with multi-table JOIN: outer SELECT can't resolve unqualified column names from CTE. Fix: alias all columns in the CTE (e.g., `p.trader AS t_trader`) and reference aliases in outer query.
 
-## S2 Hit-Rate Copy -- REJECTED (tick-by-tick validated 2026-03-02)
-- **Vectorized (UB)**: 82.9-85.5% HR, $145-241/pos, comp scores 6.75-11.46
-- **Tick-by-tick**: 45.9-50.6% HR, negative PnL (2 of 3 periods), comp ~0
-- **Gap**: 33-39pp (within expected 20-40pp range but at upper end)
-- **Root causes**: (1) direction-agnostic consensus -7pp, (2) NO HR collapse structural -8 to -15pp below base, (3) UNKNOWN outcomes -50-180 fills, (4) entry price shift -2pp, (5) on_timer() never called
-- **Direction diagnosis**: same-dir consensus 50-54% HR (best); YES excess +7-18pp; NO excess -1 to -15pp
-- **Verdict**: FAIL. NO direction is anti-predictive in tick-by-tick. YES has genuine excess but low absolute HR.
-- **Knowledge**: `pitfalls/no_hr_collapse_tick.md`
-- Validation script: `research/scripts/s2_hitrate_tick_validation.py`
-- Notebook: `research/notebooks/s2_tick_validation.py`
+## S2 Hit-Rate Copy -- REJECTED (2026-03-02)
+- Tick: 45.9-50.6% HR, negative PnL. NO direction anti-predictive. See `pitfalls/no_hr_collapse_tick.md`.
 
 ## Tick-by-Tick Validation Approach (proven pattern)
 - **DO NOT** try to construct millions of NormalizedTrade Pydantic objects (too slow/memory)
@@ -123,40 +95,11 @@ See `research/knowledge/` for full details. Key structural weaknesses:
 - **Vectorized hold times are grossly underestimated**: selection bias (only counts resolved positions). Tick shows 5-10x longer.
 - **Positive PnL with negative excess HR is possible**: asymmetric payoffs at low entry prices ($50 risk vs $177+ reward)
 
-## S2 Tag-Aware Hit-Rate Copy -- REJECTED (2026-03-03)
-- Tick-by-tick: 46.7% HR, -$6,486 PnL (Jul 25, C>=3) -- WORSE than global pool (50.6%)
-- Pool: 3,433 traders (2.1x global), 85% YES-direction, 15 tag+dir combos
-- Crypto YES is ONLY viable signal (51.3% HR, +22.4pp excess, 2,364 signals)
-- Extreme-NO-bias tags fail for YES: Culture 12.9%, Politics 3.0%, Movies 13.7%
-- Vec-to-tick gap SMALLER (11pp vs 34pp global) because vectorized more honest (57.8% vs 84.2%)
-- **Key learning**: tag-specific qualification is TOO PERMISSIVE; beating 9-29% YES base is easy
-- **Key learning**: aggregate HR != trade-level HR gap persists regardless of base rate granularity
-- Script: `research/scripts/s2_tag_aware_tick_validation.py`
-- Notebook: `research/notebooks/s2_tag_aware_estimation.py`
-
-## S2 HRC Gap Fixes -- REJECTED (2026-03-03)
-- 3 fixes tested: position-level dedup, consensus cap (5), direction-aware filtering
-- **Direction-aware filtering is the ONLY fix that helps** (+2-7pp HR)
-- **Position-level dedup is COUNTERPRODUCTIVE** (-2.6pp HR avg). Multiple trades = conviction signal, not noise.
-- **Consensus cap has ZERO effect** (pool too small to reach 5+ with direction filtering)
-- Best config C>=4: 54.7% avg HR, +$2,275 total PnL, but inconsistent (1 of 3 periods negative)
-- C>=3: 51.2% avg HR, -$7,185 total PnL -- UNPROFITABLE
-- Hold times 13-18 days (consistent with prior vectorized underestimate)
-- All rejections are position_limit (no capital/cooldown rejections)
-- `on_timer()` fires correctly; causes harmless oversell warnings for settled positions
-- StrategyConfig requires `name` field (added since last validation)
-- Script: `research/scripts/s2_hitrate_gapfix_validation.py`
-- Knowledge: `pitfalls/dedup_counterproductive.md`
-
-## Copy-Trader Contamination -- REJECTED (2026-03-06)
-- **Hypothesis**: pool explosion (47->774) from copiers creating fake consensus. **WRONG.**
-- **Key finding**: HR MONOTONICALLY INCREASES with entry order (1st: 47% -> 5th: 72%). Followers > Leaders.
-- Independence filter HARMFUL: -7 to -22pp HR vs standard, 60-95% sample reduction.
-- First-mover filter HARMFUL: restricting to early entrants lowers HR.
-- New pool members have EQUAL/HIGHER HR than returning members.
-- **Actual failure**: base rate non-stationarity + fill price compression, not pool quality.
-- **Actionable**: deep consensus (N>=5) + regime gate (skip train_base > 0.50) are the real fixes.
-- Analysis: `research/hypotheses/tag-hr-consensus/exploration/`
+## S2 Rejected Strategies (2026-03-03 to 2026-03-06)
+- S2 Tag-Aware HRC: REJECTED. 46.7% tick HR. Tag qualification too permissive.
+- S2 HRC Gap Fixes: REJECTED. Dedup counterproductive (-2.6pp). Direction-aware +2-7pp only fix.
+- Copy-Trader Contamination: REJECTED. Followers > Leaders. All independence filters harmful.
+- See `dead_ends.md` for details.
 
 ## Trader Scorecard Framework (2026-03-07)
 - Framework doc: `research/hypotheses/trader-scorecard/discovery/scorecard_framework.md`
@@ -170,12 +113,82 @@ See `research/knowledge/` for full details. Key structural weaknesses:
 - **Decay**: 90-day half-life (tag-adjustable in v2)
 - **Key insight**: entry price floor (>= 0.70) outperforms entry price ceiling -- confirms favorites, not contrarians
 
+## Portfolio Analysis (2026-03-09)
+- Sports YES + InPlay share 99.5% markets (same YES direction) — double exposure, not diversification
+- InPlay exclusive: -$482 PnL, degrading (Jan -$4K, Feb -$7K). NEGATIVE incremental value.
+- InPlay enters 9h earlier but same HR, 12x lower avg PnL than Sports on shared markets
+- Recommended: 2-track (Sports YES + Politics NO), disable InPlay
+- Combined Sharpe 7.76 (Sports alone 7.00, with InPlay 7.57)
+- Sports never capital-constrained at $5K; Politics constrained (197/346 accepted at P=20)
+- Bottleneck: signal generation (2,369 fills), not capital. $10K+ provides no benefit.
+- Polars Datetime("s") invalid — use "us", "ms", or "ns". Convert epoch: `(col * 1e6).cast(Datetime("us"))`
+
+## DuckDB / Parquet Gotchas
+- **markets_resolved has 2 rows per market** (YES + NO tokens). Filter `WHERE outcome = 'YES'` for market-level yes_won.
+- Averaging `token_won` without filtering gives exactly 0.5 (artifact, not real base rate).
+- DuckDB date literals: use `TIMESTAMP '2025-07-01'` or `DATE '2025-07-01'`, NOT string comparisons.
+
+## Microstructure Calibration (2026-03-09)
+- Fill model contributes <1pp HR gap, 1-5% PnL gap (with MAC). NOT the bottleneck.
+- MAC half-spread: global 0.01, Sports 0.00, Crypto 0.01, Politics 0.001
+- Roll estimator 17x MAC — captures fundamentals, NOT friction. Never use for slippage.
+- 44% consecutive trades = zero price change. Min tick = 0.01 (1 cent).
+- Larger trades ($1K+) predict MEAN REVERSION (only 14% BUY $1K+ sees continued upward).
+- Spread lifecycle: last 10% of market = 53% wider avg spread, 54% of all trades.
+- DuckDB OOM on full trades table with window functions. Use SET threads=2; SET memory_limit='16GB'.
+- Knowledge: `execution/spread_microstructure.md`
+
+## Tag-HR-Consensus -- TICK-BY-TICK VALIDATED (2026-03-09)
+- **Esports YES K50 N3**: 64.0% HR, +17.7pp market excess, $14.8K PnL, Sharpe 9.65, 297 fills, 3.8h hold. CS=55.
+- **Esports YES K100 N4**: 64.2% HR, +17.9pp, $6.0K, Sharpe 10.98, 123 fills. CS=57.
+- **Tennis NO K50 N2**: REJECTED. 56.0% HR vs 56.9% market-level NO base = -0.9pp. Zero edge.
+- **Vec-to-tick gap: 3pp** (vs 21-32pp for tag-hr-copy). Consensus alignment fixes the gap.
+- **CRITICAL**: Use MARKET-LEVEL base rate, not position-level. Tennis NO looked +19.5pp (vs pos 36.5%) but actually -0.9pp (vs mkt 56.9%).
+- **Positive PnL with zero edge is possible**: Tennis NO PnL from asymmetric payoffs, not prediction.
+- Pool: 13 qualified YES traders for Esports (small but effective). Only 3 folds have data (late 2025+).
+- Scripts: `research/hypotheses/tag-hr-consensus/scripts/`
+- Analysis: `research/hypotheses/tag-hr-consensus/discovery/analysis.md`
+- **Status**: Esports YES ready for portfolio integration (3rd track).
+
+## InPlay Early Trigger -- REJECTED (2026-03-09)
+- **Structurally invalid**: InPlay (N=1) ALWAYS fires BEFORE Sports (N=2) on same pool -- tautological
+- Sports consensus cannot exist at InPlay's signal time (0 cases of Sports first)
+- Using Sports N=2 as retroactive filter = look-ahead bias
+- Earlier entry INCREASES hold time (+10.9h, not decreases)
+- Sports 66x better CS (148 vs 2.2); no hybrid variant improves on Sports alone
+- Price moves toward correct outcome between 1st and 2nd trader entry
+- On long-shots: Sports enters 9h later at 0.03 vs InPlay at 0.55 → $595 avg win vs $80
+- Only 34% of InPlay N=1 signals eventually get Sports N=2 confirmation
+- **Key learning**: Same pool at different N thresholds provides no independent timing information
+- Analysis: `research/hypotheses/inplay-early-trigger/discovery/analysis.md`
+
+## Esports Sub-Tag Decomposition (2026-03-09)
+- **Game-specific pools INFEASIBLE**: Only CS2 has enough game-specific qualified traders (47). All others = 0.
+- **Pool traders are cross-game generalists**: 13 BEH-gated traders all bet 2+ games (CS2+LoL primary).
+- **Consensus depth**: Only CS2 (271 mkts N>=3) and LoL (194 mkts N>=3) have consensus. Dota2=13, rest=0.
+- **LoL shows higher HR** (81.2% at N=3, +36.8pp excess) but only 16 signals -- insufficient for confidence.
+- **CS2 is the volume backbone**: 38/54 N=3 signals (70%) are CS2 markets.
+- **Parameter robustness CONFIRMED**: All 25 K x N cells show positive excess HR (+9.1 to +38.0pp).
+- Gradient is smooth: smaller K and higher N = higher excess HR (expected, not fragile).
+- K50 N3 sits at optimal precision/throughput tradeoff. K25 N2 offers 60% more signals at -3pp.
+- **Verdict**: No game-specific strategy warranted. Keep unified Esports pool.
+- Analysis: `research/hypotheses/esports-sub-tag/discovery/analysis.md`
+
+## Esports Per-Game Base Rates (test period 2025-07 to 2026-03)
+| CS2 47.8% | Dota2 45.9% | LoL 44.4% | Valorant 46.3% | HoK 43.8% | SC2 50.9% |
+
+## Politics Active Exit -- VALIDATED (2026-03-09)
+- **Exit@50% of max payout**: $31,368 PnL vs $12,646 hold at P=20 (+148%)
+- **Mechanism**: Pure capital recycling, NOT per-position improvement (unconstrained: $34,639 vs $33,942)
+- **Key stats**: 327 fills (vs 197), median hold 0.9d (vs 4.7d), ROC/day 4.3x better
+- **Politics Sharpe**: 4.28 -> 5.66, MaxDD $1,568 -> $900
+- **Capital insight**: Exit@50% at P=10 ($1K) > Hold at P=20 ($2K). Frees $1K for Esports.
+- **Longshot dominance**: <0.50 fill bucket = 106% of total PnL ($35,854 from 60 positions)
+- **0.90+ bucket**: 190 positions, 90% HR, NEGATIVE PnL (-$1,368). Breakeven at 0.93 = 93% HR.
+- **Lost positions**: Only 1/19 lost positions at 0.90+ escaped via 50% exit. Losses are inescapable.
+- **Hybrid strategies tested**: Uniform Exit@50% beats all price-dependent variants.
+- **Slippage**: ~$29 total on 291 exits (MAC 0.001 for politics). Negligible.
+- Analysis: `research/hypotheses/politics-active-exit/discovery/analysis.md`
+
 ## Dead Ends
-- **Copy-trader contamination**: all 4 proposed fixes (first-mover, independence, leader-only, order-penalty) HARMFUL.
-- **S2 HRC Gap Fixes (dedup+cap+direction)**: 51.2% avg HR at C>=3, -$7,185. C>=4 marginal (+$2,275). Dedup hurts.
-- **S2 Tag-Aware Hit-Rate Copy**: 46.7% HR tick (WORSE than global 50.6%). Tag-specific base too permissive.
-- **S2 Hit-Rate Copy (BOTH direction)**: 45.9-50.6% HR tick-by-tick (base rate), negative PnL. NO direction kills it.
-- **Crypto insider copy**: negative PnL at all consensus/price params despite 79-85% HR (vectorized). Tick: 55.7% HR, -20.5pp NO excess.
-- **Esports insider copy**: -$185 to -$1238/pos vectorized; tick: 54.3% HR, $5K total PnL (marginal at best)
-- **Culture/weather insider excess HR**: negative despite 70%+ absolute HR. PnL from price asymmetry, not alpha.
-- **S2 HRC position dedup**: -2.6pp HR. Ongoing conviction from repeat trades is informative. See `pitfalls/dedup_counterproductive.md`
+See `dead_ends.md` for full list. Key: dual-skill, contamination fixes, HRC gap fixes, tag-aware HRC, NO direction, inplay-early-trigger.

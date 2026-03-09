@@ -143,11 +143,13 @@ async def on_startup(context: ContextRepo) -> None:
     )
 
     # Launch ingestors as background tasks
-    _ingestor_tasks.extend(await create_ingestors(broker, settings, token_map))
+    ingestor_tasks, clob_ingestor = await create_ingestors(broker, settings, token_map)
+    _ingestor_tasks.extend(ingestor_tasks)
 
     # Periodic token_map refresh (re-sync APIs -> PG -> shared dict)
+    # Pass clob_ingestor so new markets get subscribed to orderbook listeners
     _ingestor_tasks.append(
-        asyncio.create_task(periodic_token_map_refresh(token_map, settings))
+        asyncio.create_task(periodic_token_map_refresh(token_map, settings, clob_ingestor))
     )
 
     # Supervisor watches for ingestor crashes (immediate visibility)

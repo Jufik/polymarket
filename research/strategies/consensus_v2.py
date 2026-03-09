@@ -69,6 +69,10 @@ class ConsensusStrategy:
         Position size in USD per signal.
     max_price:
         Maximum fill price. If None, uses the triggering trade's price + 0.02.
+    max_entry_price:
+        Reject signals where triggering_price exceeds this threshold.
+        Acts as an entry filter — only enters cheap/longshot markets.
+        If None, no entry price filtering is applied.
     """
 
     def __init__(
@@ -81,6 +85,7 @@ class ConsensusStrategy:
         direction_filter: str | None = None,
         size_usd: float = 100.0,
         max_price: float | None = None,
+        max_entry_price: float | None = None,
     ) -> None:
         self.name = name
         self._pool = {addr.lower() for addr in pool}
@@ -90,6 +95,7 @@ class ConsensusStrategy:
         self._direction_filter = direction_filter
         self._size_usd = size_usd
         self._max_price = max_price
+        self._max_entry_price = max_entry_price
 
         # State: per condition_id, accumulate pool trader entries
         # {condition_id: {trader: {"YES": usd, "NO": usd}}}
@@ -207,6 +213,10 @@ class ConsensusStrategy:
 
         # Apply direction filter
         if self._direction_filter is not None and consensus_dir != self._direction_filter:
+            return None
+
+        # Entry price filter — reject signals where market is too expensive
+        if self._max_entry_price is not None and triggering_price > self._max_entry_price:
             return None
 
         # Fire signal
@@ -340,6 +350,7 @@ class TokenMapStrategy(ConsensusStrategy):
         direction_filter: str | None = None,
         size_usd: float = 100.0,
         max_price: float | None = None,
+        max_entry_price: float | None = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -350,6 +361,7 @@ class TokenMapStrategy(ConsensusStrategy):
             direction_filter=direction_filter,
             size_usd=size_usd,
             max_price=max_price,
+            max_entry_price=max_entry_price,
         )
         # Pre-populate asset_direction_cache from token_map
         for cid, outcomes in token_map.items():

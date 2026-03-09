@@ -1,0 +1,1319 @@
+{
+  "meta": {
+    "generated_at": "2026-03-09 12:53:51",
+    "description": "Esports sub-tag decomposition + parameter robustness"
+  },
+  "game_decomposition": {
+    "CS2": {
+      "n_resolved": 13896,
+      "n_yes_won": "6446",
+      "yes_base_rate": 0.4639,
+      "test_resolved": 12833,
+      "test_yes_base_rate": 0.4779,
+      "pool_qualified": 47,
+      "pool_k50": 47,
+      "vec_signals_k50_n3": 38,
+      "vec_hr_k50_n3": 0.6316,
+      "vec_excess_k50_n3": 0.1537,
+      "vec_med_pnl_k50_n3": 118.87,
+      "vec_hold_h_k50_n3": 3.8
+    },
+    "Dota2": {
+      "n_resolved": 12077,
+      "n_yes_won": "5502",
+      "yes_base_rate": 0.4556,
+      "test_resolved": 11439,
+      "test_yes_base_rate": 0.4588,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "LoL": {
+      "n_resolved": 10283,
+      "n_yes_won": "4521",
+      "yes_base_rate": 0.4397,
+      "test_resolved": 9847,
+      "test_yes_base_rate": 0.4443,
+      "pool_qualified": 0,
+      "pool_k50": 0,
+      "vec_signals_k50_n3": 16,
+      "vec_hr_k50_n3": 0.8125,
+      "vec_excess_k50_n3": 0.3682,
+      "vec_med_pnl_k50_n3": 434.22,
+      "vec_hold_h_k50_n3": 3.2
+    },
+    "Valorant": {
+      "n_resolved": 4487,
+      "n_yes_won": "2063",
+      "yes_base_rate": 0.4598,
+      "test_resolved": 4221,
+      "test_yes_base_rate": 0.4634,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "HoK": {
+      "n_resolved": 2138,
+      "n_yes_won": "934",
+      "yes_base_rate": 0.4369,
+      "test_resolved": 2055,
+      "test_yes_base_rate": 0.4384,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "SC2": {
+      "n_resolved": 930,
+      "n_yes_won": "495",
+      "yes_base_rate": 0.5323,
+      "test_resolved": 869,
+      "test_yes_base_rate": 0.5086,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "R6": {
+      "n_resolved": 706,
+      "n_yes_won": "362",
+      "yes_base_rate": 0.5127,
+      "test_resolved": 617,
+      "test_yes_base_rate": 0.53,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "CoD": {
+      "n_resolved": 664,
+      "n_yes_won": "313",
+      "yes_base_rate": 0.4714,
+      "test_resolved": 632,
+      "test_yes_base_rate": 0.462,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "MLBB": {
+      "n_resolved": 623,
+      "n_yes_won": "304",
+      "yes_base_rate": 0.488,
+      "test_resolved": 596,
+      "test_yes_base_rate": 0.4966,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "RocketLeague": {
+      "n_resolved": 559,
+      "n_yes_won": "280",
+      "yes_base_rate": 0.5009,
+      "test_resolved": 489,
+      "test_yes_base_rate": 0.4826,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    },
+    "Other": {
+      "n_resolved": 275,
+      "n_yes_won": "53",
+      "yes_base_rate": 0.1927,
+      "test_resolved": 120,
+      "test_yes_base_rate": 0.2333,
+      "pool_qualified": 12,
+      "pool_k50": 12
+    },
+    "Overwatch": {
+      "n_resolved": 61,
+      "n_yes_won": "43",
+      "yes_base_rate": 0.7049,
+      "test_resolved": 55,
+      "test_yes_base_rate": 0.7273,
+      "pool_qualified": 0,
+      "pool_k50": 0
+    }
+  },
+  "parameter_robustness": {
+    "summary": [
+      {
+        "combo_key": "K10_N4",
+        "k": 10,
+        "n": 4,
+        "n_folds": 3,
+        "pooled_hr": 0.8125,
+        "avg_excess_hr_pp": 38.02,
+        "avg_median_pnl": 44.29,
+        "avg_hold_hours": 2.7,
+        "total_signals": 16,
+        "signals_per_fold": 5.3,
+        "compounding_score": 151.5496,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 7,
+            "n_correct": 4,
+            "hr": 0.5714,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1099,
+            "median_pnl": 13.11,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 8,
+            "n_correct": 8,
+            "hr": 1.0,
+            "base_rate": 0.5153,
+            "excess_hr": 0.4847,
+            "median_pnl": 96.37,
+            "median_hold_h": 2.3,
+            "pool_size": 10
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 1,
+            "n_correct": 1,
+            "hr": 1.0,
+            "base_rate": 0.4541,
+            "excess_hr": 0.5459,
+            "median_pnl": 23.4,
+            "median_hold_h": 2.5,
+            "pool_size": 10
+          }
+        ]
+      },
+      {
+        "combo_key": "K25_N5",
+        "k": 25,
+        "n": 5,
+        "n_folds": 3,
+        "pooled_hr": 0.913,
+        "avg_excess_hr_pp": 34.53,
+        "avg_median_pnl": 74.0,
+        "avg_hold_hours": 2.8,
+        "total_signals": 23,
+        "signals_per_fold": 7.7,
+        "compounding_score": 218.9977,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 3,
+            "n_correct": 2,
+            "hr": 0.6667,
+            "base_rate": 0.4615,
+            "excess_hr": 0.2052,
+            "median_pnl": 20.0,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 15,
+            "n_correct": 15,
+            "hr": 1.0,
+            "base_rate": 0.5153,
+            "excess_hr": 0.4847,
+            "median_pnl": 173.2,
+            "median_hold_h": 2.4,
+            "pool_size": 25
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 5,
+            "n_correct": 4,
+            "hr": 0.8,
+            "base_rate": 0.4541,
+            "excess_hr": 0.3459,
+            "median_pnl": 28.8,
+            "median_hold_h": 2.8,
+            "pool_size": 25
+          }
+        ]
+      },
+      {
+        "combo_key": "K10_N5",
+        "k": 10,
+        "n": 5,
+        "n_folds": 2,
+        "pooled_hr": 0.75,
+        "avg_excess_hr_pp": 34.49,
+        "avg_median_pnl": 28.0,
+        "avg_hold_hours": 3.1,
+        "total_signals": 4,
+        "signals_per_fold": 2.0,
+        "compounding_score": 74.7763,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 3,
+            "n_correct": 2,
+            "hr": 0.6667,
+            "base_rate": 0.4615,
+            "excess_hr": 0.2052,
+            "median_pnl": 20.0,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 1,
+            "n_correct": 1,
+            "hr": 1.0,
+            "base_rate": 0.5153,
+            "excess_hr": 0.4847,
+            "median_pnl": 36.0,
+            "median_hold_h": 3.0,
+            "pool_size": 10
+          }
+        ]
+      },
+      {
+        "combo_key": "K10_N3",
+        "k": 10,
+        "n": 3,
+        "n_folds": 3,
+        "pooled_hr": 0.7931,
+        "avg_excess_hr_pp": 34.12,
+        "avg_median_pnl": 43.64,
+        "avg_hold_hours": 2.8,
+        "total_signals": 58,
+        "signals_per_fold": 19.3,
+        "compounding_score": 129.166,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 24,
+            "n_correct": 14,
+            "hr": 0.5833,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1218,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 22,
+            "n_correct": 21,
+            "hr": 0.9545,
+            "base_rate": 0.5153,
+            "excess_hr": 0.4392,
+            "median_pnl": 50.0,
+            "median_hold_h": 2.3,
+            "pool_size": 10
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 12,
+            "n_correct": 11,
+            "hr": 0.9167,
+            "base_rate": 0.4541,
+            "excess_hr": 0.4626,
+            "median_pnl": 75.52,
+            "median_hold_h": 2.8,
+            "pool_size": 10
+          }
+        ]
+      },
+      {
+        "combo_key": "K75_N5",
+        "k": 75,
+        "n": 5,
+        "n_folds": 3,
+        "pooled_hr": 0.7901,
+        "avg_excess_hr_pp": 27.52,
+        "avg_median_pnl": 58.32,
+        "avg_hold_hours": 2.9,
+        "total_signals": 81,
+        "signals_per_fold": 27.0,
+        "compounding_score": 131.307,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 3,
+            "n_correct": 2,
+            "hr": 0.6667,
+            "base_rate": 0.4615,
+            "excess_hr": 0.2052,
+            "median_pnl": 20.0,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 39,
+            "n_correct": 34,
+            "hr": 0.8718,
+            "base_rate": 0.5153,
+            "excess_hr": 0.3565,
+            "median_pnl": 110.0,
+            "median_hold_h": 2.6,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 39,
+            "n_correct": 28,
+            "hr": 0.7179,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2638,
+            "median_pnl": 44.97,
+            "median_hold_h": 3.0,
+            "pool_size": 75
+          }
+        ]
+      },
+      {
+        "combo_key": "K100_N5",
+        "k": 100,
+        "n": 5,
+        "n_folds": 3,
+        "pooled_hr": 0.6846,
+        "avg_excess_hr_pp": 24.15,
+        "avg_median_pnl": 55.67,
+        "avg_hold_hours": 3.0,
+        "total_signals": 149,
+        "signals_per_fold": 49.7,
+        "compounding_score": 108.7414,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 3,
+            "n_correct": 2,
+            "hr": 0.6667,
+            "base_rate": 0.4615,
+            "excess_hr": 0.2052,
+            "median_pnl": 20.0,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 39,
+            "n_correct": 34,
+            "hr": 0.8718,
+            "base_rate": 0.5153,
+            "excess_hr": 0.3565,
+            "median_pnl": 110.0,
+            "median_hold_h": 2.6,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 107,
+            "n_correct": 66,
+            "hr": 0.6168,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1627,
+            "median_pnl": 37.0,
+            "median_hold_h": 3.1,
+            "pool_size": 100
+          }
+        ]
+      },
+      {
+        "combo_key": "K25_N4",
+        "k": 25,
+        "n": 4,
+        "n_folds": 3,
+        "pooled_hr": 0.7812,
+        "avg_excess_hr_pp": 23.48,
+        "avg_median_pnl": 44.69,
+        "avg_hold_hours": 2.9,
+        "total_signals": 64,
+        "signals_per_fold": 21.3,
+        "compounding_score": 86.8592,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 7,
+            "n_correct": 4,
+            "hr": 0.5714,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1099,
+            "median_pnl": 13.11,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 34,
+            "n_correct": 31,
+            "hr": 0.9118,
+            "base_rate": 0.5153,
+            "excess_hr": 0.3965,
+            "median_pnl": 96.37,
+            "median_hold_h": 2.5,
+            "pool_size": 25
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 23,
+            "n_correct": 15,
+            "hr": 0.6522,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1981,
+            "median_pnl": 24.6,
+            "median_hold_h": 3.0,
+            "pool_size": 25
+          }
+        ]
+      },
+      {
+        "combo_key": "K10_N2",
+        "k": 10,
+        "n": 2,
+        "n_folds": 3,
+        "pooled_hr": 0.7017,
+        "avg_excess_hr_pp": 23.38,
+        "avg_median_pnl": 43.45,
+        "avg_hold_hours": 3.0,
+        "total_signals": 238,
+        "signals_per_fold": 79.3,
+        "compounding_score": 80.3582,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 88,
+            "n_correct": 47,
+            "hr": 0.5341,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0726,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.5,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 76,
+            "n_correct": 66,
+            "hr": 0.8684,
+            "base_rate": 0.5153,
+            "excess_hr": 0.3531,
+            "median_pnl": 61.46,
+            "median_hold_h": 2.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 74,
+            "n_correct": 54,
+            "hr": 0.7297,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2756,
+            "median_pnl": 63.48,
+            "median_hold_h": 3.0,
+            "pool_size": 10
+          }
+        ]
+      },
+      {
+        "combo_key": "K50_N5",
+        "k": 50,
+        "n": 5,
+        "n_folds": 3,
+        "pooled_hr": 0.7759,
+        "avg_excess_hr_pp": 22.34,
+        "avg_median_pnl": 51.53,
+        "avg_hold_hours": 2.9,
+        "total_signals": 58,
+        "signals_per_fold": 19.3,
+        "compounding_score": 94.1795,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 3,
+            "n_correct": 2,
+            "hr": 0.6667,
+            "base_rate": 0.4615,
+            "excess_hr": 0.2052,
+            "median_pnl": 20.0,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 39,
+            "n_correct": 34,
+            "hr": 0.8718,
+            "base_rate": 0.5153,
+            "excess_hr": 0.3565,
+            "median_pnl": 110.0,
+            "median_hold_h": 2.6,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 16,
+            "n_correct": 9,
+            "hr": 0.5625,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1084,
+            "median_pnl": 24.6,
+            "median_hold_h": 3.0,
+            "pool_size": 50
+          }
+        ]
+      },
+      {
+        "combo_key": "K25_N3",
+        "k": 25,
+        "n": 3,
+        "n_folds": 3,
+        "pooled_hr": 0.7113,
+        "avg_excess_hr_pp": 20.71,
+        "avg_median_pnl": 22.69,
+        "avg_hold_hours": 3.0,
+        "total_signals": 142,
+        "signals_per_fold": 47.3,
+        "compounding_score": 37.5928,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 24,
+            "n_correct": 14,
+            "hr": 0.5833,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1218,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 62,
+            "n_correct": 49,
+            "hr": 0.7903,
+            "base_rate": 0.5153,
+            "excess_hr": 0.275,
+            "median_pnl": 39.27,
+            "median_hold_h": 2.7,
+            "pool_size": 25
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 56,
+            "n_correct": 38,
+            "hr": 0.6786,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2245,
+            "median_pnl": 23.4,
+            "median_hold_h": 3.1,
+            "pool_size": 25
+          }
+        ]
+      },
+      {
+        "combo_key": "K50_N3",
+        "k": 50,
+        "n": 3,
+        "n_folds": 3,
+        "pooled_hr": 0.7067,
+        "avg_excess_hr_pp": 19.63,
+        "avg_median_pnl": 16.58,
+        "avg_hold_hours": 3.1,
+        "total_signals": 283,
+        "signals_per_fold": 94.3,
+        "compounding_score": 25.4618,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 24,
+            "n_correct": 14,
+            "hr": 0.5833,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1218,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 134,
+            "n_correct": 96,
+            "hr": 0.7164,
+            "base_rate": 0.5153,
+            "excess_hr": 0.2011,
+            "median_pnl": 22.0,
+            "median_hold_h": 2.9,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 125,
+            "n_correct": 90,
+            "hr": 0.72,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2659,
+            "median_pnl": 22.33,
+            "median_hold_h": 3.1,
+            "pool_size": 50
+          }
+        ]
+      },
+      {
+        "combo_key": "K75_N4",
+        "k": 75,
+        "n": 4,
+        "n_folds": 3,
+        "pooled_hr": 0.7035,
+        "avg_excess_hr_pp": 19.51,
+        "avg_median_pnl": 39.7,
+        "avg_hold_hours": 3.1,
+        "total_signals": 172,
+        "signals_per_fold": 57.3,
+        "compounding_score": 60.6115,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 7,
+            "n_correct": 4,
+            "hr": 0.5714,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1099,
+            "median_pnl": 13.11,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 64,
+            "n_correct": 50,
+            "hr": 0.7812,
+            "base_rate": 0.5153,
+            "excess_hr": 0.266,
+            "median_pnl": 66.0,
+            "median_hold_h": 3.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 101,
+            "n_correct": 67,
+            "hr": 0.6634,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2093,
+            "median_pnl": 40.0,
+            "median_hold_h": 3.0,
+            "pool_size": 75
+          }
+        ]
+      },
+      {
+        "combo_key": "K100_N4",
+        "k": 100,
+        "n": 4,
+        "n_folds": 3,
+        "pooled_hr": 0.6806,
+        "avg_excess_hr_pp": 19.21,
+        "avg_median_pnl": 43.04,
+        "avg_hold_hours": 3.1,
+        "total_signals": 288,
+        "signals_per_fold": 96.0,
+        "compounding_score": 63.3133,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 7,
+            "n_correct": 4,
+            "hr": 0.5714,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1099,
+            "median_pnl": 13.11,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 64,
+            "n_correct": 50,
+            "hr": 0.7812,
+            "base_rate": 0.5153,
+            "excess_hr": 0.266,
+            "median_pnl": 66.0,
+            "median_hold_h": 3.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 217,
+            "n_correct": 142,
+            "hr": 0.6544,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2003,
+            "median_pnl": 50.0,
+            "median_hold_h": 3.2,
+            "pool_size": 100
+          }
+        ]
+      },
+      {
+        "combo_key": "K10_N1",
+        "k": 10,
+        "n": 1,
+        "n_folds": 3,
+        "pooled_hr": 0.6642,
+        "avg_excess_hr_pp": 17.25,
+        "avg_median_pnl": 7.58,
+        "avg_hold_hours": 3.7,
+        "total_signals": 1230,
+        "signals_per_fold": 410.0,
+        "compounding_score": 8.5639,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 299,
+            "n_correct": 160,
+            "hr": 0.5351,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0736,
+            "median_pnl": 1.05,
+            "median_hold_h": 4.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 456,
+            "n_correct": 345,
+            "hr": 0.7566,
+            "base_rate": 0.5153,
+            "excess_hr": 0.2413,
+            "median_pnl": 6.7,
+            "median_hold_h": 3.0,
+            "pool_size": 10
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 475,
+            "n_correct": 312,
+            "hr": 0.6568,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2027,
+            "median_pnl": 15.0,
+            "median_hold_h": 3.4,
+            "pool_size": 10
+          }
+        ]
+      },
+      {
+        "combo_key": "K25_N2",
+        "k": 25,
+        "n": 2,
+        "n_folds": 3,
+        "pooled_hr": 0.6659,
+        "avg_excess_hr_pp": 16.79,
+        "avg_median_pnl": 22.8,
+        "avg_hold_hours": 3.3,
+        "total_signals": 452,
+        "signals_per_fold": 150.7,
+        "compounding_score": 27.8409,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 88,
+            "n_correct": 47,
+            "hr": 0.5341,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0726,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.5,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 168,
+            "n_correct": 123,
+            "hr": 0.7321,
+            "base_rate": 0.5153,
+            "excess_hr": 0.2168,
+            "median_pnl": 34.0,
+            "median_hold_h": 3.0,
+            "pool_size": 25
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 196,
+            "n_correct": 131,
+            "hr": 0.6684,
+            "base_rate": 0.4541,
+            "excess_hr": 0.2143,
+            "median_pnl": 29.0,
+            "median_hold_h": 3.4,
+            "pool_size": 25
+          }
+        ]
+      },
+      {
+        "combo_key": "K75_N3",
+        "k": 75,
+        "n": 3,
+        "n_folds": 3,
+        "pooled_hr": 0.6585,
+        "avg_excess_hr_pp": 16.62,
+        "avg_median_pnl": 17.65,
+        "avg_hold_hours": 3.1,
+        "total_signals": 366,
+        "signals_per_fold": 122.0,
+        "compounding_score": 22.7061,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 24,
+            "n_correct": 14,
+            "hr": 0.5833,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1218,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 134,
+            "n_correct": 96,
+            "hr": 0.7164,
+            "base_rate": 0.5153,
+            "excess_hr": 0.2011,
+            "median_pnl": 22.0,
+            "median_hold_h": 2.9,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 208,
+            "n_correct": 131,
+            "hr": 0.6298,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1757,
+            "median_pnl": 25.54,
+            "median_hold_h": 3.2,
+            "pool_size": 75
+          }
+        ]
+      },
+      {
+        "combo_key": "K50_N4",
+        "k": 50,
+        "n": 4,
+        "n_folds": 3,
+        "pooled_hr": 0.6903,
+        "avg_excess_hr_pp": 16.44,
+        "avg_median_pnl": 33.81,
+        "avg_hold_hours": 3.1,
+        "total_signals": 113,
+        "signals_per_fold": 37.7,
+        "compounding_score": 43.5045,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 7,
+            "n_correct": 4,
+            "hr": 0.5714,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1099,
+            "median_pnl": 13.11,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 64,
+            "n_correct": 50,
+            "hr": 0.7812,
+            "base_rate": 0.5153,
+            "excess_hr": 0.266,
+            "median_pnl": 66.0,
+            "median_hold_h": 3.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 42,
+            "n_correct": 24,
+            "hr": 0.5714,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1173,
+            "median_pnl": 22.33,
+            "median_hold_h": 3.0,
+            "pool_size": 50
+          }
+        ]
+      },
+      {
+        "combo_key": "K100_N3",
+        "k": 100,
+        "n": 3,
+        "n_folds": 3,
+        "pooled_hr": 0.6442,
+        "avg_excess_hr_pp": 16.4,
+        "avg_median_pnl": 20.13,
+        "avg_hold_hours": 3.1,
+        "total_signals": 548,
+        "signals_per_fold": 182.7,
+        "compounding_score": 25.2858,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 24,
+            "n_correct": 14,
+            "hr": 0.5833,
+            "base_rate": 0.4615,
+            "excess_hr": 0.1218,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.2,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 134,
+            "n_correct": 96,
+            "hr": 0.7164,
+            "base_rate": 0.5153,
+            "excess_hr": 0.2011,
+            "median_pnl": 22.0,
+            "median_hold_h": 2.9,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 390,
+            "n_correct": 243,
+            "hr": 0.6231,
+            "base_rate": 0.4541,
+            "excess_hr": 0.169,
+            "median_pnl": 33.0,
+            "median_hold_h": 3.3,
+            "pool_size": 100
+          }
+        ]
+      },
+      {
+        "combo_key": "K25_N1",
+        "k": 25,
+        "n": 1,
+        "n_folds": 3,
+        "pooled_hr": 0.6269,
+        "avg_excess_hr_pp": 13.44,
+        "avg_median_pnl": 4.01,
+        "avg_hold_hours": 4.1,
+        "total_signals": 1659,
+        "signals_per_fold": 553.0,
+        "compounding_score": 3.1841,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 299,
+            "n_correct": 160,
+            "hr": 0.5351,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0736,
+            "median_pnl": 1.05,
+            "median_hold_h": 4.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 633,
+            "n_correct": 434,
+            "hr": 0.6856,
+            "base_rate": 0.5153,
+            "excess_hr": 0.1703,
+            "median_pnl": 6.0,
+            "median_hold_h": 3.5,
+            "pool_size": 25
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 727,
+            "n_correct": 446,
+            "hr": 0.6135,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1594,
+            "median_pnl": 4.99,
+            "median_hold_h": 4.1,
+            "pool_size": 25
+          }
+        ]
+      },
+      {
+        "combo_key": "K50_N2",
+        "k": 50,
+        "n": 2,
+        "n_folds": 3,
+        "pooled_hr": 0.6243,
+        "avg_excess_hr_pp": 12.56,
+        "avg_median_pnl": 15.48,
+        "avg_hold_hours": 3.4,
+        "total_signals": 724,
+        "signals_per_fold": 241.3,
+        "compounding_score": 13.7207,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 88,
+            "n_correct": 47,
+            "hr": 0.5341,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0726,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.5,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 316,
+            "n_correct": 200,
+            "hr": 0.6329,
+            "base_rate": 0.5153,
+            "excess_hr": 0.1176,
+            "median_pnl": 17.2,
+            "median_hold_h": 3.3,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 320,
+            "n_correct": 205,
+            "hr": 0.6406,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1865,
+            "median_pnl": 23.84,
+            "median_hold_h": 3.4,
+            "pool_size": 50
+          }
+        ]
+      },
+      {
+        "combo_key": "K75_N2",
+        "k": 75,
+        "n": 2,
+        "n_folds": 3,
+        "pooled_hr": 0.6147,
+        "avg_excess_hr_pp": 11.79,
+        "avg_median_pnl": 17.24,
+        "avg_hold_hours": 3.4,
+        "total_signals": 885,
+        "signals_per_fold": 295.0,
+        "compounding_score": 14.3409,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 88,
+            "n_correct": 47,
+            "hr": 0.5341,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0726,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.5,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 316,
+            "n_correct": 200,
+            "hr": 0.6329,
+            "base_rate": 0.5153,
+            "excess_hr": 0.1176,
+            "median_pnl": 17.2,
+            "median_hold_h": 3.3,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 481,
+            "n_correct": 297,
+            "hr": 0.6175,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1634,
+            "median_pnl": 29.11,
+            "median_hold_h": 3.4,
+            "pool_size": 75
+          }
+        ]
+      },
+      {
+        "combo_key": "K100_N2",
+        "k": 100,
+        "n": 2,
+        "n_folds": 3,
+        "pooled_hr": 0.6074,
+        "avg_excess_hr_pp": 11.37,
+        "avg_median_pnl": 18.72,
+        "avg_hold_hours": 3.5,
+        "total_signals": 1108,
+        "signals_per_fold": 369.3,
+        "compounding_score": 14.7425,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 88,
+            "n_correct": 47,
+            "hr": 0.5341,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0726,
+            "median_pnl": 5.4,
+            "median_hold_h": 3.5,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 316,
+            "n_correct": 200,
+            "hr": 0.6329,
+            "base_rate": 0.5153,
+            "excess_hr": 0.1176,
+            "median_pnl": 17.2,
+            "median_hold_h": 3.3,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 704,
+            "n_correct": 426,
+            "hr": 0.6051,
+            "base_rate": 0.4541,
+            "excess_hr": 0.151,
+            "median_pnl": 33.57,
+            "median_hold_h": 3.6,
+            "pool_size": 100
+          }
+        ]
+      },
+      {
+        "combo_key": "K50_N1",
+        "k": 50,
+        "n": 1,
+        "n_folds": 3,
+        "pooled_hr": 0.5861,
+        "avg_excess_hr_pp": 9.75,
+        "avg_median_pnl": 2.95,
+        "avg_hold_hours": 4.3,
+        "total_signals": 2266,
+        "signals_per_fold": 755.3,
+        "compounding_score": 1.6059,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 299,
+            "n_correct": 160,
+            "hr": 0.5351,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0736,
+            "median_pnl": 1.05,
+            "median_hold_h": 4.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 943,
+            "n_correct": 569,
+            "hr": 0.6034,
+            "base_rate": 0.5153,
+            "excess_hr": 0.0881,
+            "median_pnl": 3.6,
+            "median_hold_h": 4.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 1024,
+            "n_correct": 599,
+            "hr": 0.585,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1309,
+            "median_pnl": 4.2,
+            "median_hold_h": 4.3,
+            "pool_size": 50
+          }
+        ]
+      },
+      {
+        "combo_key": "K100_N1",
+        "k": 100,
+        "n": 1,
+        "n_folds": 3,
+        "pooled_hr": 0.5751,
+        "avg_excess_hr_pp": 9.12,
+        "avg_median_pnl": 2.22,
+        "avg_hold_hours": 4.5,
+        "total_signals": 2850,
+        "signals_per_fold": 950.0,
+        "compounding_score": 1.0778,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 299,
+            "n_correct": 160,
+            "hr": 0.5351,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0736,
+            "median_pnl": 1.05,
+            "median_hold_h": 4.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 943,
+            "n_correct": 569,
+            "hr": 0.6034,
+            "base_rate": 0.5153,
+            "excess_hr": 0.0881,
+            "median_pnl": 3.6,
+            "median_hold_h": 4.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 1608,
+            "n_correct": 910,
+            "hr": 0.5659,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1118,
+            "median_pnl": 2.0,
+            "median_hold_h": 4.9,
+            "pool_size": 100
+          }
+        ]
+      },
+      {
+        "combo_key": "K75_N1",
+        "k": 75,
+        "n": 1,
+        "n_folds": 3,
+        "pooled_hr": 0.5759,
+        "avg_excess_hr_pp": 9.07,
+        "avg_median_pnl": 2.59,
+        "avg_hold_hours": 4.4,
+        "total_signals": 2457,
+        "signals_per_fold": 819.0,
+        "compounding_score": 1.2802,
+        "per_fold": [
+          {
+            "fold": "2025-07-01",
+            "n_signals": 299,
+            "n_correct": 160,
+            "hr": 0.5351,
+            "base_rate": 0.4615,
+            "excess_hr": 0.0736,
+            "median_pnl": 1.05,
+            "median_hold_h": 4.6,
+            "pool_size": 10
+          },
+          {
+            "fold": "2025-10-01",
+            "n_signals": 943,
+            "n_correct": 569,
+            "hr": 0.6034,
+            "base_rate": 0.5153,
+            "excess_hr": 0.0881,
+            "median_pnl": 3.6,
+            "median_hold_h": 4.0,
+            "pool_size": 43
+          },
+          {
+            "fold": "2026-01-01",
+            "n_signals": 1215,
+            "n_correct": 686,
+            "hr": 0.5646,
+            "base_rate": 0.4541,
+            "excess_hr": 0.1105,
+            "median_pnl": 3.11,
+            "median_hold_h": 4.6,
+            "pool_size": 75
+          }
+        ]
+      }
+    ]
+  }
+}

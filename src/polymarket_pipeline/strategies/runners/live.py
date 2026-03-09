@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from polymarket_pipeline.live.dedup import TradeDedup
+from polymarket_pipeline.strategies.execution.monitor import PositionMonitor
 from polymarket_pipeline.strategies.runners.helpers import apply_fill_to_position, check_risk_gate
 from polymarket_pipeline.strategies.types import FillStatus, MarketInfo
 
@@ -96,6 +97,7 @@ class LiveRunner:
         self._market_volumes: dict[str, float] = {}
         self._intent_cb = intent_cb
         self._pool_refresh_cb: PoolRefreshCallback | None = None
+        self._monitor = PositionMonitor()
         # Rate tracking — reset each paper_stats log
         self._trades_at_last_stats: int = 0
         self._stats_last_time: float = time.monotonic()
@@ -262,6 +264,81 @@ class LiveRunner:
         except Exception:
             logger.exception("intent_cb.error")
 
+    def _resolve_asset_id_for_fill(self, fill: Fill) -> str | None:
+        """Resolve the asset_id for a fill's outcome token."""
+        # Try executor's token_map
+        executor = getattr(self.gateway, "executor", None)
+        tmap = getattr(executor, "_token_map", None)
+        if tmap:
+            tokens = tmap.get(fill.condition_id)
+            if tokens:
+                return tokens.get(fill.outcome)
+        return None
+
+    def _register_sl_after_fill(
+        self, fill: Fill, config: StrategyConfig,
+    ) -> None:
+        """Register a trailing stop after a BUY fill, if trail_delta is configured."""
+        if fill.side != "BUY":
+            return
+        trail_delta = config.params.get("trail_delta")
+        if trail_delta is None:
+            return
+        asset_id = self._resolve_asset_id_for_fill(fill)
+        if not asset_id:
+            return
+        self._monitor.register(fill, trail_delta=float(trail_delta), asset_id=asset_id)
+
+    async def _resolve_sell_size(self, intent: TradeIntent) -> TradeIntent | None:
+        """Replace size_usd=0 sentinel with actual position size for SELL intents."""
+        from polymarket_pipeline.strategies.types import TradeIntent as TI
+
+        pos = await self.ctx.get_position(intent.condition_id)
+        if pos is None:
+            logger.debug("resolve_sell.no_position", condition_id=intent.condition_id)
+            return None
+        qty = pos.qty_yes if intent.outcome == "YES" else pos.qty_no
+        if qty <= 0:
+            logger.debug("resolve_sell.zero_qty", condition_id=intent.condition_id)
+            return None
+        avg_entry = (
+            pos.avg_entry_yes if intent.outcome == "YES" else pos.avg_entry_no
+        )
+        est_price = max(avg_entry, 0.01)
+        return TI(
+            strategy=intent.strategy,
+            condition_id=intent.condition_id,
+            side="SELL",
+            outcome=intent.outcome,
+            size_usd=qty * est_price,
+            urgency=intent.urgency,
+            max_price=intent.max_price,
+            reason=intent.reason,
+            signal_time=intent.signal_time,
+            asset_id=intent.asset_id,
+        )
+
+    async def _execute_sl(self, intent: TradeIntent) -> None:
+        """Execute a stop-loss SELL intent immediately."""
+        # Resolve full position size if intent.size_usd is the sentinel (0.0)
+        if intent.size_usd <= 0:
+            intent = await self._resolve_sell_size(intent)
+            if intent is None:
+                return
+
+        fill = await self.gateway.submit(intent)
+        self._intents_submitted += 1
+
+        await self._fire_intent(
+            intent, fill.status.value, fill=fill,
+            rejection_reason=fill.error or "",
+        )
+
+        if fill.status in (FillStatus.FILLED, FillStatus.PARTIAL):
+            old_pos = await self.ctx.get_position(fill.condition_id)
+            new_pos = apply_fill_to_position(old_pos, fill)
+            self.ctx.set_position(fill.condition_id, new_pos)
+
     async def _handle_trade(self, trade: NormalizedTrade) -> None:
         """Hot path: dispatch trade to providers then strategies."""
         # Age filter — drop stale trades (Kafka lag, reconnection replays)
@@ -297,7 +374,14 @@ class LiveRunner:
         self.ctx.set_time(trade.published_at)
         self._update_market_price(trade)
 
-        # 4. Strategies — read updated context
+        # 4. Trailing stop check — before strategies, so positions close first
+        sl_intent = self._monitor.check(
+            trade.asset_id, float(trade.price), trade.published_at,
+        )
+        if sl_intent is not None:
+            await self._execute_sl(sl_intent)
+
+        # 5. Strategies — read updated context
         for strategy, config in self.strategies:
             if not config.enabled:
                 continue
@@ -320,6 +404,12 @@ class LiveRunner:
 
             if intents:
                 for intent in intents:
+                    # Resolve size_usd=0 sentinel for SELL intents
+                    if intent.side == "SELL" and intent.size_usd <= 0:
+                        intent = await self._resolve_sell_size(intent)
+                        if intent is None:
+                            continue
+
                     # Capture metadata: orderbook + strategy rationale
                     metadata = await self._build_intent_metadata(
                         intent, trade, strategy
@@ -359,6 +449,8 @@ class LiveRunner:
                         new_pos = apply_fill_to_position(old_pos, fill)
                         self.ctx.set_position(fill.condition_id, new_pos)
                         self._last_trade_times[intent.strategy] = fill.filled_at
+                        # Register trailing stop on BUY fills
+                        self._register_sl_after_fill(fill, config)
 
         self._trades_processed += 1
 
@@ -432,6 +524,7 @@ class LiveRunner:
         self._dedup._seen.clear()
         self._market_volumes.clear()
         self._last_trade_times.clear()
+        self._monitor.clear()
 
         prev_trades = self._trades_processed
         prev_intents = self._intents_submitted
@@ -495,6 +588,7 @@ class LiveRunner:
             realized_pnl=old_pos.realized_pnl + pnl_delta,
         )
         self.ctx.set_position(condition_id, new_pos)
+        self._monitor.unregister(condition_id)
 
         logger.info(
             "runner.settled",
@@ -556,6 +650,7 @@ class LiveRunner:
             realized_pnl=pos.realized_pnl + pnl_delta,
         )
         self.ctx.set_position(condition_id, new_pos)
+        self._monitor.unregister(condition_id)
 
         logger.info(
             "settlement.voided",
@@ -608,6 +703,7 @@ class LiveRunner:
                 budget_spent={k: round(v, 2) for k, v in budget_spent.items()},
                 drops_dedup=self._drops_dedup,
                 drops_stale=self._drops_stale,
+                trailing_stops=self._monitor.active_count,
             )
             for strategy, config in self.strategies:
                 if not config.enabled:
@@ -621,6 +717,13 @@ class LiveRunner:
                     continue
                 if intents:
                     for intent in intents:
+                        # Resolve size_usd=0 sentinel for SELL intents
+                        # (gateway rejects size_usd <= 0)
+                        if intent.side == "SELL" and intent.size_usd <= 0:
+                            intent = await self._resolve_sell_size(intent)
+                            if intent is None:
+                                continue
+
                         # Risk gate
                         positions = self.ctx.get_all_positions()
                         allowed, reason = check_risk_gate(
@@ -650,6 +753,7 @@ class LiveRunner:
                             new_pos = apply_fill_to_position(old_pos, fill)
                             self.ctx.set_position(fill.condition_id, new_pos)
                             self._last_trade_times[intent.strategy] = fill.filled_at
+                            self._register_sl_after_fill(fill, config)
 
     async def _refresh_loop(self) -> None:
         """Periodic provider refresh, with support for on-demand triggers."""

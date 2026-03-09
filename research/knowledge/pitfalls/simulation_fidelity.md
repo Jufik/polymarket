@@ -17,10 +17,10 @@ The simulation engine has 10+ identified gaps between simulated and real Polymar
 
 1. **User-responsibility gaps** (0-48pp): consensus dedup, SELL filtering — documented in separate pitfalls entries. Strategy code must handle these.
 
-2. **Engine structural gaps** (~15pp total):
-   - Fill model: linear impact, no depth, no partial fills (~5pp)
+2. **Engine structural gaps** (~10pp total, revised 2026-03-09):
+   - Fill model: linear impact, no depth, no partial fills (~2pp — empirically <1pp HR, 1-5% PnL for $10 trades)
    - Timing: no aggregation window, no latency distribution (~5pp)
-   - Calibration: spreads from trade prices not orderbook, static per-market (~3pp)
+   - Calibration: spreads from trade prices not orderbook, static per-market (~1pp — MAC median=0.01, true spread is small)
    - Accounting: no MTM, annualization assumes constant frequency (~2pp)
 
 3. **Fixed gaps** (0pp): settlement, risk gates, asset_id resolution, fees.
@@ -31,9 +31,9 @@ Scoreboard from code audit (2026-03-02):
 
 | Component | Fidelity | Estimated Gap |
 |-----------|----------|--------------|
-| Fill price | Medium | -3pp |
-| Spread calibration | Medium | -2pp |
-| Market impact | Low | -3pp |
+| Fill price | Medium | -1pp (revised: empirical MAC=0.01, Sports=0.00) |
+| Spread calibration | Medium | -1pp (revised: MAC adequate for $10 trades) |
+| Market impact | Low | -1pp (revised: non-monotonic with size, mean-reverting) |
 | Signal timing | Low | -3pp |
 | Latency model | Low | -2pp |
 | Partial fills | None | -2pp |

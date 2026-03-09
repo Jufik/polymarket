@@ -103,6 +103,9 @@ pm-build = "polymarket_pipeline.cli.build:main"
 pm-migrate = "polymarket_pipeline.cli.migrate:main"
 pm-strategy = "polymarket_pipeline.cli.strategy:app"
 pm-harness = "polymarket_pipeline.cli.harness:app"
+pm-clob = "polymarket_pipeline.cli.clob:main"
+pm-exchange = "polymarket_pipeline.cli.exchange:main"
+pm-ctf-recover = "polymarket_pipeline.cli.ctf_recover:main"
 
 [tool.uv.sources]
 polymarket-mempool = { path = "crates/polymarket-mempool", editable = true }

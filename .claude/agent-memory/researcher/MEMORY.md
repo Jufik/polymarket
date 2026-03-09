@@ -6,7 +6,8 @@
 
 ## Shell / Environment
 
-- **Use `./tmp/` not `/tmp/`** for all scratch files (absolute: `/Users/kiefferjulien/git/polymarket/tmp/`). `/tmp/` is not reliably accessible from the Bash tool in this environment.
+- **Use `./tmp/` not `/tmp/`** for scratch files. On this machine (Linux), `/mnt/nvme/git/polymarket/polymarket/tmp/` is the correct absolute path (NOT `/Users/kiefferjulien/...`).
+- Background tasks: `/tmp/claude-1000/-mnt-nvme-git-polymarket-polymarket/tasks/<id>.output`
 - Background task outputs go to `/private/tmp/claude-501/-Users-kiefferjulien-git-polymarket/tasks/<id>.output` — poll via `uv run python3 -c "open('./tmp/out.txt','w').write(open('<path>').read())"` then Read the file.
 - `uv run python3 -c "..."` works for inline scripts. Multi-line scripts must be written to `./tmp/script.py` first, then run with `uv run python3 ./tmp/script.py`.
 - Always write progress to a log file in `./tmp/` when running background sweeps — stdout capture from background tasks is unreliable.
@@ -68,6 +69,20 @@ Spawned: tag-hr-consensus [HIGH].
 - Bot guard: `count(*) < 10000` per (trader, tag) in training period filters bot accounts.
 - `any(t.label)` for primary_tag assignment is non-deterministic — use priority-ordered tag lists or `argMin(t.label, t.id)` for stability.
 - Always use `median_pnl` (not avg) in compounding score — avg_pnl is 2-100x skewed by whale positions.
+
+## BEH Gate Domain Specificity (2026-03-09)
+
+- BEH gate (`bucket_excess_hr >= 0.02`) works for Sports/Politics (many deep-uncertainty markets)
+- For **Crypto YES max_price≤0.65**: BEH gate over-filters — leaves only 37 traders (vs 50 v2), kills signal at N=2 (vectorized: -9.8pp excess, 19 signals vs v2's +37.4pp tick)
+- Root cause: Crypto signals at ≤0.65 are rare events per trader; not enough training data to pass BEH gate
+- **Lesson**: Do NOT apply BEH gate to Crypto YES leg. Use v2 HR-only pool for Crypto YES.
+
+## Crypto YES max_price=0.65 Vectorized vs Tick Gap (2026-03-09)
+
+- Vectorized severely undercounts signals for Crypto YES (v2 N=2: 11 vectorized vs 122 tick fills)
+- Root cause: `yes_entry_data` INNER JOIN excludes split-route traders; `first_trade >= test_start` date filter cuts more than expected
+- **Lesson**: Vectorized result for Crypto YES with price gate is NOT reliable — always tick-validate
+- Reference: `research/hypotheses/scorecard-v2-strategies/validation/crypto_maxprice065_results.md`
 
 ## tag-hr-consensus Key Findings (2026-03-06)
 
@@ -133,30 +148,11 @@ See `agent-memory/researcher/in-play-track-a.md` for full details.
 
 ## strategy1_tag_consensus Key Findings (2026-03-07)
 
-### In-Play Signal Problem (CRITICAL)
-- Most sports signals (Soccer, NBA, NHL, NFL, CS2, Dota2, Valorant) have hold < 6h
-- These experts enter DURING live matches, not before. HR=99%+ but UNCOPYABLE in real-time
-- Hold-duration HR breakdown (K=50, N=3): 0h=99.8%, 1-4h=97.0%, 4-24h=76.7%, 1-3d=80.6%
-- Must filter: `date_diff('hour', max(first_trade), first(resolved_at)) >= 24` for genuine signals
-- In-play effect is the dominant vectorized→tick gap for sports consensus strategies
-
-### DuckDB: CTE scoping bug in scorecard
-- `COALESCE(s.stability, ...)` inside final SELECT fails if `s` is a CTE not in the FROM clause
-- Fix: break into multiple separate `CREATE TABLE` steps (overall, monthly, stability, then JOIN)
-
-### Canonical Tag Assignment (DuckDB)
-- Use priority CASE WHEN for assignment, NOT "most specific" (fewest markets) — that picks niche tags
-- Pattern: `CASE WHEN et.label = 'Elections' THEN 0 WHEN et.label = 'Crypto' THEN 1 ... ELSE 999 END`
-- Gambling exclusion: markets.slug NOT LIKE '%updown%' AND NOT LIKE '%up-or-down%'
-
-### Composite Scorecard Ranking
-- Use `excess_hr * ln(n_positions + 1)` not raw hit_rate — avoids small-sample 100% HR traders
-- Require min_positions >= 20 to eliminate traders with 5/5=100% but tiny sample
-- conviction_ratio = avg(abs(net_usd)/volume) >= 0.90 to exclude market makers
-
-### Actionable Signals (K=50, N=3, >=4h hold, Dec 2025 – Feb 2026):
-- Politics NO: 335/mo, HR=92%, +19.9pp. Elections NO: 88/mo, HR=79.2%, +10.3pp. Tech NO: 58/mo, HR=88.3%, +13.3pp.
-- Soccer/Sports/NBA: HR=97-100% but hold<6h (in-play, uncopyable). Stability gate marginal.
+- In-play sports (Soccer, NBA, CS2, etc.): HR=99%+ but hold<6h — UNCOPYABLE. Filter: hold>=24h.
+- DuckDB CTE scope bug: `COALESCE(s.stability,...)` fails if `s` not in FROM. Use separate CREATE TABLE.
+- Canonical tag: priority CASE WHEN (not fewest-markets). Gambling: slug NOT LIKE '%updown%'.
+- Composite rank: `excess_hr * ln(n_markets+1)`, min 20 positions, conviction >= 0.90 (no MMs).
+- Actionable (K=50, N=3, >=4h hold): Politics NO +19.9pp, Elections NO +10.3pp, Tech NO +13.3pp.
 
 ## Elite Whale Copy Validation (2026-03-08)
 See `agent-memory/researcher/elite-whale-copy.md` for full details.
@@ -175,22 +171,53 @@ See `agent-memory/researcher/in-play-tracks-bc.md` for Tracks B/C details.
 
 ### Longshot Elite (2026-03-08) — REJECTED
 
-**Key result**: 3,613 long-shot specialists exist, HR 4-55% training, persistence confirmed (rank order preserved OOS). BUT: tick PnL is NEGATIVE for ALL pool sizes (K=25/50/100/200, N=1/2).
-
-**Root cause — Fill Price Break-Even Mismatch**:
-- Strategy fills at `trigger_price + 0.02` → avg fill = 0.207
-- Break-even HR at 0.207 = **20.7%**. Actual tick HR = **16.0%**
-- Every price bucket is below break-even
-
-**Price bucket alpha** (vectorized, top-50 pool):
-- <10% band: 0.0% HR — DEAD (pure gambling / near-zero)
-- 10-20% band: 8-16% HR — below break-even
-- 20-30% band: 30-35% HR vectorized, but tick HR = 21.4% (still below BE of 25.5%)
-
-**Narrowband (0.20-0.30) also fails**: 56 fills, HR=21.4%, PnL=-$709. Avg fill=0.255, BE=25.5%.
-
-**Pool overlap**: Only 2% overlap between long-shot specialists and elite in-play pool — distinct populations.
-
-**Spawned**: `longshot-narrowband` [LOW] — rejected even in 20-30% band. Hypothesis closed.
+3,613 specialists, HR persistent OOS. BUT tick PnL negative for ALL configs (K=25-200, N=1/2).
+Root cause: avg fill=0.207, break-even=20.7%, actual tick HR=16.0%. Even narrowband 0.20-0.30 fails (HR=21.4%, BE=25.5%). Hypothesis closed.
 
 **CRITICAL PITFALL DISCOVERED**: Fill price determines break-even, not price ceiling. Always verify `avg(fill_price)` from ledger before declaring above break-even.
+
+## BTC Up/Down Scalp Convergence Key Findings (2026-03-09)
+
+- GBM-PM deviation is structural: median 5.3% across ALL seconds (100% of windows have max >5%)
+- Convergence is FAST: 5% threshold → p50=12s, 10% → p50=22s, 15% → p50=42s
+- Theoretical net PnL (3% fee/side): 5%→+2.8%, 10%→+8.7%, 15%→+13.1% (UPPER BOUNDS)
+- Hit rate ~42-48% (BELOW 50%) — profit from mean-reversion, not GBM directional correctness
+- Regime-robust: consistent across all hours, vol quartiles, BTC direction
+- CRITICAL: 12s median convergence with ~1.5s execution latency = BORDERLINE feasibility
+- 10% threshold with 22s median hold is the best tradeoff
+- Data: 12,788 windows resolved in 90 days, 4M per-second PM price snapshots
+- Verdict: MARGINAL. Requires websocket infrastructure, $100-300 position size.
+
+## Large Polars Iteration Pitfall (2026-03-09)
+
+- NEVER iterate over Polars groups with `group_by(...).agg()` on 125M+ rows using Polars filter inside loop
+- Per-row `.filter(pl.col("timestamp") == pl.col("timestamp").min())` inside agg FAILS silently (OOM/process kill)
+- Use DuckDB ASOF JOIN for time-series price lookups at scale (fast, correct, no Python loop)
+- For per-second aggregation of 125M trades → reduce to ~4M rows using DuckDB group_by first
+- 4M per-second rows with per-window Python loop (~13k windows × 300 rows avg) = 5s — fast enough
+
+## SimulatedExecutor Fill Price Artifact (2026-03-09)
+
+See `agent-memory/researcher/sim-pitfalls.md` for full details.
+- SimulatedExecutor fills at `intent.max_price` regardless of actual market price
+- When max_price=0.80 is used as filter: break-even HR = 80%, tick PnL structurally negative
+- Symptom: all fill prices identical in ledger (= max_price). PnL/Sharpe invalid.
+- Fix: use HR/excess HR only; run `realistic_pnl.py` with yes_entry_data for true PnL estimate.
+
+## NO Direction PnL Sign Bug (2026-03-09)
+
+When storing entry/exit prices as YES-equivalent probabilities for BOTH directions:
+- **YES position PnL** = `exit_price - entry_price` (YES rose = profit)
+- **NO position PnL** = `entry_price - exit_price` (YES fell = NO rose = profit)
+- **Fees for NO** must use NO token prices: `FEE_PCT * (1-entry_price) + FEE_PCT * (1-exit_price)`
+- Bug symptom: NO direction shows ~10% profitable (should be ~70%). Flips total verdict from NO-GO to GO.
+- Reference: `research/hypotheses/crypto-scalp-convergence/validation/notes.md`
+
+## Politics YES v3 (BEH-gated, combined consensus) — GO (2026-03-09)
+
+- Pool: K=100 BEH-gated, combined YES+NO consensus, direction_filter=YES, max_price=0.80.
+- Base rate: 18.8%. N=3: 351 fills, +43.5pp. N=4: 176 fills, +43.1pp. N=5: 113 fills, +46.7pp.
+- 8/8 months positive excess for all N. Exceeds v2 baseline (+41pp). Tick PnL = artifact.
+- Median trigger price 0.54-0.62 → realistic PnL ≈ +$133-178/fill.
+- Verdict: GO. Recommended N=3 (volume) or N=5 (quality).
+- Reference: `research/hypotheses/scorecard-v3-strategies/validation/politics_yes_v3_results.md`

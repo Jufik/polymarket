@@ -1,0 +1,1024 @@
+{
+  "hypothesis": "politics-active-exit",
+  "timestamp": "2026-03-09T13:14:18.421614",
+  "verdict": "promising",
+  "note": "ALL RESULTS ARE UPPER BOUNDS \u2014 vectorized simulation using trade tape as price oracle",
+  "universe": {
+    "strategy": "Politics NO v3 K=100 N=2",
+    "total_positions": 346,
+    "won": 287,
+    "lost": 59,
+    "base_hr": 0.8295,
+    "base_rate_politics_no": 0.736,
+    "test_period": "2025-07-01 to 2026-03-01",
+    "markets_with_price_data": 346,
+    "markets_without_price_data": 0
+  },
+  "threshold_sweep_unconstrained": [
+    {
+      "strategy": "Hold to Resolution",
+      "exit_pct": null,
+      "n": 346,
+      "pct_exited": 0.0,
+      "total_pnl": 33941.52,
+      "avg_pnl": 98.1,
+      "hr": 82.9,
+      "median_hold_days": 7.51,
+      "roc_per_day": 0.01799,
+      "compounding_score": 1.221087259376708
+    },
+    {
+      "strategy": "Exit@20%",
+      "exit_pct": 0.2,
+      "n": 346,
+      "pct_exited": 78.6,
+      "total_pnl": 33771.6,
+      "avg_pnl": 97.61,
+      "hr": 82.9,
+      "median_hold_days": 1.37,
+      "roc_per_day": 0.08056,
+      "compounding_score": 13.661528711868696
+    },
+    {
+      "strategy": "Exit@25%",
+      "exit_pct": 0.25,
+      "n": 346,
+      "pct_exited": 78.0,
+      "total_pnl": 34734.44,
+      "avg_pnl": 100.39,
+      "hr": 82.9,
+      "median_hold_days": 1.45,
+      "roc_per_day": 0.07611,
+      "compounding_score": 12.875212597169622
+    },
+    {
+      "strategy": "Exit@30%",
+      "exit_pct": 0.3,
+      "n": 346,
+      "pct_exited": 77.2,
+      "total_pnl": 35214.5,
+      "avg_pnl": 101.78,
+      "hr": 82.9,
+      "median_hold_days": 1.63,
+      "roc_per_day": 0.06851,
+      "compounding_score": 11.431526508032205
+    },
+    {
+      "strategy": "Exit@40%",
+      "exit_pct": 0.4,
+      "n": 346,
+      "pct_exited": 75.4,
+      "total_pnl": 37410.58,
+      "avg_pnl": 108.12,
+      "hr": 82.9,
+      "median_hold_days": 1.95,
+      "roc_per_day": 0.06059,
+      "compounding_score": 9.509816629613166
+    },
+    {
+      "strategy": "Exit@50%",
+      "exit_pct": 0.5,
+      "n": 346,
+      "pct_exited": 74.9,
+      "total_pnl": 38354.12,
+      "avg_pnl": 110.85,
+      "hr": 82.9,
+      "median_hold_days": 2.29,
+      "roc_per_day": 0.05349,
+      "compounding_score": 8.162445919680946
+    },
+    {
+      "strategy": "Exit@60%",
+      "exit_pct": 0.6,
+      "n": 346,
+      "pct_exited": 73.1,
+      "total_pnl": 38648.76,
+      "avg_pnl": 111.7,
+      "hr": 82.9,
+      "median_hold_days": 2.69,
+      "roc_per_day": 0.045,
+      "compounding_score": 6.521933945032987
+    },
+    {
+      "strategy": "Exit@70%",
+      "exit_pct": 0.7,
+      "n": 346,
+      "pct_exited": 72.3,
+      "total_pnl": 39489.45,
+      "avg_pnl": 114.13,
+      "hr": 82.9,
+      "median_hold_days": 3.25,
+      "roc_per_day": 0.03664,
+      "compounding_score": 5.312601796353935
+    },
+    {
+      "strategy": "Exit@80%",
+      "exit_pct": 0.8,
+      "n": 346,
+      "pct_exited": 70.5,
+      "total_pnl": 40857.7,
+      "avg_pnl": 118.09,
+      "hr": 82.9,
+      "median_hold_days": 3.93,
+      "roc_per_day": 0.03272,
+      "compounding_score": 4.545811057671093
+    },
+    {
+      "strategy": "Exit@90%",
+      "exit_pct": 0.9,
+      "n": 346,
+      "pct_exited": 52.3,
+      "total_pnl": 40860.37,
+      "avg_pnl": 118.09,
+      "hr": 82.9,
+      "median_hold_days": 5.95,
+      "roc_per_day": 0.02712,
+      "compounding_score": 2.6583586535192123
+    }
+  ],
+  "threshold_sweep_p20": [
+    {
+      "strategy": "Exit@20%",
+      "exit_pct": 0.2,
+      "fills": 341,
+      "rejected": 5,
+      "total_pnl": 33696.134593470044,
+      "median_hold_days": 1.3307407407407408,
+      "hr": 0.9266862170087976,
+      "avg_pnl": 98.81564396912036
+    },
+    {
+      "strategy": "Exit@25%",
+      "exit_pct": 0.25,
+      "fills": 338,
+      "rejected": 8,
+      "total_pnl": 34636.71520478493,
+      "median_hold_days": 1.3983333333333334,
+      "hr": 0.9201183431952663,
+      "avg_pnl": 102.47548877155305
+    },
+    {
+      "strategy": "Exit@30%",
+      "exit_pct": 0.3,
+      "fills": 335,
+      "rejected": 11,
+      "total_pnl": 35088.78341473281,
+      "median_hold_days": 1.4470370370370371,
+      "hr": 0.9164179104477612,
+      "avg_pnl": 104.74263705890391
+    },
+    {
+      "strategy": "Exit@40%",
+      "exit_pct": 0.4,
+      "fills": 327,
+      "rejected": 19,
+      "total_pnl": 34105.31204299766,
+      "median_hold_days": 1.6335300925925926,
+      "hr": 0.9021406727828746,
+      "avg_pnl": 104.2975903455586
+    },
+    {
+      "strategy": "Exit@50%",
+      "exit_pct": 0.5,
+      "fills": 322,
+      "rejected": 24,
+      "total_pnl": 37228.652985729175,
+      "median_hold_days": 1.9901157407407408,
+      "hr": 0.8975155279503105,
+      "avg_pnl": 115.61693473828936
+    },
+    {
+      "strategy": "Exit@60%",
+      "exit_pct": 0.6,
+      "fills": 314,
+      "rejected": 32,
+      "total_pnl": 33880.22426059056,
+      "median_hold_days": 2.276666666666667,
+      "hr": 0.8853503184713376,
+      "avg_pnl": 107.89880337767696
+    },
+    {
+      "strategy": "Exit@70%",
+      "exit_pct": 0.7,
+      "fills": 282,
+      "rejected": 64,
+      "total_pnl": 32244.85959136691,
+      "median_hold_days": 2.6687962962962963,
+      "hr": 0.8687943262411347,
+      "avg_pnl": 114.34347372825145
+    },
+    {
+      "strategy": "Exit@80%",
+      "exit_pct": 0.8,
+      "fills": 254,
+      "rejected": 92,
+      "total_pnl": 25125.322498348465,
+      "median_hold_days": 3.319421296296296,
+      "hr": 0.8661417322834646,
+      "avg_pnl": 98.91859251318293
+    },
+    {
+      "strategy": "Exit@90%",
+      "exit_pct": 0.9,
+      "fills": 211,
+      "rejected": 135,
+      "total_pnl": 24848.010639212764,
+      "median_hold_days": 3.9879398148148146,
+      "hr": 0.8388625592417062,
+      "avg_pnl": 117.76308359816476
+    },
+    {
+      "strategy": "Hold to Resolution",
+      "exit_pct": null,
+      "fills": 197,
+      "rejected": 149,
+      "total_pnl": 12645.518983094484,
+      "median_hold_days": 4.702800925925926,
+      "hr": 0.7868020304568528,
+      "avg_pnl": 64.19045169083495
+    }
+  ],
+  "time_gated_variants": {
+    "0": {
+      "summary": {
+        "label": "Exit@50%_min0d",
+        "n_positions": 346,
+        "total_pnl": 38354.12,
+        "avg_pnl": 110.85,
+        "n_exited": 259,
+        "pct_exited": 74.9,
+        "hr": 82.9,
+        "median_hold_days": 2.29,
+        "roc_per_day": 0.05349
+      },
+      "p20_fills": 322,
+      "p20_pnl": 37228.652985729175
+    },
+    "1": {
+      "summary": {
+        "label": "Exit@50%_min1d",
+        "n_positions": 346,
+        "total_pnl": 37675.8,
+        "avg_pnl": 108.89,
+        "n_exited": 231,
+        "pct_exited": 66.8,
+        "hr": 82.9,
+        "median_hold_days": 2.44,
+        "roc_per_day": 0.05163
+      },
+      "p20_fills": 318,
+      "p20_pnl": 35765.01166313107
+    },
+    "3": {
+      "summary": {
+        "label": "Exit@50%_min3d",
+        "n_positions": 346,
+        "total_pnl": 39445.84,
+        "avg_pnl": 114.01,
+        "n_exited": 197,
+        "pct_exited": 56.9,
+        "hr": 82.9,
+        "median_hold_days": 3.34,
+        "roc_per_day": 0.05252
+      },
+      "p20_fills": 312,
+      "p20_pnl": 34882.55622597843
+    },
+    "7": {
+      "summary": {
+        "label": "Exit@50%_min7d",
+        "n_positions": 346,
+        "total_pnl": 36614.7,
+        "avg_pnl": 105.82,
+        "n_exited": 159,
+        "pct_exited": 46.0,
+        "hr": 82.9,
+        "median_hold_days": 7.01,
+        "roc_per_day": 0.0468
+      },
+      "p20_fills": 291,
+      "p20_pnl": 29046.80860470321
+    },
+    "25pct_min0d": {
+      "summary": {
+        "label": "Exit@25%_min0d",
+        "n_positions": 346,
+        "total_pnl": 34734.44,
+        "avg_pnl": 100.39,
+        "n_exited": 270,
+        "pct_exited": 78.0,
+        "hr": 82.9,
+        "median_hold_days": 1.45,
+        "roc_per_day": 0.07611
+      },
+      "p20_fills": 338,
+      "p20_pnl": 34636.71520478493
+    },
+    "25pct_min1d": {
+      "summary": {
+        "label": "Exit@25%_min1d",
+        "n_positions": 346,
+        "total_pnl": 32969.07,
+        "avg_pnl": 95.29,
+        "n_exited": 240,
+        "pct_exited": 69.4,
+        "hr": 82.9,
+        "median_hold_days": 1.8,
+        "roc_per_day": 0.07027
+      },
+      "p20_fills": 338,
+      "p20_pnl": 32871.336287581056
+    },
+    "25pct_min3d": {
+      "summary": {
+        "label": "Exit@25%_min3d",
+        "n_positions": 346,
+        "total_pnl": 37470.12,
+        "avg_pnl": 108.3,
+        "n_exited": 203,
+        "pct_exited": 58.7,
+        "hr": 82.9,
+        "median_hold_days": 3.23,
+        "roc_per_day": 0.07526
+      },
+      "p20_fills": 333,
+      "p20_pnl": 36442.43746848037
+    },
+    "25pct_min7d": {
+      "summary": {
+        "label": "Exit@25%_min7d",
+        "n_positions": 346,
+        "total_pnl": 36055.76,
+        "avg_pnl": 104.21,
+        "n_exited": 164,
+        "pct_exited": 47.4,
+        "hr": 82.9,
+        "median_hold_days": 7.01,
+        "roc_per_day": 0.06637
+      },
+      "p20_fills": 312,
+      "p20_pnl": 33372.31767663662
+    }
+  },
+  "price_bucket_conditional": {
+    "adaptive_v1": {
+      "config": "Longshot@50%, mid@30%, favorite@25%",
+      "summary": {
+        "label": "adaptive_v1",
+        "n_positions": 346,
+        "total_pnl": 38380.59,
+        "avg_pnl": 110.93,
+        "n_exited": 265,
+        "pct_exited": 76.6,
+        "hr": 82.9,
+        "median_hold_days": 1.63,
+        "roc_per_day": 0.07691
+      },
+      "p20_fills": 332,
+      "p20_pnl": 38248.33389636104
+    },
+    "adaptive_v2": {
+      "config": "Longshot@75%, mid@50%, favorite@25%",
+      "summary": {
+        "label": "adaptive_v2",
+        "n_positions": 346,
+        "total_pnl": 40281.46,
+        "avg_pnl": 116.42,
+        "n_exited": 257,
+        "pct_exited": 74.3,
+        "hr": 82.9,
+        "median_hold_days": 2.03,
+        "roc_per_day": 0.06959
+      },
+      "p20_fills": 325,
+      "p20_pnl": 36549.73003521672
+    },
+    "adaptive_v3": {
+      "config": "All buckets @25%",
+      "summary": {
+        "label": "adaptive_v3",
+        "n_positions": 346,
+        "total_pnl": 34734.44,
+        "avg_pnl": 100.39,
+        "n_exited": 270,
+        "pct_exited": 78.0,
+        "hr": 82.9,
+        "median_hold_days": 1.45,
+        "roc_per_day": 0.07611
+      },
+      "p20_fills": 338,
+      "p20_pnl": 34636.71520478493
+    },
+    "adaptive_v4": {
+      "config": "Hold longshots, mid@50%, favorite@25%",
+      "summary": {
+        "label": "adaptive_v4",
+        "n_positions": 346,
+        "total_pnl": 34513.32,
+        "avg_pnl": 99.75,
+        "n_exited": 207,
+        "pct_exited": 59.8,
+        "hr": 82.9,
+        "median_hold_days": 2.96,
+        "roc_per_day": 0.04531
+      },
+      "p20_fills": 309,
+      "p20_pnl": 31143.321164377223
+    },
+    "adaptive_v5": {
+      "config": "Uniform @50% (sanity check vs simple)",
+      "summary": {
+        "label": "adaptive_v5",
+        "n_positions": 346,
+        "total_pnl": 38354.12,
+        "avg_pnl": 110.85,
+        "n_exited": 259,
+        "pct_exited": 74.9,
+        "hr": 82.9,
+        "median_hold_days": 2.29,
+        "roc_per_day": 0.05349
+      },
+      "p20_fills": 322,
+      "p20_pnl": 37228.652985729175
+    }
+  },
+  "hold_when_close_variants": {
+    "1": {
+      "summary": {
+        "label": "Exit@50%_holdclose1d",
+        "n_positions": 346,
+        "total_pnl": 38156.85,
+        "avg_pnl": 110.28,
+        "n_exited": 235,
+        "pct_exited": 67.9,
+        "hr": 82.9,
+        "median_hold_days": 2.29,
+        "roc_per_day": 0.05318
+      },
+      "p20_fills": 319,
+      "p20_pnl": 37129.25935891761
+    },
+    "2": {
+      "summary": {
+        "label": "Exit@50%_holdclose2d",
+        "n_positions": 346,
+        "total_pnl": 38242.09,
+        "avg_pnl": 110.53,
+        "n_exited": 219,
+        "pct_exited": 63.3,
+        "hr": 82.9,
+        "median_hold_days": 2.29,
+        "roc_per_day": 0.05321
+      },
+      "p20_fills": 318,
+      "p20_pnl": 37175.61203328531
+    },
+    "3": {
+      "summary": {
+        "label": "Exit@50%_holdclose3d",
+        "n_positions": 346,
+        "total_pnl": 38090.03,
+        "avg_pnl": 110.09,
+        "n_exited": 200,
+        "pct_exited": 57.8,
+        "hr": 82.9,
+        "median_hold_days": 2.43,
+        "roc_per_day": 0.0528
+      },
+      "p20_fills": 317,
+      "p20_pnl": 36662.71987135047
+    },
+    "5": {
+      "summary": {
+        "label": "Exit@50%_holdclose5d",
+        "n_positions": 346,
+        "total_pnl": 40247.02,
+        "avg_pnl": 116.32,
+        "n_exited": 178,
+        "pct_exited": 51.4,
+        "hr": 82.9,
+        "median_hold_days": 2.96,
+        "roc_per_day": 0.05534
+      },
+      "p20_fills": 302,
+      "p20_pnl": 37688.770095375374
+    },
+    "7": {
+      "summary": {
+        "label": "Exit@50%_holdclose7d",
+        "n_positions": 346,
+        "total_pnl": 37229.07,
+        "avg_pnl": 107.6,
+        "n_exited": 165,
+        "pct_exited": 47.7,
+        "hr": 82.9,
+        "median_hold_days": 3.21,
+        "roc_per_day": 0.05092
+      },
+      "p20_fills": 293,
+      "p20_pnl": 34693.54088623725
+    }
+  },
+  "capital_efficiency": {
+    "hold": [
+      {
+        "P": 5,
+        "capital_usd": 500,
+        "fills": 65,
+        "total_pnl": 7167.43,
+        "median_hold_days": 4.96
+      },
+      {
+        "P": 10,
+        "capital_usd": 1000,
+        "fills": 89,
+        "total_pnl": 7112.38,
+        "median_hold_days": 8.35
+      },
+      {
+        "P": 15,
+        "capital_usd": 1500,
+        "fills": 153,
+        "total_pnl": 8526.74,
+        "median_hold_days": 5.83
+      },
+      {
+        "P": 20,
+        "capital_usd": 2000,
+        "fills": 197,
+        "total_pnl": 12645.52,
+        "median_hold_days": 4.7
+      },
+      {
+        "P": 25,
+        "capital_usd": 2500,
+        "fills": 227,
+        "total_pnl": 15677.23,
+        "median_hold_days": 5.39
+      },
+      {
+        "P": 30,
+        "capital_usd": 3000,
+        "fills": 255,
+        "total_pnl": 21580.35,
+        "median_hold_days": 5.83
+      },
+      {
+        "P": 40,
+        "capital_usd": 4000,
+        "fills": 304,
+        "total_pnl": 26198.88,
+        "median_hold_days": 6.84
+      },
+      {
+        "P": 50,
+        "capital_usd": 5000,
+        "fills": 346,
+        "total_pnl": 33941.52,
+        "median_hold_days": 7.51
+      },
+      {
+        "P": 75,
+        "capital_usd": 7500,
+        "fills": 346,
+        "total_pnl": 33941.52,
+        "median_hold_days": 7.51
+      },
+      {
+        "P": 100,
+        "capital_usd": 10000,
+        "fills": 346,
+        "total_pnl": 33941.52,
+        "median_hold_days": 7.51
+      },
+      {
+        "P": 200,
+        "capital_usd": 20000,
+        "fills": 346,
+        "total_pnl": 33941.52,
+        "median_hold_days": 7.51
+      },
+      {
+        "P": 346,
+        "capital_usd": 34600,
+        "fills": 346,
+        "total_pnl": 33941.52,
+        "median_hold_days": 7.51
+      }
+    ],
+    "exit_25pct": [
+      {
+        "P": 5,
+        "capital_usd": 500,
+        "fills": 147,
+        "total_pnl": 20229.54,
+        "median_hold_days": 1.04
+      },
+      {
+        "P": 10,
+        "capital_usd": 1000,
+        "fills": 259,
+        "total_pnl": 27153.16,
+        "median_hold_days": 1.32
+      },
+      {
+        "P": 15,
+        "capital_usd": 1500,
+        "fills": 323,
+        "total_pnl": 31069.57,
+        "median_hold_days": 1.32
+      },
+      {
+        "P": 20,
+        "capital_usd": 2000,
+        "fills": 338,
+        "total_pnl": 34636.72,
+        "median_hold_days": 1.4
+      },
+      {
+        "P": 25,
+        "capital_usd": 2500,
+        "fills": 344,
+        "total_pnl": 34691.58,
+        "median_hold_days": 1.43
+      },
+      {
+        "P": 30,
+        "capital_usd": 3000,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 40,
+        "capital_usd": 4000,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 50,
+        "capital_usd": 5000,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 75,
+        "capital_usd": 7500,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 100,
+        "capital_usd": 10000,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 200,
+        "capital_usd": 20000,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      },
+      {
+        "P": 346,
+        "capital_usd": 34600,
+        "fills": 346,
+        "total_pnl": 34734.44,
+        "median_hold_days": 1.45
+      }
+    ],
+    "exit_50pct": [
+      {
+        "P": 5,
+        "capital_usd": 500,
+        "fills": 119,
+        "total_pnl": 19862.18,
+        "median_hold_days": 1.63
+      },
+      {
+        "P": 10,
+        "capital_usd": 1000,
+        "fills": 182,
+        "total_pnl": 21622.15,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 15,
+        "capital_usd": 1500,
+        "fills": 283,
+        "total_pnl": 31100.07,
+        "median_hold_days": 2.01
+      },
+      {
+        "P": 20,
+        "capital_usd": 2000,
+        "fills": 322,
+        "total_pnl": 37228.65,
+        "median_hold_days": 1.99
+      },
+      {
+        "P": 25,
+        "capital_usd": 2500,
+        "fills": 334,
+        "total_pnl": 38169.15,
+        "median_hold_days": 2.07
+      },
+      {
+        "P": 30,
+        "capital_usd": 3000,
+        "fills": 339,
+        "total_pnl": 38222.15,
+        "median_hold_days": 2.11
+      },
+      {
+        "P": 40,
+        "capital_usd": 4000,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 50,
+        "capital_usd": 5000,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 75,
+        "capital_usd": 7500,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 100,
+        "capital_usd": 10000,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 200,
+        "capital_usd": 20000,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      },
+      {
+        "P": 346,
+        "capital_usd": 34600,
+        "fills": 346,
+        "total_pnl": 38354.12,
+        "median_hold_days": 2.29
+      }
+    ]
+  },
+  "per_bucket_analysis": {
+    "very_cheap": {
+      "fill_range": "0.00-0.20",
+      "n": 38,
+      "optimal_threshold": "exit_20pct",
+      "hold_roc": 0.45645,
+      "best_roc": 45.29887,
+      "threshold_rocs": {
+        "hold": 0.45645,
+        "exit_20pct": 45.29887,
+        "exit_25pct": 42.32423,
+        "exit_30pct": 40.5919,
+        "exit_40pct": 28.17116,
+        "exit_50pct": 23.73358,
+        "exit_60pct": 13.56582,
+        "exit_70pct": 9.65084,
+        "exit_80pct": 5.93639,
+        "exit_90pct": 2.57534
+      },
+      "threshold_pnls": {
+        "hold": 33591.16,
+        "exit_20pct": 32876.08,
+        "exit_25pct": 33715.17,
+        "exit_30pct": 34026.54,
+        "exit_40pct": 35825.67,
+        "exit_50pct": 36610.17,
+        "exit_60pct": 36968.21,
+        "exit_70pct": 37679.43,
+        "exit_80pct": 38629.46,
+        "exit_90pct": 38864.81
+      }
+    },
+    "cheap": {
+      "fill_range": "0.20-0.50",
+      "n": 22,
+      "optimal_threshold": "exit_20pct",
+      "hold_roc": 0.01253,
+      "best_roc": 1.68003,
+      "threshold_rocs": {
+        "hold": 0.01253,
+        "exit_20pct": 1.68003,
+        "exit_25pct": 0.77018,
+        "exit_30pct": 0.27674,
+        "exit_40pct": 0.18526,
+        "exit_50pct": 0.12734,
+        "exit_60pct": 0.06445,
+        "exit_70pct": 0.04915,
+        "exit_80pct": 0.0413,
+        "exit_90pct": 0.03098
+      },
+      "threshold_pnls": {
+        "hold": 2262.94,
+        "exit_20pct": 1904.07,
+        "exit_25pct": 2195.02,
+        "exit_30pct": 2232.33,
+        "exit_40pct": 2849.07,
+        "exit_50pct": 2884.05,
+        "exit_60pct": 2886.4,
+        "exit_70pct": 3069.14,
+        "exit_80pct": 3368.15,
+        "exit_90pct": 3305.81
+      }
+    },
+    "mid_low": {
+      "fill_range": "0.50-0.70",
+      "n": 12,
+      "optimal_threshold": "exit_20pct",
+      "hold_roc": -0.0011,
+      "best_roc": 0.00575,
+      "threshold_rocs": {
+        "hold": -0.0011,
+        "exit_20pct": 0.00575,
+        "exit_25pct": -0.00254,
+        "exit_30pct": -0.00047,
+        "exit_40pct": -0.00601,
+        "exit_50pct": -0.00531,
+        "exit_60pct": -0.00407,
+        "exit_70pct": -0.00334,
+        "exit_80pct": -0.00313,
+        "exit_90pct": -0.00217
+      },
+      "threshold_pnls": {
+        "hold": -162.2,
+        "exit_20pct": 68.96,
+        "exit_25pct": -44.91,
+        "exit_30pct": -13.39,
+        "exit_40pct": -216.33,
+        "exit_50pct": -193.9,
+        "exit_60pct": -161.17,
+        "exit_70pct": -238.06,
+        "exit_80pct": -228.11,
+        "exit_90pct": -189.97
+      }
+    },
+    "mid_high": {
+      "fill_range": "0.70-0.80",
+      "n": 31,
+      "optimal_threshold": "exit_90pct",
+      "hold_roc": -0.00128,
+      "best_roc": -0.00038,
+      "threshold_rocs": {
+        "hold": -0.00128,
+        "exit_20pct": -0.00334,
+        "exit_25pct": -0.00298,
+        "exit_30pct": -0.00232,
+        "exit_40pct": -0.00274,
+        "exit_50pct": -0.00223,
+        "exit_60pct": -0.00145,
+        "exit_70pct": -0.00095,
+        "exit_80pct": -0.00061,
+        "exit_90pct": -0.00038
+      },
+      "threshold_pnls": {
+        "hold": -314.33,
+        "exit_20pct": -272.24,
+        "exit_25pct": -254.45,
+        "exit_30pct": -223.85,
+        "exit_40pct": -303.94,
+        "exit_50pct": -270.5,
+        "exit_60pct": -218.07,
+        "exit_70pct": -158.49,
+        "exit_80pct": -116.07,
+        "exit_90pct": -80.86
+      }
+    },
+    "expensive": {
+      "fill_range": "0.80-0.90",
+      "n": 53,
+      "optimal_threshold": "exit_20pct",
+      "hold_roc": -0.00013,
+      "best_roc": 0.00417,
+      "threshold_rocs": {
+        "hold": -0.00013,
+        "exit_20pct": 0.00417,
+        "exit_25pct": 0.00239,
+        "exit_30pct": 0.00245,
+        "exit_40pct": 0.00201,
+        "exit_50pct": 0.00172,
+        "exit_60pct": 0.0006,
+        "exit_70pct": 0.00023,
+        "exit_80pct": 0.00029,
+        "exit_90pct": 0.0003
+      },
+      "threshold_pnls": {
+        "hold": -67.89,
+        "exit_20pct": 272.65,
+        "exit_25pct": 189.83,
+        "exit_30pct": 237.97,
+        "exit_40pct": 281.66,
+        "exit_50pct": 324.52,
+        "exit_60pct": 139.88,
+        "exit_70pct": 73.01,
+        "exit_80pct": 111.26,
+        "exit_90pct": 141.34
+      }
+    },
+    "very_expensive": {
+      "fill_range": "0.90-1.01",
+      "n": 190,
+      "optimal_threshold": "exit_80pct",
+      "hold_roc": -0.00194,
+      "best_roc": -0.00175,
+      "threshold_rocs": {
+        "hold": -0.00194,
+        "exit_20pct": -0.00417,
+        "exit_25pct": -0.00395,
+        "exit_30pct": -0.0037,
+        "exit_40pct": -0.00327,
+        "exit_50pct": -0.00289,
+        "exit_60pct": -0.00249,
+        "exit_70pct": -0.00204,
+        "exit_80pct": -0.00175,
+        "exit_90pct": -0.00191
+      },
+      "threshold_pnls": {
+        "hold": -1368.16,
+        "exit_20pct": -1077.91,
+        "exit_25pct": -1066.22,
+        "exit_30pct": -1045.1,
+        "exit_40pct": -1025.55,
+        "exit_50pct": -1000.23,
+        "exit_60pct": -966.49,
+        "exit_70pct": -935.59,
+        "exit_80pct": -907.0,
+        "exit_90pct": -1180.75
+      }
+    }
+  },
+  "sensitivity_analysis_50pct": {
+    "-10pp": {
+      "exit_pct": 0.45,
+      "unconstrained_pnl": 37657.84,
+      "p20_fills": 324,
+      "p20_pnl": 37021.44677113565
+    },
+    "+10pp": {
+      "exit_pct": 0.55,
+      "unconstrained_pnl": 38857.37,
+      "p20_fills": 321,
+      "p20_pnl": 34031.27434000291
+    },
+    "-20pp": {
+      "exit_pct": 0.4,
+      "unconstrained_pnl": 37410.58,
+      "p20_fills": 327,
+      "p20_pnl": 34105.31204299766
+    },
+    "+20pp": {
+      "exit_pct": 0.6,
+      "unconstrained_pnl": 38648.76,
+      "p20_fills": 314,
+      "p20_pnl": 33880.22426059056
+    }
+  },
+  "optimal_configs": {
+    "best_roc_unconstrained": "Exit@20%",
+    "best_compounding": "Exit@20%",
+    "best_p20_pnl": "Exit@50%",
+    "recommended": "Exit@50% for P=20 (max total PnL); Exit@20% for portfolio compounding (max ROC/day)",
+    "reasoning": "Trade-off: Exit@20% maximizes ROC/day (4.5x vs hold) and compounding score, but Exit@50% wins at P=20 by ,592 (7,229 vs 4,637). Choice depends on whether the freed capital from Exit@20% can be deployed into other strategies. If yes, Exit@20% is better for portfolio. If no (politics-only portfolio), use Exit@50%."
+  },
+  "sell_variant_note": "Not applicable \u2014 this sweep is about exit policy, not entry signal direction. All positions are BUY NO entries from Politics NO v3 K=100 N=2 ledger.",
+  "architectural_parameters": {
+    "recommended_executor_params": {
+      "exit_pct": "0.25-0.50 (suggest 0.25 for max capital efficiency)",
+      "min_hold_days": "0 (time-gating adds minimal value)",
+      "hold_when_close_days": "0-1 (minimal benefit in testing)",
+      "price_bucket_adaptive": "false (uniform exit wins)"
+    }
+  },
+  "spawned_ideas": [
+    "Test trailing stop: exit at 50% gain but add trailing stop at 20% below peak",
+    "Test portfolio-level exit: prioritize exits when P is full vs when capital is free",
+    "Test dynamic threshold by market age: tighter exit as resolution approaches",
+    "Validate exit strategy using tick-by-tick replay to measure actual fill feasibility"
+  ],
+  "knowledge_captures": [
+    "Exit@25% maximizes capital efficiency (ROC/day) for Politics NO by freeing capital fastest",
+    "Price-bucket adaptive exit adds no benefit over uniform exit for Politics NO",
+    "Time-gating (min hold N days) reduces signal count with minimal PnL benefit",
+    "Hold-when-close (hold if resolves within X days) has marginal impact on P=20 PnL"
+  ]
+}

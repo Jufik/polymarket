@@ -1,0 +1,345 @@
+{
+  "meta": {
+    "generated_at": "2026-03-09 11:31:29",
+    "test_start": "2025-07-01",
+    "test_end": "2026-03-01",
+    "pool_config": "K=100, BEH gate >= 0.02, direction_filter=YES, max_price=0.80",
+    "v2_baseline": {
+      "k": 100,
+      "n": 5,
+      "max_price": 0.8,
+      "excess_hr": 0.41,
+      "fills": 262,
+      "fills_filtered": 125
+    },
+    "note": "Combined YES+NO consensus: N total traders in market, vol-weighted direction must be YES. Tick-validated via SyncReplayRunner."
+  },
+  "base_rate": 0.1882,
+  "pool_size": 100,
+  "results": {
+    "n3": {
+      "settled": 350,
+      "hr": 0.6229,
+      "excess_hr": 0.4347,
+      "base_rate": 0.1882,
+      "pct_under_1h": 0.014,
+      "pct_under_4h": 0.203,
+      "pct_under_24h": 0.389,
+      "median_hold_h": 53.9,
+      "total_pnl": -7750.0,
+      "median_pnl_per_fill": 25.0,
+      "monthly_stats": [
+        {
+          "month": "2025-01-01 00:00:00",
+          "n_fills": 4,
+          "hr": 0.25,
+          "pnl_net": -275.0
+        },
+        {
+          "month": "2025-02-01 00:00:00",
+          "n_fills": 2,
+          "hr": 0.0,
+          "pnl_net": -200.0
+        },
+        {
+          "month": "2025-03-01 00:00:00",
+          "n_fills": 2,
+          "hr": 0.0,
+          "pnl_net": -200.0
+        },
+        {
+          "month": "2025-04-01 00:00:00",
+          "n_fills": 5,
+          "hr": 0.0,
+          "pnl_net": -500.0
+        },
+        {
+          "month": "2025-05-01 00:00:00",
+          "n_fills": 9,
+          "hr": 0.4444444444444444,
+          "pnl_net": -400.0
+        },
+        {
+          "month": "2025-06-01 00:00:00",
+          "n_fills": 23,
+          "hr": 0.43478260869565216,
+          "pnl_net": -1050.0
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 44,
+          "hr": 0.5909090909090909,
+          "pnl_net": -1150.0000000000002
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 40,
+          "hr": 0.65,
+          "pnl_net": -750.0000000000002
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 65,
+          "hr": 0.6461538461538462,
+          "pnl_net": -1250.0000000000002
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 44,
+          "hr": 0.6818181818181818,
+          "pnl_net": -650.0000000000002
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 37,
+          "hr": 0.6216216216216216,
+          "pnl_net": -825.0000000000001
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 30,
+          "hr": 0.8666666666666667,
+          "pnl_net": 249.99999999999983
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 24,
+          "hr": 0.625,
+          "pnl_net": -525.0000000000001
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 21,
+          "hr": 0.7142857142857143,
+          "pnl_net": -225.0000000000001
+        }
+      ],
+      "name": "politics_yes_v3_k100_n3",
+      "n_threshold": 3,
+      "max_price": 0.8,
+      "total_fills": 351,
+      "rejected_intents": 0,
+      "pool_size": 100,
+      "direction": "YES",
+      "tag": "Politics",
+      "elapsed_s": 89.6,
+      "tick_hr": 0.6229,
+      "tick_pnl_net": -7750.0,
+      "tick_sharpe": -1.4369,
+      "tick_max_drawdown": 7850.0,
+      "tick_profit_factor": 0.4129,
+      "tick_avg_hold_h": 565.15,
+      "tick_excess_hr": 0.4347,
+      "win_count": 218,
+      "loss_count": 132
+    },
+    "n4": {
+      "settled": 176,
+      "hr": 0.6193,
+      "excess_hr": 0.4311,
+      "base_rate": 0.1882,
+      "pct_under_1h": 0.011,
+      "pct_under_4h": 0.159,
+      "pct_under_24h": 0.324,
+      "median_hold_h": 102.4,
+      "total_pnl": -3975.0,
+      "median_pnl_per_fill": 25.0,
+      "monthly_stats": [
+        {
+          "month": "2025-02-01 00:00:00",
+          "n_fills": 2,
+          "hr": 0.5,
+          "pnl_net": -75.0
+        },
+        {
+          "month": "2025-04-01 00:00:00",
+          "n_fills": 4,
+          "hr": 0.0,
+          "pnl_net": -400.0
+        },
+        {
+          "month": "2025-05-01 00:00:00",
+          "n_fills": 5,
+          "hr": 0.0,
+          "pnl_net": -500.0
+        },
+        {
+          "month": "2025-06-01 00:00:00",
+          "n_fills": 17,
+          "hr": 0.29411764705882354,
+          "pnl_net": -1075.0
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 17,
+          "hr": 0.6470588235294118,
+          "pnl_net": -325.00000000000006
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 22,
+          "hr": 0.6363636363636364,
+          "pnl_net": -450.0000000000001
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 26,
+          "hr": 0.7307692307692307,
+          "pnl_net": -225.0000000000001
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 23,
+          "hr": 0.6521739130434783,
+          "pnl_net": -425.0000000000001
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 23,
+          "hr": 0.7391304347826086,
+          "pnl_net": -175.0000000000001
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 11,
+          "hr": 1.0,
+          "pnl_net": 274.99999999999994
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 14,
+          "hr": 0.5714285714285714,
+          "pnl_net": -400.00000000000006
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 12,
+          "hr": 0.6666666666666666,
+          "pnl_net": -200.00000000000003
+        }
+      ],
+      "name": "politics_yes_v3_k100_n4",
+      "n_threshold": 4,
+      "max_price": 0.8,
+      "total_fills": 176,
+      "rejected_intents": 0,
+      "pool_size": 100,
+      "direction": "YES",
+      "tag": "Politics",
+      "elapsed_s": 61.8,
+      "tick_hr": 0.6193,
+      "tick_pnl_net": -3975.0,
+      "tick_sharpe": -1.3694,
+      "tick_max_drawdown": 4025.0,
+      "tick_profit_factor": 0.4067,
+      "tick_avg_hold_h": 643.15,
+      "tick_excess_hr": 0.4311,
+      "win_count": 109,
+      "loss_count": 67
+    },
+    "n5": {
+      "settled": 113,
+      "hr": 0.6549,
+      "excess_hr": 0.4667,
+      "base_rate": 0.1882,
+      "pct_under_1h": 0.0,
+      "pct_under_4h": 0.133,
+      "pct_under_24h": 0.345,
+      "median_hold_h": 122.3,
+      "total_pnl": -2050.0,
+      "median_pnl_per_fill": 25.0,
+      "monthly_stats": [
+        {
+          "month": "2025-02-01 00:00:00",
+          "n_fills": 2,
+          "hr": 0.5,
+          "pnl_net": -75.0
+        },
+        {
+          "month": "2025-04-01 00:00:00",
+          "n_fills": 2,
+          "hr": 0.0,
+          "pnl_net": -200.0
+        },
+        {
+          "month": "2025-05-01 00:00:00",
+          "n_fills": 3,
+          "hr": 0.0,
+          "pnl_net": -300.0
+        },
+        {
+          "month": "2025-06-01 00:00:00",
+          "n_fills": 9,
+          "hr": 0.4444444444444444,
+          "pnl_net": -400.0
+        },
+        {
+          "month": "2025-07-01 00:00:00",
+          "n_fills": 12,
+          "hr": 0.5,
+          "pnl_net": -450.0
+        },
+        {
+          "month": "2025-08-01 00:00:00",
+          "n_fills": 12,
+          "hr": 0.6666666666666666,
+          "pnl_net": -200.00000000000006
+        },
+        {
+          "month": "2025-09-01 00:00:00",
+          "n_fills": 17,
+          "hr": 0.7647058823529411,
+          "pnl_net": -75.00000000000007
+        },
+        {
+          "month": "2025-10-01 00:00:00",
+          "n_fills": 15,
+          "hr": 0.6666666666666666,
+          "pnl_net": -250.00000000000009
+        },
+        {
+          "month": "2025-11-01 00:00:00",
+          "n_fills": 13,
+          "hr": 0.6923076923076923,
+          "pnl_net": -175.00000000000006
+        },
+        {
+          "month": "2025-12-01 00:00:00",
+          "n_fills": 9,
+          "hr": 1.0,
+          "pnl_net": 224.99999999999994
+        },
+        {
+          "month": "2026-01-01 00:00:00",
+          "n_fills": 10,
+          "hr": 0.8,
+          "pnl_net": -6.394884621840902e-14
+        },
+        {
+          "month": "2026-02-01 00:00:00",
+          "n_fills": 9,
+          "hr": 0.6666666666666666,
+          "pnl_net": -150.00000000000003
+        }
+      ],
+      "name": "politics_yes_v3_k100_n5",
+      "n_threshold": 5,
+      "max_price": 0.8,
+      "total_fills": 113,
+      "rejected_intents": 0,
+      "pool_size": 100,
+      "direction": "YES",
+      "tag": "Politics",
+      "elapsed_s": 54.4,
+      "tick_hr": 0.6549,
+      "tick_pnl_net": -2050.0,
+      "tick_sharpe": -1.099,
+      "tick_max_drawdown": 2175.0,
+      "tick_profit_factor": 0.4744,
+      "tick_avg_hold_h": 669.96,
+      "tick_excess_hr": 0.4667,
+      "win_count": 74,
+      "loss_count": 39
+    }
+  }
+}
