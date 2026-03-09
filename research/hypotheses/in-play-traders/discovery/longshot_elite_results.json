@@ -1,0 +1,172 @@
+{
+  "hypothesis": "longshot-elite",
+  "timestamp": "2026-03-08T07:54:07",
+  "verdict": "no_signal",
+  "summary": "Long-shot specialist traders (>HR at <0.30 entry) exist and show persistence, but tick-validated PnL is negative across all pool sizes. Root cause: avg fill price (0.207) implies break-even HR of 20.7%, but actual tick HR is 16.0%. Strategy is below break-even at every price bucket.",
+  "universe": {
+    "total_specialists_training": 3613,
+    "specialists_min10_hr_above_3pct": 3613,
+    "jan_2026_longshot_markets": 19640,
+    "jan_2026_pool_k50_markets": 256,
+    "date_range": ["2022-01-01", "2026-01-31"],
+    "population_hr_under_030": 0.0453,
+    "population_n_positions_jan2026": 101418
+  },
+  "base_rates": {
+    "population_hr_longshot": 0.0453,
+    "break_even_hr_at_avg_fill": 0.207,
+    "avg_fill_price_tick": 0.207,
+    "vectorized_hr_ub": 0.193
+  },
+  "buy_only_results": {
+    "sell_handling": "BUY-only (SELL excluded)",
+    "top_combos": [
+      {
+        "rank": 1,
+        "params": {"K": 25, "N": 1, "price_max": 0.30},
+        "hr_pct": 16.0,
+        "excess_hr_pp": 11.5,
+        "avg_edge_usd": -26.48,
+        "avg_hold_days": 4.26,
+        "total_pnl_jan2026": -13398.20,
+        "fills": 506,
+        "compounding_score": -71.28,
+        "break_even_hr": 20.7,
+        "verdict": "BELOW_BREAK_EVEN",
+        "fragile": true,
+        "sensitivity": {"fill_price_drives_be": "critical — 0.207 fill vs 0.30 max means BE=20.7%, not 30%"}
+      },
+      {
+        "rank": 2,
+        "params": {"K": 50, "N": 1, "price_max": 0.30},
+        "hr_pct": 14.4,
+        "excess_hr_pp": 9.9,
+        "avg_edge_usd": -20.49,
+        "avg_hold_days": 4.85,
+        "total_pnl_jan2026": -17029.99,
+        "fills": 831,
+        "compounding_score": -41.82,
+        "verdict": "BELOW_BREAK_EVEN",
+        "fragile": true
+      },
+      {
+        "rank": 3,
+        "params": {"K": 100, "N": 1, "price_max": 0.30},
+        "hr_pct": 12.7,
+        "excess_hr_pp": 8.2,
+        "avg_edge_usd": -22.46,
+        "avg_hold_days": 6.41,
+        "total_pnl_jan2026": -41208.90,
+        "fills": 1835,
+        "compounding_score": -28.73,
+        "verdict": "BELOW_BREAK_EVEN",
+        "fragile": true
+      },
+      {
+        "rank": 4,
+        "params": {"K": 200, "N": 1, "price_max": 0.30},
+        "hr_pct": 13.8,
+        "excess_hr_pp": 9.3,
+        "avg_edge_usd": -23.38,
+        "avg_hold_days": 6.04,
+        "total_pnl_jan2026": -62180.72,
+        "fills": 2660,
+        "compounding_score": -36.01,
+        "verdict": "BELOW_BREAK_EVEN",
+        "fragile": true
+      }
+    ]
+  },
+  "directional_results": {
+    "sell_handling": "BUY + SELL_NO (directional mapping)",
+    "top_combos": [
+      {
+        "rank": 1,
+        "params": {"K": 25, "N": 1, "price_max": 0.30, "sell_no_included": true},
+        "hr_pct": 18.3,
+        "excess_hr_pp": 13.7,
+        "avg_edge_usd": -16.74,
+        "fills": 526,
+        "total_pnl_jan2026": -8803.01,
+        "verdict": "BELOW_BREAK_EVEN",
+        "fragile": true
+      }
+    ]
+  },
+  "sell_sensitivity_pp": 2.2,
+  "sell_sensitivity_note": "MODERATE — directional +2.2pp HR vs BUY-only, still negative PnL",
+  "consensus_results": {
+    "K50_N2": {"fills": 243, "hr_pct": 11.5, "excess_pp": 7.0, "pnl": -7458.80},
+    "K100_N2": {"fills": 468, "hr_pct": 13.7, "excess_pp": 9.1, "pnl": -12091.01},
+    "note": "N=2 consensus does NOT improve HR over N=1 — fewer fills, similar HR"
+  },
+  "persistence": {
+    "train_period": "before 2025-07-01",
+    "test_period": "2025-07-01 to 2025-12-31",
+    "train_specialists": 1502,
+    "top50_train_active_in_test": 25,
+    "test_hr": 0.152,
+    "train_hr_same_traders": 0.229,
+    "hr_regression_pp": -7.7,
+    "quartile_ordering_preserved": true,
+    "note": "HR rank ordering preserved (Q4 > Q3 > Q2 > Q1) but absolute regression severe"
+  },
+  "pool_stats": {
+    "K25": {"avg_train_hr": 0.405, "avg_n": 58, "avg_price": 0.205},
+    "K50": {"avg_train_hr": 0.364, "avg_n": 54, "avg_price": 0.190},
+    "K100": {"avg_train_hr": 0.309, "avg_n": 52, "avg_price": 0.185},
+    "K200": {"avg_train_hr": 0.273, "avg_n": 45, "avg_price": 0.175}
+  },
+  "overlap_with_elite_inplay": {
+    "overlap_top50_longshot_vs_elite_inplay": 1,
+    "overlap_pct": 2.0,
+    "finding": "Distinct populations — long-shot specialists are NOT the same as in-play elite traders"
+  },
+  "price_bucket_breakdown": {
+    "note": "Vectorized HR by price bucket (K=50 pool, Jan 2026)",
+    "0-5pct": {"n_markets": 22, "hr_pct": 0.0, "alpha_over_be_pp": -2.8},
+    "5-10pct": {"n_markets": 30, "hr_pct": 0.0, "alpha_over_be_pp": -7.7},
+    "10-15pct": {"n_markets": 53, "hr_pct": 15.5, "alpha_over_be_pp": 2.9},
+    "15-20pct": {"n_markets": 56, "hr_pct": 15.8, "alpha_over_be_pp": -1.6},
+    "20-25pct": {"n_markets": 47, "hr_pct": 30.0, "alpha_over_be_pp": 7.0},
+    "25-30pct": {"n_markets": 57, "hr_pct": 35.1, "alpha_over_be_pp": 7.4}
+  },
+  "spawned_ideas": [
+    {
+      "id": "longshot-narrowband",
+      "description": "Restrict to 20-30% price band where specialists show +7pp alpha over BE (vectorized). Must verify tick.",
+      "priority": "MEDIUM",
+      "rationale": "Price bucket analysis shows +7pp alpha at 20-30% vs negative alpha at <15%. Narrowing the band may produce positive EV."
+    },
+    {
+      "id": "longshot-top10-hyperfiltered",
+      "description": "K=10, min 50 positions, HR > 40% in training — hyper-filtered specialists only.",
+      "priority": "LOW",
+      "rationale": "High training HR traders (40-80%) may have more persistent skill. Current K=50+ dilutes the pool."
+    }
+  ],
+  "knowledge_captures": [
+    {
+      "file": "data/price_level_base_rates.md",
+      "finding": "Population HR at <0.30 in Jan 2026 is 4.53% (avg entry 0.083), not 3.2% as documented. The 3.2% figure may be from a different period or segment."
+    },
+    {
+      "file": "pitfalls/fill_price_break_even.md",
+      "finding": "CRITICAL: Fill price determines break-even, not max_price parameter. Strategy filling at avg 0.207 requires 20.7% HR to break even, not the 6.6% implied by the strategy's price ceiling. Always compute break-even from REALIZED fill prices, not signal trigger prices."
+    },
+    {
+      "file": "signals/longshot_specialists.md",
+      "finding": "3,613 traders beat population HR at <0.30 entry on 10+ positions. Training HR 4-55%, persistence confirmed (rank ordering preserved OOS) but regression severe (-7.6pp). Best signal band is 20-30% price (not deep underdogs <10%). Only 2% overlap with elite in-play pool."
+    }
+  ],
+  "classifications_used": [],
+  "classifications_proposed": [
+    {
+      "name": "longshot_specialist",
+      "entity": "trader",
+      "rule": ">=10 YES positions with avg entry price < 0.30, HR > population base rate in training window",
+      "sql_sketch": "SELECT trader, avg(yes_won) AS hr FROM maker_positions JOIN yes_entry_data USING (trader, condition_id) WHERE position='YES' AND first_trade < '{cutoff}' AND price_x_vol/volume < 0.30 GROUP BY trader HAVING count(*) >= 10 AND avg(yes_won) > 0.032",
+      "score": "excess_hr * ln(n_positions + 1)"
+    }
+  ]
+}

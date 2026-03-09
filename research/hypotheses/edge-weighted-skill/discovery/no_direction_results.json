@@ -1,0 +1,314 @@
+{
+  "metadata": {
+    "train_end": "2025-11-01",
+    "test_start": "2025-11-01",
+    "test_end": "2026-02-01",
+    "n_qualified_no_traders": 10463,
+    "test_no_base_rate": 0.5989,
+    "test_yes_base_rate": 0.3506
+  },
+  "pool_metrics": {
+    "50": {
+      "avg_hr": 0.9713,
+      "avg_beh": 0.2059
+    },
+    "100": {
+      "avg_hr": 0.9576,
+      "avg_beh": 0.1826
+    },
+    "200": {
+      "avg_hr": 0.9499,
+      "avg_beh": 0.1634
+    }
+  },
+  "consensus_sweep": {
+    "50": {
+      "1": {
+        "n_signals": 16839,
+        "hit_rate": 0.9029,
+        "excess_hr": 0.304,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 3.0,
+        "avg_edge_per_dollar": 0.3323,
+        "total_edge_units": 5595.78,
+        "n_valid_signals": 14441,
+        "hr_valid": 0.8941
+      },
+      "2": {
+        "n_signals": 4685,
+        "hit_rate": 0.9757,
+        "excess_hr": 0.3768,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 2.0,
+        "avg_edge_per_dollar": 0.4463,
+        "total_edge_units": 2090.89,
+        "n_valid_signals": 4387,
+        "hr_valid": 0.9781
+      },
+      "3": {
+        "n_signals": 1998,
+        "hit_rate": 0.998,
+        "excess_hr": 0.3991,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 2.0,
+        "avg_edge_per_dollar": 0.4785,
+        "total_edge_units": 956.06,
+        "n_valid_signals": 1924,
+        "hr_valid": 0.9984
+      }
+    },
+    "100": {
+      "1": {
+        "n_signals": 20223,
+        "hit_rate": 0.8763,
+        "excess_hr": 0.2774,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 3.0,
+        "avg_edge_per_dollar": 0.2898,
+        "total_edge_units": 5860.16,
+        "n_valid_signals": 16784,
+        "hr_valid": 0.8615
+      },
+      "2": {
+        "n_signals": 7217,
+        "hit_rate": 0.9397,
+        "excess_hr": 0.3408,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 2.0,
+        "avg_edge_per_dollar": 0.3532,
+        "total_edge_units": 2549.09,
+        "n_valid_signals": 6109,
+        "hr_valid": 0.9406
+      },
+      "3": {
+        "n_signals": 3357,
+        "hit_rate": 0.9657,
+        "excess_hr": 0.3668,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 2.0,
+        "avg_edge_per_dollar": 0.3796,
+        "total_edge_units": 1274.48,
+        "n_valid_signals": 2911,
+        "hr_valid": 0.966
+      }
+    },
+    "200": {
+      "1": {
+        "n_signals": 24362,
+        "hit_rate": 0.8557,
+        "excess_hr": 0.2568,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 3.0,
+        "avg_edge_per_dollar": 0.2618,
+        "total_edge_units": 6376.92,
+        "n_valid_signals": 19788,
+        "hr_valid": 0.833
+      },
+      "2": {
+        "n_signals": 10118,
+        "hit_rate": 0.9256,
+        "excess_hr": 0.3267,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 3.0,
+        "avg_edge_per_dollar": 0.3242,
+        "total_edge_units": 3280.04,
+        "n_valid_signals": 8108,
+        "hr_valid": 0.9191
+      },
+      "3": {
+        "n_signals": 5413,
+        "hit_rate": 0.944,
+        "excess_hr": 0.3451,
+        "median_entry_price": 0.5,
+        "median_hold_days": null,
+        "median_hold_hours": 3.0,
+        "avg_edge_per_dollar": 0.3307,
+        "total_edge_units": 1789.92,
+        "n_valid_signals": 4250,
+        "hr_valid": 0.9395
+      }
+    }
+  },
+  "per_tag_breakdown": {
+    "Politics": {
+      "no_base_rate": 0.7677,
+      "n_signals": 1435,
+      "hit_rate": 0.8892,
+      "excess_hr": 0.1215,
+      "median_entry_price": 0.886,
+      "median_hold_days": 1.0,
+      "avg_edge_per_dollar": 0.1344
+    },
+    "Esports": {
+      "no_base_rate": 0.4914,
+      "n_signals": 43,
+      "hit_rate": 0.9535,
+      "excess_hr": 0.4621,
+      "median_entry_price": 0.6106,
+      "median_hold_days": null,
+      "avg_edge_per_dollar": 0.2329
+    },
+    "Sports": {
+      "no_base_rate": 0.5078,
+      "n_signals": 4881,
+      "hit_rate": 0.9523,
+      "excess_hr": 0.4445,
+      "median_entry_price": 0.5,
+      "median_hold_days": null,
+      "avg_edge_per_dollar": 0.4179
+    },
+    "Crypto": {
+      "no_base_rate": 0.7591,
+      "n_signals": 830,
+      "hit_rate": 0.9602,
+      "excess_hr": 0.2011,
+      "median_entry_price": 0.5,
+      "median_hold_days": null,
+      "avg_edge_per_dollar": 0.3679
+    }
+  },
+  "monthly_breakdown": [
+    {
+      "res_month": "2025-11",
+      "n_signals": 2188,
+      "hit_rate": 0.9556672760511883,
+      "med_price": 0.5,
+      "med_hold_days": 0.0,
+      "avg_edge": 0.3742598301404819
+    },
+    {
+      "res_month": "2025-12",
+      "n_signals": 2576,
+      "hit_rate": 0.9343944099378882,
+      "med_price": 0.5,
+      "med_hold_days": 0.0,
+      "avg_edge": 0.3491259600366018
+    },
+    {
+      "res_month": "2026-01",
+      "n_signals": 2425,
+      "hit_rate": 0.9336082474226804,
+      "med_price": 0.5,
+      "med_hold_days": 0.0,
+      "avg_edge": 0.342090866459545
+    }
+  ],
+  "compounding_scores": [],
+  "tag_no_base_rates": {
+    "Sports": 0.5077829415795275,
+    "Crypto": 0.7591484515070762,
+    "Politics": 0.7677038975921657,
+    "Esports": 0.4913669064748201,
+    "Tennis": 0.9731543624161074,
+    "Basketball": 0.9166666666666666
+  },
+  "hold_filtered_sweep": {
+    "50": {
+      "1": {
+        "n_signals": 1382,
+        "hit_rate": 0.7873,
+        "median_entry_price": 0.8594,
+        "median_hold_days": 4.0,
+        "avg_edge_per_dollar": 0.0352
+      },
+      "2": {
+        "n_signals": 47,
+        "hit_rate": 1.0,
+        "median_entry_price": 0.5,
+        "median_hold_days": 2.0,
+        "avg_edge_per_dollar": 0.2853
+      },
+      "3": {
+        "n_signals": 6,
+        "hit_rate": 1.0,
+        "median_entry_price": 0.5,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.3352
+      }
+    },
+    "100": {
+      "1": {
+        "n_signals": 2401,
+        "hit_rate": 0.8042,
+        "median_entry_price": 0.9055,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0398
+      },
+      "2": {
+        "n_signals": 999,
+        "hit_rate": 0.8418,
+        "median_entry_price": 0.9154,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0519
+      },
+      "3": {
+        "n_signals": 449,
+        "hit_rate": 0.8686,
+        "median_entry_price": 0.909,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0685
+      }
+    },
+    "200": {
+      "1": {
+        "n_signals": 3389,
+        "hit_rate": 0.7392,
+        "median_entry_price": 0.74,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0219
+      },
+      "2": {
+        "n_signals": 1370,
+        "hit_rate": 0.8423,
+        "median_entry_price": 0.9318,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0649
+      },
+      "3": {
+        "n_signals": 871,
+        "hit_rate": 0.8462,
+        "median_entry_price": 0.9414,
+        "median_hold_days": 3.0,
+        "avg_edge_per_dollar": 0.0625
+      }
+    }
+  },
+  "hold_filtered_per_tag": {
+    "Politics": {
+      "n_signals": 826,
+      "hit_rate": 0.8499,
+      "median_entry_price": 0.9194,
+      "median_hold_days": 3.0,
+      "avg_edge_per_dollar": 0.0478
+    },
+    "Esports": {
+      "n_signals": 14,
+      "hit_rate": 0.9286,
+      "median_entry_price": 0.99,
+      "median_hold_days": 12.0,
+      "avg_edge_per_dollar": 0.0093
+    },
+    "Sports": {
+      "n_signals": 91,
+      "hit_rate": 0.7143,
+      "median_entry_price": 0.7776,
+      "median_hold_days": 4.0,
+      "avg_edge_per_dollar": 0.0093
+    },
+    "Crypto": {
+      "n_signals": 68,
+      "hit_rate": 0.8971,
+      "median_entry_price": 0.8139,
+      "median_hold_days": 5.0,
+      "avg_edge_per_dollar": 0.1672
+    }
+  }
+}

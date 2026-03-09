@@ -1,0 +1,1254 @@
+{
+  "metadata": {
+    "train_cutoff": "2025-07-01",
+    "test_start": "2025-07-01",
+    "test_end": "2026-03-01",
+    "pool_sizes": {
+      "sports_yes_v2": 25,
+      "sports_yes_v3": 25,
+      "politics_yes_v2": 100,
+      "politics_yes_v3": 100,
+      "crypto_yes_v2": 50,
+      "crypto_yes_v3": 37,
+      "politics_no_v3": 100,
+      "sports_no_v3": 50
+    },
+    "jaccard_v2_v3": {
+      "sports_yes": 0.515,
+      "politics_yes": 0.379,
+      "crypto_yes": 0.279
+    },
+    "note": "ALL RESULTS ARE UPPER BOUNDS. Vectorized backtests 20-40pp optimistic vs tick."
+  },
+  "results": {
+    "sports_yes_v2": {
+      "n1": {
+        "n_signals": 585,
+        "hit_rate": 0.6496,
+        "excess_hr": 0.3167,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.0108,
+        "med_hold_hours": 3.5,
+        "avg_signal_price": 0.6388,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 65,
+            "hit_rate": 0.6615,
+            "avg_pnl": -0.0046
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 87,
+            "hit_rate": 0.7471,
+            "avg_pnl": 0.0486
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 75,
+            "hit_rate": 0.68,
+            "avg_pnl": -0.0226
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 56,
+            "hit_rate": 0.6786,
+            "avg_pnl": 0.0432
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 62,
+            "hit_rate": 0.6935,
+            "avg_pnl": 0.0362
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 76,
+            "hit_rate": 0.5395,
+            "avg_pnl": -0.0231
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 89,
+            "hit_rate": 0.5618,
+            "avg_pnl": 0.0398
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 75,
+            "hit_rate": 0.6533,
+            "avg_pnl": -0.0316
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 29,
+        "hit_rate": 0.8276,
+        "excess_hr": 0.4947,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.1158,
+        "med_hold_hours": 3.2,
+        "avg_signal_price": 0.7118,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.0246
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 9,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1928
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0163
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 6,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1527
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.2953
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 4,
+            "hit_rate": 0.75,
+            "avg_pnl": 0.0204
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.0022
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0283
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 1,
+        "hit_rate": 1.0,
+        "excess_hr": 0.6671,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.1404,
+        "med_hold_hours": 3.2,
+        "avg_signal_price": 0.8596,
+        "monthly": [
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1404
+          }
+        ]
+      },
+      "n5": {
+        "error": "no signals after filters"
+      }
+    },
+    "sports_yes_v3": {
+      "n1": {
+        "n_signals": 605,
+        "hit_rate": 0.6876,
+        "excess_hr": 0.3547,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.0241,
+        "med_hold_hours": 3.9,
+        "avg_signal_price": 0.6635,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 69,
+            "hit_rate": 0.6522,
+            "avg_pnl": 0.0026
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 95,
+            "hit_rate": 0.7368,
+            "avg_pnl": 0.0492
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 89,
+            "hit_rate": 0.6742,
+            "avg_pnl": -0.0223
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 57,
+            "hit_rate": 0.7368,
+            "avg_pnl": 0.0835
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 57,
+            "hit_rate": 0.7193,
+            "avg_pnl": 0.0213
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 70,
+            "hit_rate": 0.6714,
+            "avg_pnl": 0.0078
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 89,
+            "hit_rate": 0.6292,
+            "avg_pnl": 0.0474
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 79,
+            "hit_rate": 0.6962,
+            "avg_pnl": 0.0122
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 30,
+        "hit_rate": 0.8667,
+        "excess_hr": 0.5337,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.1067,
+        "med_hold_hours": 3.4,
+        "avg_signal_price": 0.7599,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.0246
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 11,
+            "hit_rate": 0.9091,
+            "avg_pnl": 0.1405
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0163
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 7,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1373
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.2953
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 4,
+            "hit_rate": 0.75,
+            "avg_pnl": 0.0204
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.02
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 2,
+        "hit_rate": 1.0,
+        "excess_hr": 0.6671,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.0919,
+        "med_hold_hours": 3.0,
+        "avg_signal_price": 0.9081,
+        "monthly": [
+          {
+            "month": "2025-08",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0434
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1404
+          }
+        ]
+      },
+      "n5": {
+        "error": "no signals after filters"
+      }
+    },
+    "politics_yes_v2": {
+      "n1": {
+        "n_signals": 631,
+        "hit_rate": 0.2456,
+        "excess_hr": 0.0574,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.0583,
+        "med_hold_hours": 119.7,
+        "avg_signal_price": 0.3039,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 37,
+            "hit_rate": 0.4865,
+            "avg_pnl": 0.1166
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 79,
+            "hit_rate": 0.2785,
+            "avg_pnl": -0.041
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 77,
+            "hit_rate": 0.2468,
+            "avg_pnl": -0.0817
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 76,
+            "hit_rate": 0.2763,
+            "avg_pnl": -0.0264
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 77,
+            "hit_rate": 0.2208,
+            "avg_pnl": -0.0632
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 74,
+            "hit_rate": 0.2297,
+            "avg_pnl": -0.0677
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 136,
+            "hit_rate": 0.1691,
+            "avg_pnl": -0.1048
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 75,
+            "hit_rate": 0.24,
+            "avg_pnl": -0.0725
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 112,
+        "hit_rate": 0.2857,
+        "excess_hr": 0.0975,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.0228,
+        "med_hold_hours": 160.1,
+        "avg_signal_price": 0.3086,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 5,
+            "hit_rate": 0.2,
+            "avg_pnl": -0.2512
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 14,
+            "hit_rate": 0.4286,
+            "avg_pnl": 0.0464
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 10,
+            "hit_rate": 0.2,
+            "avg_pnl": -0.0271
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 15,
+            "hit_rate": 0.4667,
+            "avg_pnl": 0.0242
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 13,
+            "hit_rate": 0.2308,
+            "avg_pnl": 0.0537
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 13,
+            "hit_rate": 0.3077,
+            "avg_pnl": 0.0313
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 25,
+            "hit_rate": 0.2,
+            "avg_pnl": -0.0857
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 17,
+            "hit_rate": 0.2353,
+            "avg_pnl": -0.0591
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 30,
+        "hit_rate": 0.2667,
+        "excess_hr": 0.0784,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.0821,
+        "med_hold_hours": 122.1,
+        "avg_signal_price": 0.3488,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 4,
+            "hit_rate": 0.25,
+            "avg_pnl": -0.2325
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.37
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 4,
+            "hit_rate": 0.25,
+            "avg_pnl": -0.1001
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 5,
+            "hit_rate": 0.6,
+            "avg_pnl": 0.1331
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 5,
+            "hit_rate": 0.2,
+            "avg_pnl": 0.0413
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.591
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 7,
+            "hit_rate": 0.1429,
+            "avg_pnl": -0.1414
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 3,
+            "hit_rate": 0.3333,
+            "avg_pnl": -0.0179
+          }
+        ]
+      },
+      "n5": {
+        "n_signals": 3,
+        "hit_rate": 0.0,
+        "excess_hr": -0.1882,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.3111,
+        "med_hold_hours": 82.1,
+        "avg_signal_price": 0.3111,
+        "monthly": [
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.225
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0915
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.6169
+          }
+        ]
+      }
+    },
+    "politics_yes_v3": {
+      "n1": {
+        "n_signals": 373,
+        "hit_rate": 0.2815,
+        "excess_hr": 0.0933,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.036,
+        "med_hold_hours": 169.7,
+        "avg_signal_price": 0.3175,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 28,
+            "hit_rate": 0.5714,
+            "avg_pnl": 0.1256
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 54,
+            "hit_rate": 0.2407,
+            "avg_pnl": -0.0601
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 30,
+            "hit_rate": 0.3333,
+            "avg_pnl": 0.023
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 32,
+            "hit_rate": 0.4062,
+            "avg_pnl": 0.0142
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 44,
+            "hit_rate": 0.2955,
+            "avg_pnl": -0.0112
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 34,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0355
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 94,
+            "hit_rate": 0.0851,
+            "avg_pnl": -0.13
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 57,
+            "hit_rate": 0.2632,
+            "avg_pnl": -0.0585
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 56,
+        "hit_rate": 0.25,
+        "excess_hr": 0.0618,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.036,
+        "med_hold_hours": 224.5,
+        "avg_signal_price": 0.286,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 5,
+            "hit_rate": 0.2,
+            "avg_pnl": -0.2263
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 5,
+            "hit_rate": 0.6,
+            "avg_pnl": 0.2204
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 3,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.1548
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 6,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0723
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 10,
+            "hit_rate": 0.1,
+            "avg_pnl": -0.121
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 5,
+            "hit_rate": 0.8,
+            "avg_pnl": 0.3444
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 14,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.1911
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 8,
+            "hit_rate": 0.25,
+            "avg_pnl": 0.0263
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 15,
+        "hit_rate": 0.2,
+        "excess_hr": 0.0118,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.1167,
+        "med_hold_hours": 470.1,
+        "avg_signal_price": 0.3167,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 2,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.3062
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 2,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.1887
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.0771
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.3091
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 6,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2379
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.4113
+          }
+        ]
+      },
+      "n5": {
+        "n_signals": 1,
+        "hit_rate": 0.0,
+        "excess_hr": -0.1882,
+        "base_rate": 0.1882,
+        "avg_pnl_usd": -0.225,
+        "med_hold_hours": 38.3,
+        "avg_signal_price": 0.225,
+        "monthly": [
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.225
+          }
+        ]
+      }
+    },
+    "crypto_yes_v2": {
+      "n1": {
+        "n_signals": 113,
+        "hit_rate": 0.1416,
+        "excess_hr": -0.0091,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.1247,
+        "med_hold_hours": 82.1,
+        "avg_signal_price": 0.2663,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 12,
+            "hit_rate": 0.1667,
+            "avg_pnl": -0.0928
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 11,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2583
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 21,
+            "hit_rate": 0.1429,
+            "avg_pnl": -0.0733
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 15,
+            "hit_rate": 0.2667,
+            "avg_pnl": -0.155
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 8,
+            "hit_rate": 0.125,
+            "avg_pnl": -0.0636
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 14,
+            "hit_rate": 0.0714,
+            "avg_pnl": -0.2904
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 19,
+            "hit_rate": 0.2632,
+            "avg_pnl": -0.0457
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 13,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0641
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 11,
+        "hit_rate": 0.0909,
+        "excess_hr": -0.0598,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.1436,
+        "med_hold_hours": 91.8,
+        "avg_signal_price": 0.2345,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 2,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.1482
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.22
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 4,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2288
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.3237
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2099
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": 0.1931
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 2,
+        "hit_rate": 0.0,
+        "excess_hr": -0.1507,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.1063,
+        "med_hold_hours": 137.1,
+        "avg_signal_price": 0.1063,
+        "monthly": [
+          {
+            "month": "2025-08",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0546
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.1581
+          }
+        ]
+      }
+    },
+    "crypto_yes_v3": {
+      "n1": {
+        "n_signals": 179,
+        "hit_rate": 0.1676,
+        "excess_hr": 0.0169,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.1043,
+        "med_hold_hours": 89.1,
+        "avg_signal_price": 0.2719,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 24,
+            "hit_rate": 0.375,
+            "avg_pnl": -0.015
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 39,
+            "hit_rate": 0.1538,
+            "avg_pnl": -0.1457
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 32,
+            "hit_rate": 0.0938,
+            "avg_pnl": -0.1331
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 13,
+            "hit_rate": 0.3077,
+            "avg_pnl": 0.0033
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 20,
+            "hit_rate": 0.25,
+            "avg_pnl": 0.0148
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 14,
+            "hit_rate": 0.0714,
+            "avg_pnl": -0.2709
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 25,
+            "hit_rate": 0.08,
+            "avg_pnl": -0.176
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 12,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0421
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 19,
+        "hit_rate": 0.0526,
+        "excess_hr": -0.098,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.2657,
+        "med_hold_hours": 362.5,
+        "avg_signal_price": 0.3183,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2847
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 3,
+            "hit_rate": 0.3333,
+            "avg_pnl": -0.0885
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 6,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.285
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.47
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.067
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.31
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 6,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.3234
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 6,
+        "hit_rate": 0.0,
+        "excess_hr": -0.1507,
+        "base_rate": 0.1507,
+        "avg_pnl_usd": -0.187,
+        "med_hold_hours": 180.6,
+        "avg_signal_price": 0.187,
+        "monthly": [
+          {
+            "month": "2025-09",
+            "n_signals": 4,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2125
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0694
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.2028
+          }
+        ]
+      }
+    },
+    "politics_no_v3": {
+      "n1": {
+        "n_signals": 486,
+        "hit_rate": 0.7572,
+        "excess_hr": 0.0269,
+        "base_rate": 0.7303,
+        "avg_pnl_usd": -0.0135,
+        "med_hold_hours": 217.5,
+        "avg_signal_price": 0.7707,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 23,
+            "hit_rate": 0.7391,
+            "avg_pnl": -0.0319
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 48,
+            "hit_rate": 0.7708,
+            "avg_pnl": -0.0315
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 67,
+            "hit_rate": 0.7164,
+            "avg_pnl": -0.0519
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 74,
+            "hit_rate": 0.7162,
+            "avg_pnl": -0.021
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 52,
+            "hit_rate": 0.8077,
+            "avg_pnl": 0.0188
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 48,
+            "hit_rate": 0.5417,
+            "avg_pnl": -0.0895
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 107,
+            "hit_rate": 0.8879,
+            "avg_pnl": 0.0535
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 67,
+            "hit_rate": 0.7463,
+            "avg_pnl": -0.0252
+          }
+        ]
+      },
+      "n2": {
+        "n_signals": 66,
+        "hit_rate": 0.8182,
+        "excess_hr": 0.0879,
+        "base_rate": 0.7303,
+        "avg_pnl_usd": 0.0174,
+        "med_hold_hours": 477.7,
+        "avg_signal_price": 0.8008,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.3695
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 10,
+            "hit_rate": 0.9,
+            "avg_pnl": 0.0259
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 6,
+            "hit_rate": 0.8333,
+            "avg_pnl": -0.0053
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 13,
+            "hit_rate": 0.8462,
+            "avg_pnl": 0.0315
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 6,
+            "hit_rate": 0.8333,
+            "avg_pnl": 0.0349
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 4,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.0402
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 15,
+            "hit_rate": 0.9333,
+            "avg_pnl": 0.0797
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 10,
+            "hit_rate": 0.7,
+            "avg_pnl": 0.0006
+          }
+        ]
+      },
+      "n3": {
+        "n_signals": 15,
+        "hit_rate": 0.9333,
+        "excess_hr": 0.2031,
+        "base_rate": 0.7303,
+        "avg_pnl_usd": 0.0216,
+        "med_hold_hours": 433.9,
+        "avg_signal_price": 0.9117,
+        "monthly": [
+          {
+            "month": "2025-08",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0243
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 3,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0259
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0208
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 2,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0612
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 4,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0257
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 2,
+            "hit_rate": 0.5,
+            "avg_pnl": -0.0343
+          }
+        ]
+      }
+    },
+    "sports_no_v3": {
+      "n1": {
+        "n_signals": 6,
+        "hit_rate": 0.5,
+        "excess_hr": 0.0163,
+        "base_rate": 0.4837,
+        "avg_pnl_usd": -0.0332,
+        "med_hold_hours": 88.3,
+        "avg_signal_price": 0.5332,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0101
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.5882
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.1872
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.24
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 1,
+            "hit_rate": 1.0,
+            "avg_pnl": 0.0351
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 1,
+            "hit_rate": 0.0,
+            "avg_pnl": -0.0633
+          }
+        ]
+      },
+      "n2": {
+        "error": "no signals after filters"
+      },
+      "n3": {
+        "error": "no signals after filters"
+      }
+    },
+    "sports_inplay_v3": {
+      "n1": {
+        "n_signals": 320,
+        "hit_rate": 0.675,
+        "excess_hr": 0.3421,
+        "base_rate": 0.3329,
+        "avg_pnl_usd": 0.013,
+        "med_hold_hours": 2.9,
+        "avg_signal_price": 0.662,
+        "monthly": [
+          {
+            "month": "2025-07",
+            "n_signals": 39,
+            "hit_rate": 0.7179,
+            "avg_pnl": -0.0061
+          },
+          {
+            "month": "2025-08",
+            "n_signals": 57,
+            "hit_rate": 0.7719,
+            "avg_pnl": 0.0559
+          },
+          {
+            "month": "2025-09",
+            "n_signals": 54,
+            "hit_rate": 0.6852,
+            "avg_pnl": -0.0139
+          },
+          {
+            "month": "2025-10",
+            "n_signals": 31,
+            "hit_rate": 0.6129,
+            "avg_pnl": 0.0222
+          },
+          {
+            "month": "2025-11",
+            "n_signals": 34,
+            "hit_rate": 0.7353,
+            "avg_pnl": 0.0521
+          },
+          {
+            "month": "2025-12",
+            "n_signals": 35,
+            "hit_rate": 0.5143,
+            "avg_pnl": -0.049
+          },
+          {
+            "month": "2026-01",
+            "n_signals": 29,
+            "hit_rate": 0.5862,
+            "avg_pnl": 0.0917
+          },
+          {
+            "month": "2026-02",
+            "n_signals": 41,
+            "hit_rate": 0.6829,
+            "avg_pnl": -0.0356
+          }
+        ]
+      }
+    }
+  }
+}
