@@ -106,10 +106,14 @@ class CLOBOrderbookIngestor(BaseIngestor):
         self._redundancy = max(1, redundancy)
         self._slots: list[ManagedSlot] = []
         self._reconciler: Reconciler | None = None
-        # Batched Redis flush — accumulate dirty snapshots, write in bulk
+        # Batched I/O flush — accumulate dirty snapshots + Kafka messages, drain in bulk
         self._flush_interval_s = flush_interval_s
         self._dirty_obs: dict[str, tuple[str, dict[str, Any]]] = {}
+        self._dirty_ltp: dict[str, tuple[float, float]] = {}       # asset_id → (price, ts)
+        self._dirty_tip: dict[str, tuple[float, float, float]] = {}  # asset_id → (bid, ask, ts)
+        self._pending_kafka: list[tuple[str, str, bytes]] = []  # (message, topic, key)
         self._flush_count: int = 0
+        self._kafka_flush_count: int = 0
         # Per-asset slot ownership (prevents interleaved data from redundant slots)
         self._asset_owner: dict[str, int] = {}       # asset_id → owning slot_id
         self._asset_owner_at: dict[str, float] = {}   # asset_id → last msg monotonic ts
@@ -368,15 +372,12 @@ class CLOBOrderbookIngestor(BaseIngestor):
 
         now = time.time()
         if self._redis is not None:
-            from polymarket_pipeline.live.redis_orderbook import write_ltp
-
-            await write_ltp(self._redis, asset_id, price, now)
+            self._dirty_ltp[asset_id] = (price, now)
 
         mapping = self._token_map.get(asset_id) if self._token_map else None
         condition_id = mapping[0] if mapping else ""
-        await safe_publish(
-            self._broker,
-            message=json.dumps({
+        self._pending_kafka.append((
+            json.dumps({
                 "asset_id": asset_id,
                 "condition_id": condition_id,
                 "source": "ltp",
@@ -385,10 +386,9 @@ class CLOBOrderbookIngestor(BaseIngestor):
                 "price": price,
                 "timestamp": now,
             }),
-            topic="prices.ticks",
-            key=asset_id.encode(),
-            source="clob_orderbook",
-        )
+            "prices.ticks",
+            asset_id.encode(),
+        ))
 
         self._ltp_count += 1
 
@@ -415,16 +415,13 @@ class CLOBOrderbookIngestor(BaseIngestor):
 
         now = time.time()
         if self._redis is not None:
-            from polymarket_pipeline.live.redis_orderbook import write_tip
-
-            await write_tip(self._redis, asset_id, best_bid, best_ask, now)
+            self._dirty_tip[asset_id] = (best_bid, best_ask, now)
 
         mapping = self._token_map.get(asset_id) if self._token_map else None
         condition_id = mapping[0] if mapping else ""
         mid = (best_bid + best_ask) / 2
-        await safe_publish(
-            self._broker,
-            message=json.dumps({
+        self._pending_kafka.append((
+            json.dumps({
                 "asset_id": asset_id,
                 "condition_id": condition_id,
                 "source": "bba_tip",
@@ -433,10 +430,9 @@ class CLOBOrderbookIngestor(BaseIngestor):
                 "price": mid,
                 "timestamp": now,
             }),
-            topic="prices.ticks",
-            key=asset_id.encode(),
-            source="clob_orderbook",
-        )
+            "prices.ticks",
+            asset_id.encode(),
+        ))
 
         self._bba_count += 1
 
@@ -500,13 +496,11 @@ class CLOBOrderbookIngestor(BaseIngestor):
 
         self._prev_tops[asset_id] = fingerprint
 
-        await safe_publish(
-            self._broker,
-            message=json.dumps(snapshot),
-            topic=self._topic,
-            key=condition_id.encode(),
-            source="clob_orderbook",
-        )
+        self._pending_kafka.append((
+            json.dumps(snapshot),
+            self._topic,
+            condition_id.encode(),
+        ))
         self._update_count += 1
 
     async def _process_new_market(self, event: dict[str, Any]) -> None:
@@ -580,27 +574,98 @@ class CLOBOrderbookIngestor(BaseIngestor):
             await self._registry.remove_by_condition(condition_id)
             self.wake_reconciler()
 
-    async def _flush_redis_loop(self) -> None:
-        """Drain ``_dirty_obs`` into Redis in batched pipelines.
+    async def _flush_loop(self) -> None:
+        """Drain all pending I/O (Redis + Kafka) in batched bursts.
 
-        Runs every ``flush_interval_s`` (default 10ms).  Each cycle collects
-        all assets that received a price update since the last flush and writes
-        them in a single ``pipeline.execute()`` call — one network round trip
-        regardless of batch size.
+        Runs every ``flush_interval_s`` (default 10ms).  Each cycle:
+        1. Collects dirty OB/LTP/BBA snapshots → single Redis pipeline
+        2. Collects pending Kafka messages → sequential publishes
+
+        One network round trip for Redis regardless of batch size.
+        Kafka messages are sent sequentially (broker.publish is not
+        pipeline-able) but without yielding back to the recv loop
+        between messages, so the event loop stays unblocked for the
+        recv paths between flush cycles.
         """
-        from polymarket_pipeline.live.redis_orderbook import write_orderbook_batch
+        import msgpack
+
+        from polymarket_pipeline.live.redis_orderbook import (
+            _KEY_ASSET,
+            _KEY_COND,
+            _KEY_LTP,
+            _KEY_TIP,
+            _serialize,
+        )
 
         while True:
             await asyncio.sleep(self._flush_interval_s)
-            if not self._dirty_obs or self._redis is None:
-                continue
-            batch = self._dirty_obs
-            self._dirty_obs = {}
-            written = await write_orderbook_batch(
-                self._redis, batch, self._redis_ttl_s,
+
+            has_redis = (
+                self._redis is not None
+                and (self._dirty_obs or self._dirty_ltp or self._dirty_tip)
             )
-            self._redis_writes += written
-            self._flush_count += 1
+            has_kafka = bool(self._pending_kafka)
+
+            if not has_redis and not has_kafka:
+                continue
+
+            # ── Redis: one pipeline for OB + LTP + BBA ──
+            if has_redis:
+                obs = self._dirty_obs
+                ltps = self._dirty_ltp
+                tips = self._dirty_tip
+                self._dirty_obs = {}
+                self._dirty_ltp = {}
+                self._dirty_tip = {}
+                try:
+                    pipe = self._redis.pipeline(transaction=False)
+                    for asset_id, (cid, snap) in obs.items():
+                        payload = _serialize(snap)
+                        pipe.set(_KEY_ASSET.format(asset_id), payload, ex=self._redis_ttl_s)
+                        pipe.set(_KEY_COND.format(cid), payload, ex=self._redis_ttl_s)
+                    for asset_id, (price, ts) in ltps.items():
+                        payload = msgpack.packb(
+                            {"price": price, "timestamp": ts}, use_bin_type=True,
+                        )
+                        pipe.set(_KEY_LTP.format(asset_id), payload, ex=120)
+                    for asset_id, (bid, ask, ts) in tips.items():
+                        payload = msgpack.packb(
+                            {"best_bid": bid, "best_ask": ask, "timestamp": ts},
+                            use_bin_type=True,
+                        )
+                        pipe.set(_KEY_TIP.format(asset_id), payload, ex=120)
+                    await pipe.execute()
+                    self._redis_writes += len(obs) + len(ltps) + len(tips)
+                except Exception:
+                    log.warning(
+                        "flush.redis_error",
+                        obs=len(obs), ltps=len(ltps), tips=len(tips),
+                    )
+                self._flush_count += 1
+
+            # ── Kafka: drain pending messages ──
+            if has_kafka:
+                msgs = self._pending_kafka
+                self._pending_kafka = []
+                for message, topic, key in msgs:
+                    await safe_publish(
+                        self._broker,
+                        message=message,
+                        topic=topic,
+                        key=key,
+                        source="clob_orderbook",
+                    )
+                self._kafka_flush_count += 1
+
+    async def drain_pending(self) -> None:
+        """Flush all pending Kafka messages immediately (for tests)."""
+        msgs = self._pending_kafka
+        self._pending_kafka = []
+        for message, topic, key in msgs:
+            await safe_publish(
+                self._broker, message=message, topic=topic,
+                key=key, source="clob_orderbook",
+            )
 
     def _heartbeat_fields(self) -> dict[str, Any]:
         slot_states = [s.state for s in self._slots]
@@ -612,8 +677,10 @@ class CLOBOrderbookIngestor(BaseIngestor):
             "skipped_unchanged": self._skipped_unchanged,
             "dropped_inverted": self._dropped_inverted,
             "redis_writes": self._redis_writes,
-            "redis_flush_count": self._flush_count,
-            "redis_dirty_pending": len(self._dirty_obs),
+            "flush_count": self._flush_count,
+            "kafka_flush_count": self._kafka_flush_count,
+            "pending_redis": len(self._dirty_obs) + len(self._dirty_ltp) + len(self._dirty_tip),
+            "pending_kafka": len(self._pending_kafka),
             "ltp_count": self._ltp_count,
             "bba_count": self._bba_count,
             "slots": [
@@ -747,9 +814,8 @@ class CLOBOrderbookIngestor(BaseIngestor):
             )
             tasks.append(asyncio.create_task(self._reconciler.run()))
 
-        # 4. Batched Redis flush loop
-        if self._redis is not None:
-            tasks.append(asyncio.create_task(self._flush_redis_loop()))
+        # 4. Batched I/O flush loop (Redis + Kafka)
+        tasks.append(asyncio.create_task(self._flush_loop()))
 
         # 5. Heartbeat loop
         tasks.append(asyncio.create_task(self._heartbeat_loop()))
