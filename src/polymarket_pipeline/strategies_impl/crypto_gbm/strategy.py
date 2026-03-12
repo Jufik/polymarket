@@ -409,7 +409,7 @@ class CryptoGBMStrategy:
         """Derive P(Up) from PM orderbook data."""
         # 1. Try orderbook by asset_id (YES token — most specific)
         if hasattr(ctx, "get_orderbook_by_asset"):
-            ob_yes = ctx.get_orderbook_by_asset(window.token_yes)
+            ob_yes = await ctx.get_orderbook_by_asset(window.token_yes)
             if ob_yes is not None and ob_yes.best_ask > 0:
                 return ob_yes.best_ask
 
