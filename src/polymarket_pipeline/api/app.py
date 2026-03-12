@@ -400,7 +400,7 @@ def create_app() -> FastAPI:
         # Orderbook snapshot nearest to signal time
         ob_q = _ch_query(f"""
             SELECT best_bid, best_ask, bid_depth_usd, ask_depth_usd, timestamp
-            FROM orderbook_snapshots
+            FROM orderbook_l2
             WHERE condition_id = '{cid}'
               AND timestamp >= '{signal_dt}' - INTERVAL 2 MINUTE
               AND timestamp <= '{signal_dt}' + INTERVAL 2 MINUTE
@@ -708,7 +708,7 @@ def create_app() -> FastAPI:
         # Orderbook at entry
         ob_entry_q = _ch_query(f"""
             SELECT best_bid, best_ask, bid_depth_usd, ask_depth_usd, timestamp
-            FROM orderbook_snapshots
+            FROM orderbook_l2
             WHERE condition_id = '{cid}'
               AND timestamp >= '{signal_dt}' - INTERVAL 1 MINUTE
               AND timestamp <= '{signal_dt}' + INTERVAL 1 MINUTE
@@ -722,7 +722,7 @@ def create_app() -> FastAPI:
 
         ob_exit_q = _ch_query(f"""
             SELECT best_bid, best_ask, bid_depth_usd, ask_depth_usd, timestamp
-            FROM orderbook_snapshots
+            FROM orderbook_l2
             WHERE condition_id = '{cid}'
               AND timestamp >= '{exit_dt}' - INTERVAL 1 MINUTE
               AND timestamp <= '{exit_dt}' + INTERVAL 1 MINUTE
