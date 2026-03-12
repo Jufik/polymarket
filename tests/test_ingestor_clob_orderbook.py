@@ -57,6 +57,7 @@ async def test_price_change_publishes_snapshot() -> None:
         }
     )
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 1
     data = json.loads(broker.messages[0][0])
@@ -87,6 +88,7 @@ async def test_price_change_old_style_bbo_only() -> None:
         }
     )
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 1
     data = json.loads(broker.messages[0][0])
@@ -102,6 +104,7 @@ async def test_non_price_change_ignored() -> None:
 
     msg = json.dumps({"event_type": "trade", "data": "something"})
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 0
 
@@ -121,6 +124,7 @@ async def test_missing_asset_id_skipped() -> None:
         }
     )
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 0
 
@@ -147,6 +151,7 @@ async def test_orderbook_snapshot_list() -> None:
         ]
     )
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 1
     data = json.loads(broker.messages[0][0])
@@ -180,6 +185,7 @@ async def test_multiple_price_changes_in_one_message() -> None:
         }
     )
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     assert len(broker.messages) == 2
     ids = {json.loads(m[0])["asset_id"] for m in broker.messages}
@@ -192,6 +198,7 @@ async def test_empty_list_ignored() -> None:
     ingestor = _make_ingestor(broker)
 
     await ingestor._handle_message("[]")
+    await ingestor.drain_pending()
     assert len(broker.messages) == 0
 
 
@@ -212,10 +219,12 @@ async def test_unchanged_dedup() -> None:
     )
     # First: publishes (force=True for snapshots)
     await ingestor._handle_message(snapshot_msg)
+    await ingestor.drain_pending()
     assert len(broker.messages) == 1
 
     # Same snapshot again: force=True, so still publishes
     await ingestor._handle_message(snapshot_msg)
+    await ingestor.drain_pending()
     assert len(broker.messages) == 2
 
     # Now a price_change that doesn't change the top-N
@@ -228,6 +237,7 @@ async def test_unchanged_dedup() -> None:
         }
     )
     await ingestor._handle_message(pc_msg)
+    await ingestor.drain_pending()
     # Still 2 — the top-N didn't change so it was skipped
     assert len(broker.messages) == 2
     assert ingestor._skipped_unchanged >= 1
@@ -253,6 +263,7 @@ async def test_size_zero_removes_level() -> None:
         ]
     )
     await ingestor._handle_message(snapshot)
+    await ingestor.drain_pending()
     assert len(broker.messages) == 1
     data = json.loads(broker.messages[0][0])
     assert len(data["bids"]) == 2
@@ -267,6 +278,7 @@ async def test_size_zero_removes_level() -> None:
         }
     )
     await ingestor._handle_message(pc)
+    await ingestor.drain_pending()
     assert len(broker.messages) == 2
     data = json.loads(broker.messages[1][0])
     assert data["best_bid"] == 0.49
@@ -293,6 +305,7 @@ async def test_snapshot_clears_book() -> None:
         ]
     )
     await ingestor._handle_message(s1)
+    await ingestor.drain_pending()
     data1 = json.loads(broker.messages[0][0])
     assert len(data1["bids"]) == 2
 
@@ -308,6 +321,7 @@ async def test_snapshot_clears_book() -> None:
         ]
     )
     await ingestor._handle_message(s2)
+    await ingestor.drain_pending()
     data2 = json.loads(broker.messages[1][0])
     assert len(data2["bids"]) == 1
     assert data2["best_bid"] == 0.48
@@ -335,5 +349,6 @@ async def test_heartbeat_fields() -> None:
         ]
     )
     await ingestor._handle_message(s)
+    await ingestor.drain_pending()
     fields = ingestor._heartbeat_fields()
     assert fields["assets_tracked"] == 1

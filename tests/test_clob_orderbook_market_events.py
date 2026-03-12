@@ -91,6 +91,7 @@ async def test_price_change_publishes_orderbook(
         "asks": [{"price": "0.57", "size": "80"}],
     }])
     await ingestor._handle_message(snapshot)
+    await ingestor.drain_pending()
     broker.publish.assert_called_once()
     broker.publish.reset_mock()
 
@@ -105,6 +106,7 @@ async def test_price_change_publishes_orderbook(
         }],
     })
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     broker.publish.assert_called_once()
     published = broker.publish.call_args
@@ -128,6 +130,7 @@ async def test_orderbook_snapshot_publishes(
         "asks": [{"price": "0.56", "size": "150"}],
     }])
     await ingestor._handle_message(msg)
+    await ingestor.drain_pending()
 
     broker.publish.assert_called_once()
     payload = json.loads(broker.publish.call_args.kwargs["message"])
