@@ -89,8 +89,19 @@ class RedisContext:
 
     @property
     def _markets(self) -> dict[str, MarketInfo]:
-        """Proxy for LiveRunner._update_market_price() which accesses ctx._markets."""
         return self._inner._markets  # noqa: SLF001
+
+    @property
+    def _features(self) -> dict[str, Any]:
+        return self._inner._features  # noqa: SLF001
+
+    @property
+    def _positions(self) -> dict[str, Position]:
+        return self._inner._positions  # noqa: SLF001
+
+    @property
+    def _orderbooks(self) -> dict[str, OrderbookSnapshot]:
+        return self._inner._orderbooks  # noqa: SLF001
 
     def get_all_positions(self) -> dict[str, Position]:
         return self._inner.get_all_positions()
