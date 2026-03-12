@@ -689,7 +689,7 @@ def create_app() -> FastAPI:
             LIMIT 1
         """)
 
-        # Price history window: from 5min before entry to 5min after exit (or now)
+        # Price history window: 1h symmetric around signal for initial view
         price_hist_q = _ch_query(f"""
             SELECT
                 toStartOfMinute(t.timestamp) AS minute,
@@ -699,8 +699,8 @@ def create_app() -> FastAPI:
             FROM trades_raw t
             LEFT JOIN token_market_map tm ON t.asset_id = tm.asset_id
             WHERE t.condition_id = '{cid}'
-              AND t.timestamp >= '{signal_dt}' - INTERVAL 5 MINUTE
-              AND t.timestamp <= '{exit_dt}' + INTERVAL 5 MINUTE
+              AND t.timestamp >= '{signal_dt}' - INTERVAL 1 HOUR
+              AND t.timestamp <= '{exit_dt}' + INTERVAL 1 HOUR
             GROUP BY minute, outcome
             ORDER BY minute
         """)
