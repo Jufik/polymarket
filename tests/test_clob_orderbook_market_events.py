@@ -14,10 +14,22 @@ def broker() -> AsyncMock:
     return AsyncMock()
 
 
+class _StubRegistry:
+    async def get_desired(self) -> set[str]:
+        return set()
+
+    async def add(self, asset_id: str, condition_id: str, outcome: str, group: str = "default") -> bool:
+        return True
+
+    async def remove_by_condition(self, condition_id: str) -> set[str]:
+        return set()
+
+
 @pytest.fixture
 def ingestor(broker: AsyncMock) -> CLOBOrderbookIngestor:
     return CLOBOrderbookIngestor(
         broker=broker,
+        registry=_StubRegistry(),  # type: ignore[arg-type]
         topic="orderbooks.raw",
         markets_events_topic="markets.events",
         token_market_map={"tok123": ("cond_abc", "YES")},

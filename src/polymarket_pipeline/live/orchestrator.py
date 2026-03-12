@@ -109,15 +109,27 @@ async def create_ingestors(
 
             redis_client = await create_redis_client(settings.redis_url)
 
+        from polymarket_pipeline.live.asset_registry import AssetRegistry
+
+        registry = AssetRegistry(redis_client) if redis_client else AssetRegistry(None)
+        if redis_client is not None:
+            entries = [
+                (aid, token_map[aid][0], token_map[aid][1])
+                for aid in open_assets
+                if aid in token_map
+            ]
+            if entries:
+                await registry.add_many(entries)
+
         clob_ob = CLOBOrderbookIngestor(
             broker=broker,
+            registry=registry,
             ws_url=settings.clob_orderbook_ws_url,
             topic="orderbooks.raw",
             status_topic="pipeline.status",
             token_market_map=token_map,
             markets_events_topic=settings.clob_markets_events_topic,
-            max_orderbook_connections=settings.clob_orderbook_max_connections,
-            subscribe_asset_ids=open_assets,
+            max_slots=settings.clob_orderbook_max_connections,
             redis_client=redis_client,
             redis_orderbook_ttl_s=settings.redis_orderbook_ttl_s,
         )
@@ -293,7 +305,19 @@ async def periodic_token_map_refresh(
             # Subscribe new assets to CLOB orderbook listener
             if added and clob_ingestor is not None:
                 new_asset_ids = list(added)
-                clob_ingestor.add_assets(new_asset_ids)
+                if hasattr(clob_ingestor, "add_assets"):
+                    clob_ingestor.add_assets(new_asset_ids)
+                # New architecture: add to registry, reconciler picks them up
+                registry = getattr(clob_ingestor, "_registry", None)
+                if registry is not None:
+                    entries = [
+                        (aid, token_map[aid][0], token_map[aid][1])
+                        for aid in new_asset_ids
+                        if aid in token_map
+                    ]
+                    if entries:
+                        await registry.add_many(entries)
+                    clob_ingestor.wake_reconciler()
         except Exception:
             log.exception("token_map_refresh.reload_error")
 

@@ -16,6 +16,13 @@ class MockBroker:
         self.messages.append((message, topic, key))
 
 
+class _StubRegistry:
+    """Minimal stub — tests don't exercise the registry."""
+
+    async def get_desired(self) -> set[str]:
+        return set()
+
+
 def _make_ingestor(
     broker: Any = None, token_map: dict[str, tuple[str, str]] | None = None
 ) -> Any:
@@ -23,6 +30,7 @@ def _make_ingestor(
 
     return CLOBOrderbookIngestor(
         broker=broker or MockBroker(),
+        registry=_StubRegistry(),  # type: ignore[arg-type]
         topic="orderbooks.raw",
         status_topic="pipeline.status",
         token_market_map=token_map or {},
@@ -311,9 +319,9 @@ async def test_heartbeat_fields() -> None:
     ingestor = _make_ingestor(broker)
 
     fields = ingestor._heartbeat_fields()
-    assert "books_tracked" in fields
+    assert "assets_tracked" in fields
     assert "skipped_unchanged" in fields
-    assert fields["books_tracked"] == 0
+    assert fields["assets_tracked"] == 0
 
     # Seed a book
     s = json.dumps(
@@ -328,4 +336,4 @@ async def test_heartbeat_fields() -> None:
     )
     await ingestor._handle_message(s)
     fields = ingestor._heartbeat_fields()
-    assert fields["books_tracked"] == 1
+    assert fields["assets_tracked"] == 1
