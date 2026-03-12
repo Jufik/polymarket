@@ -276,3 +276,34 @@ export const fetchPriceHistory = (
   get<PriceHistoryResponse>(
     `/api/prices/${conditionId}?signal_time=${signalTime}&zoom=${zoom}`,
   );
+
+// -- Introspection & Candidates ----------------------------------------------
+
+export interface IntrospectServer {
+  config: string;
+  port: number;
+  status: "up" | "down";
+  data?: Record<string, unknown>;
+}
+
+export interface Candidate {
+  strategy: string;
+  condition_id: string;
+  question: string | null;
+  n_traders: number;
+  n_threshold: number;
+  distance: number;
+  consensus_direction: string;
+  direction_filter: string;
+  would_pass_filter: boolean;
+  yes_usd: number;
+  no_usd: number;
+  signaled: boolean;
+  traders: Record<string, unknown>;
+}
+
+export const fetchIntrospect = () =>
+  get<{ servers: IntrospectServer[] }>("/api/introspect");
+
+export const fetchCandidates = (config: string) =>
+  get<{ candidates: Candidate[] }>(`/api/introspect/${config}/candidates`);
