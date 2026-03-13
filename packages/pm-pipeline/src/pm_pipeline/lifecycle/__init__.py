@@ -1,0 +1,1 @@
+"""Market lifecycle state machine."""

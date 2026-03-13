@@ -1,0 +1,32 @@
+[project]
+name = "pm-strategy"
+version = "0.1.0"
+description = "Polymarket strategy framework: protocols, execution, context, features"
+requires-python = ">=3.11"
+dependencies = [
+    "pm-core",
+    "structlog>=24.0",
+    "polars>=1.15.0",
+]
+
+[project.optional-dependencies]
+clickhouse = ["httpx>=0.27"]
+live = ["redis>=5.0", "httpx>=0.27", "aiohttp>=3.9"]
+gbm = ["numpy>=2.4", "scipy>=1.17"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+all = ["pm-strategy[clickhouse,live,gbm]"]
+
+[project.entry-points."pm.strategies"]
+tag_hr_copy = "pm_strategy.impl.tag_hr_copy.strategy:TagHRCopyStrategy"
+crypto_gbm = "pm_strategy.impl.crypto_gbm.strategy:CryptoGBMStrategy"
+consensus_v2 = "pm_strategy.impl.consensus_v2.strategy:ConsensusV2Strategy"
+
+[project.entry-points."pm.providers"]
+tag_hr_provider = "pm_strategy.impl.tag_hr_copy.provider:TagHRProvider"
+exchange_prices = "pm_strategy.impl.crypto_gbm.providers:ExchangePriceProvider"
+crypto_windows = "pm_strategy.impl.crypto_gbm.providers:CryptoWindowProvider"
+consensus_v2 = "pm_strategy.impl.consensus_v2.provider:ConsensusV2Provider"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

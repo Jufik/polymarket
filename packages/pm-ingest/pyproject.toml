@@ -1,0 +1,23 @@
+[project]
+name = "pm-ingest"
+version = "0.1.0"
+description = "Polymarket ingestion: 5 sources, normalize pipeline, protocol-injected publishing"
+requires-python = ">=3.11"
+dependencies = [
+    "pm-core",
+    "structlog>=24.0",
+    "websockets>=13.0",
+]
+
+[project.optional-dependencies]
+rpc = ["eth-abi>=5.0"]
+subgraph = ["gql[aiohttp]>=3.5"]
+redis = ["redis>=5.0", "msgpack>=1.0"]
+exchange = ["cryptofeed>=2.4", "httpx>=0.27"]
+clickhouse = ["clickhouse-connect>=0.7"]
+all = ["pm-ingest[rpc,subgraph,redis,exchange,clickhouse]"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "fakeredis>=2.20"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

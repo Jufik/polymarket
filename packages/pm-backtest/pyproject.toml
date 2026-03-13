@@ -1,0 +1,19 @@
+[project]
+name = "pm-backtest"
+version = "0.1.0"
+description = "Polymarket backtesting: runners, replay, ledger, harness"
+requires-python = ">=3.11"
+dependencies = [
+    "pm-core",
+    "pm-strategy",
+    "polars>=1.15.0",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+compact = ["fastparquet>=2024.0", "pandas>=2.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

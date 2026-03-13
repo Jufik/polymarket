@@ -1,0 +1,23 @@
+[project]
+name = "pm-store"
+version = "0.1.0"
+description = "Polymarket storage backends: ClickHouse, PostgreSQL, SharedMemory, Parquet, Kafka"
+requires-python = ">=3.11"
+dependencies = [
+    "pm-core",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+clickhouse = ["clickhouse-connect>=0.7"]
+postgres = ["asyncpg>=0.29"]
+parquet = ["fastparquet>=2024.0", "pandas>=2.0", "pyarrow>=14.0"]
+kafka = ["faststream[kafka]>=0.5"]
+http = ["httpx>=0.27"]
+compact = ["polars>=1.15.0"]
+all = ["pm-store[clickhouse,postgres,parquet,kafka,http,compact]"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
