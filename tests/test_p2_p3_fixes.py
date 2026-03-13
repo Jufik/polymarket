@@ -244,6 +244,8 @@ def test_settle_resolved_market_logic() -> None:
     # Create a minimal runner with mocked context
     runner = object.__new__(LiveRunner)
     runner.ctx = MagicMock()
+    runner._monitor = MagicMock()
+    runner.strategies = []
 
     # Position: bought 100 YES tokens at 0.40 each (cost = $40)
     pos = Position(
@@ -277,6 +279,8 @@ def test_settle_resolved_market_loser() -> None:
 
     runner = object.__new__(LiveRunner)
     runner.ctx = MagicMock()
+    runner._monitor = MagicMock()
+    runner.strategies = []
 
     pos = Position(
         condition_id="0xabc",
@@ -303,6 +307,8 @@ def test_settle_no_position_is_noop() -> None:
 
     runner = object.__new__(LiveRunner)
     runner.ctx = MagicMock()
+    runner._monitor = MagicMock()
+    runner.strategies = []
     runner.ctx.get_all_positions.return_value = {}
 
     runner.settle_resolved_market("0xnonexistent", "YES")

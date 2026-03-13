@@ -1,5 +1,9 @@
-"""Re-export from shared quality module for backward compatibility."""
+"""Backward-compat shim — re-exports from pm_pipeline.quality.state."""
 
-from polymarket_pipeline.quality.state import CheckResult, PipelineState, ReadinessState
+from pm_pipeline.quality.state import (  # noqa: F401
+    CheckResult,
+    PipelineState,
+    ReadinessState,
+)
 
 __all__ = ["CheckResult", "PipelineState", "ReadinessState"]

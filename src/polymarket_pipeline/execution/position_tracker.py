@@ -126,43 +126,42 @@ class PositionTracker:
 
     async def _record_fill_locked(self, fill: FillRecord) -> Position | None:
         """Inner implementation — must be called under ``self._lock``."""
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                # 1. Insert fill — duplicate intent_id is silently skipped.
-                tag = await conn.execute(
-                    """
+        async with self._pool.acquire() as conn, conn.transaction():
+            # 1. Insert fill — duplicate intent_id is silently skipped.
+            tag = await conn.execute(
+                """
                     INSERT INTO fills (intent_id, strategy, condition_id,
                                        asset_id, side, outcome, price,
                                        size_usd, fee_usd, filled_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                     ON CONFLICT (intent_id) DO NOTHING
                     """,
-                    fill.intent_id,
-                    fill.strategy,
-                    fill.condition_id,
-                    fill.asset_id,
-                    fill.side,
-                    fill.outcome,
-                    fill.price,
-                    fill.size_usd,
-                    fill.fee_usd,
-                    fill.filled_at,
+                fill.intent_id,
+                fill.strategy,
+                fill.condition_id,
+                fill.asset_id,
+                fill.side,
+                fill.outcome,
+                fill.price,
+                fill.size_usd,
+                fill.fee_usd,
+                fill.filled_at,
+            )
+
+            # Duplicate fill — nothing inserted.
+            if tag == "INSERT 0 0":
+                log.warning(
+                    "position_tracker.duplicate_fill",
+                    intent_id=fill.intent_id,
+                    condition_id=fill.condition_id,
                 )
+                return None
 
-                # Duplicate fill — nothing inserted.
-                if tag == "INSERT 0 0":
-                    log.warning(
-                        "position_tracker.duplicate_fill",
-                        intent_id=fill.intent_id,
-                        condition_id=fill.condition_id,
-                    )
-                    return None
-
-                # 2. Recompute position from ALL fills for this condition_id.
-                #    This is the single source of truth — no memory-first math.
-                #    Realized PnL = sell revenue - (avg_entry × tokens_sold) - fees.
-                pos_row = await conn.fetchrow(
-                    """
+            # 2. Recompute position from ALL fills for this condition_id.
+            #    This is the single source of truth — no memory-first math.
+            #    Realized PnL = sell revenue - (avg_entry × tokens_sold) - fees.
+            pos_row = await conn.fetchrow(
+                """
                     WITH ordered AS (
                         SELECT side, price, size_usd, fee_usd,
                                ROW_NUMBER() OVER (ORDER BY filled_at, id) AS rn
@@ -208,18 +207,18 @@ class PositionTracker:
                              ELSE -total_fees END AS realized_pnl
                     FROM agg
                     """,
-                    fill.condition_id,
-                )
+                fill.condition_id,
+            )
 
-                size = float(pos_row["size"]) if pos_row else 0
-                avg_entry = float(pos_row["avg_entry"]) if pos_row else 0
-                cost_basis = float(pos_row["cost_basis"]) if pos_row else 0
-                last_price = float(pos_row["last_price"]) if pos_row else 0
-                realized_pnl = float(pos_row["realized_pnl"]) if pos_row else 0
+            size = float(pos_row["size"]) if pos_row else 0
+            avg_entry = float(pos_row["avg_entry"]) if pos_row else 0
+            cost_basis = float(pos_row["cost_basis"]) if pos_row else 0
+            last_price = float(pos_row["last_price"]) if pos_row else 0
+            realized_pnl = float(pos_row["realized_pnl"]) if pos_row else 0
 
-                # 3. Upsert positions table.
-                await conn.execute(
-                    """
+            # 3. Upsert positions table.
+            await conn.execute(
+                """
                     INSERT INTO positions (condition_id, asset_id, side, size,
                                            avg_entry, cost_basis, last_price,
                                            realized_pnl, updated_at)
@@ -233,15 +232,15 @@ class PositionTracker:
                         realized_pnl = EXCLUDED.realized_pnl,
                         updated_at = NOW()
                     """,
-                    fill.condition_id,
-                    fill.asset_id,
-                    fill.side,
-                    size,
-                    avg_entry,
-                    cost_basis,
-                    last_price,
-                    realized_pnl,
-                )
+                fill.condition_id,
+                fill.asset_id,
+                fill.side,
+                size,
+                avg_entry,
+                cost_basis,
+                last_price,
+                realized_pnl,
+            )
 
         # 4. Update memory cache AFTER the transaction commits.
         pos = {

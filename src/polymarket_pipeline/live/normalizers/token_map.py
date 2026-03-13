@@ -1,36 +1,3 @@
-"""Immutable TokenMap for atomic refresh of asset_id -> (condition_id, outcome) lookups.
+"""Backward-compat shim — re-exports from pm_core."""
 
-Usage::
-
-    # Build a new snapshot and swap atomically (single reference assignment).
-    new_map = TokenMap(fresh_entries)
-    runner.token_map = new_map          # atomic in CPython (GIL)
-
-The class is intentionally read-only: no mutation methods, no setters.
-"""
-
-from __future__ import annotations
-
-
-class TokenMap:
-    """Read-only mapping from ``asset_id`` to ``(condition_id, outcome)``.
-
-    Designed for concurrent readers: construct a new instance and swap the
-    reference instead of mutating a shared dict.
-    """
-
-    __slots__ = ("_map",)
-
-    def __init__(self, entries: dict[str, tuple[str, str]]) -> None:
-        # Defensive copy so callers cannot mutate our internal state.
-        self._map: dict[str, tuple[str, str]] = dict(entries)
-
-    def lookup(self, asset_id: str) -> tuple[str, str] | None:
-        """Return ``(condition_id, outcome)`` for *asset_id*, or ``None``."""
-        return self._map.get(asset_id)
-
-    def __len__(self) -> int:
-        return len(self._map)
-
-    def __contains__(self, asset_id: object) -> bool:
-        return asset_id in self._map
+from pm_core.token_map import TokenMap  # noqa: F401

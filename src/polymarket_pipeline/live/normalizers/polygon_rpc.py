@@ -1,4 +1,11 @@
-"""Normalizer for raw Polygon RPC log events (eth_subscribe)."""
+"""Normalizer for raw Polygon RPC log events (eth_subscribe).
+
+The ``ORDER_FILLED_SIG`` constant is re-exported from pm_ingest.
+The ``PolygonRPCNormalizer`` class is the legacy monolithic normalizer
+(pre-decode/enrich/validate pipeline) kept for backward compatibility.
+New code should use ``pm_ingest.normalize.decode.decode_rpc_log()`` +
+``pm_ingest.normalize.enrich.enrich()`` + ``pm_ingest.normalize.validate.validate()``.
+"""
 
 from __future__ import annotations
 
@@ -8,17 +15,13 @@ from typing import Any
 
 import structlog
 from eth_abi import decode
+from pm_ingest.normalize.decode import ORDER_FILLED_SIG  # noqa: F401
 
 from polymarket_pipeline.constants import EXCHANGE_ADDRS, USDC_SCALE
 from polymarket_pipeline.models import NormalizedTrade, Side, Source
 from polymarket_pipeline.trade_id import make_trade_id_chain
 
 _log = structlog.get_logger()
-
-# OrderFilled(bytes32 indexed orderHash, address indexed maker, address indexed taker,
-#             uint256 makerAssetId, uint256 takerAssetId, uint256 makerAmountFilled,
-#             uint256 takerAmountFilled, uint256 fee)
-ORDER_FILLED_SIG = "0xd0a08e8c493f9c94f29311604c9de1b4e8c8d4c06bd0c789af57f2d65bfec0f6"
 
 
 class PolygonRPCNormalizer:

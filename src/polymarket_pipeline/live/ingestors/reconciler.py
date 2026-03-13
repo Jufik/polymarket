@@ -1,2 +1,2 @@
 """Backward-compat shim — re-exports from pm_ingest."""
-from pm_ingest.dedup import TradeDedup  # noqa: F401
+from pm_ingest.reconciler import Reconciler  # noqa: F401
