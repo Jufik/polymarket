@@ -46,8 +46,8 @@ base_bet_usd = 50
         _build_runner(config_file)
 
 
-def test_registries_have_s2() -> None:
-    """S2 hit-rate copy strategy and provider should be registered."""
+def test_registries_have_active_strategies() -> None:
+    """Active strategies and providers should be registered."""
     from polymarket_pipeline.cli.strategy import (
         _PROVIDER_REGISTRY,
         _STRATEGY_FACTORIES,
@@ -57,5 +57,6 @@ def test_registries_have_s2() -> None:
 
     _register_strategies()
     _register_providers()
-    assert "s2_hitrate_copy" in _STRATEGY_FACTORIES
-    assert "s2_provider" in _PROVIDER_REGISTRY
+    assert "tag_hr_copy" in _STRATEGY_FACTORIES
+    assert "crypto_gbm" in _STRATEGY_FACTORIES
+    assert "tag_hr_provider" in _PROVIDER_REGISTRY
