@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -48,27 +49,6 @@ def _register_providers() -> None:
         _PROVIDER_REGISTRY["tag_hr_provider"] = TagHRProvider
     except ImportError:
         logger.warning("provider.skip", name="tag_hr_provider", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s2_hitrate_copy.provider import S2Provider
-
-        _PROVIDER_REGISTRY["s2_provider"] = S2Provider
-    except ImportError:
-        logger.warning("provider.skip", name="s2_provider", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s2_insider_copy.provider import InsiderCopyProvider
-
-        _PROVIDER_REGISTRY["insider_copy_provider"] = InsiderCopyProvider
-    except ImportError:
-        logger.warning("provider.skip", name="insider_copy_provider", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s3_no_sniper.provider import S3DataProvider
-
-        _PROVIDER_REGISTRY["s3_data_provider"] = S3DataProvider
-    except ImportError:
-        logger.warning("provider.skip", name="s3_data_provider", reason="import failed")
 
     try:
         from polymarket_pipeline.strategies_impl.crypto_gbm.providers import (
@@ -121,35 +101,6 @@ def _register_strategies() -> None:
         _STRATEGY_FACTORIES["tag_hr_copy"] = create_tag_hr_copy_strategy
     except ImportError:
         logger.warning("strategy.skip", name="tag_hr_copy", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s2_hitrate_copy.strategy import (
-            create_s2_strategy,
-        )
-
-        _STRATEGY_FACTORIES["s2_hitrate_copy"] = create_s2_strategy
-    except ImportError:
-        logger.warning("strategy.skip", name="s2_hitrate_copy", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s2_insider_copy.strategy import (
-            create_insider_copy_strategy,
-        )
-
-        _STRATEGY_FACTORIES["s2_insider_sports"] = create_insider_copy_strategy
-        _STRATEGY_FACTORIES["s2_insider_politics"] = create_insider_copy_strategy
-        _STRATEGY_FACTORIES["s2_insider_misc"] = create_insider_copy_strategy
-    except ImportError:
-        logger.warning("strategy.skip", name="s2_insider_copy", reason="import failed")
-
-    try:
-        from polymarket_pipeline.strategies_impl.s3_no_sniper.strategy import (
-            create_s3_no_sniper_strategy,
-        )
-
-        _STRATEGY_FACTORIES["s3_no_sniper"] = create_s3_no_sniper_strategy
-    except ImportError:
-        logger.warning("strategy.skip", name="s3_no_sniper", reason="import failed")
 
     _STRATEGY_FACTORIES["crypto_gbm"] = _make_crypto_gbm
 
@@ -360,7 +311,7 @@ def run(
     async def _run() -> None:
         import json
         import signal
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         import asyncpg
         from faststream.kafka import KafkaBroker
@@ -432,7 +383,7 @@ def run(
                         record.get("urgency", "patient"),
                         record.get("max_price"),
                         record.get("reason", ""),
-                        datetime.fromtimestamp(record["signal_time"], tz=timezone.utc),
+                        datetime.fromtimestamp(record["signal_time"], tz=UTC),
                         record.get("asset_id"),
                         record["disposition"],
                         record.get("rejection_reason", ""),
@@ -440,7 +391,7 @@ def run(
                         fill["filled_size_usd"] if fill else None,
                         fill["fee_usd"] if fill else None,
                         json.dumps(metadata, default=str),
-                        datetime.fromtimestamp(record["captured_at"], tz=timezone.utc),
+                        datetime.fromtimestamp(record["captured_at"], tz=UTC),
                     )
             except Exception:
                 logger.exception("intent_pg.write_error")
@@ -455,18 +406,17 @@ def run(
                 return
             strategy_name = provider_name  # provider name matches strategy key
             try:
-                async with pg_pool.acquire() as conn:
-                    async with conn.transaction():
-                        await conn.execute(
-                            "DELETE FROM strategy_pool WHERE strategy = $1",
-                            strategy_name,
-                        )
-                        if pool:
-                            await conn.executemany(
-                                """INSERT INTO strategy_pool (strategy, trader_address)
+                async with pg_pool.acquire() as conn, conn.transaction():
+                    await conn.execute(
+                        "DELETE FROM strategy_pool WHERE strategy = $1",
+                        strategy_name,
+                    )
+                    if pool:
+                        await conn.executemany(
+                            """INSERT INTO strategy_pool (strategy, trader_address)
                                    VALUES ($1, $2)""",
-                                [(strategy_name, addr) for addr in pool],
-                            )
+                            [(strategy_name, addr) for addr in pool],
+                        )
                 logger.info(
                     "pool_pg.published",
                     strategy=strategy_name,
@@ -795,7 +745,7 @@ def promote(
 
         typer.echo(f"{'─'*60}")
         if report.all_passed:
-            typer.echo(f"All gates passed. Update your TOML config:")
+            typer.echo("All gates passed. Update your TOML config:")
             typer.echo(f'  [strategy.{name}]')
             typer.echo(f'  mode = "{to_mode.value}"')
         else:

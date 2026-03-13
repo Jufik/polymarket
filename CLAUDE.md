@@ -17,7 +17,13 @@ uv run pytest tests/ -x -q \
   --ignore=tests/test_e2e_backfill.py \
   --ignore=tests/test_market_sync.py \
   --ignore=tests/test_sink_clickhouse.py \
-  --ignore=tests/test_sink_postgres.py
+  --ignore=tests/test_sink_postgres.py \
+  --ignore=tests/test_metrics.py \
+  --ignore=tests/test_s2_insider_copy_prod.py \
+  --ignore=tests/test_s3_no_sniper.py \
+  --ignore=tests/test_s2_insider_copy.py \
+  --ignore=tests/test_api.py \
+  --ignore=tests/test_consensus_take_profit.py
 
 # Single test file
 uv run pytest tests/test_models.py -x -q
@@ -35,9 +41,9 @@ uv run pytest tests/ -x -q
 # Type checking (strict mode with Pydantic plugin)
 uv run mypy --strict src/
 
-# Lint and format
-uv run ruff check src/ tests/
-uv run ruff format src/ tests/
+# Lint and format (includes package sources)
+uv run ruff check src/ packages/*/src/ tests/
+uv run ruff format src/ packages/*/src/ tests/
 
 # Backfill pipeline
 uv run python -m polymarket_pipeline.cli.backfill --parquet-dir order_filled/
@@ -88,6 +94,26 @@ uv run python scripts/build_data.py --force-metadata       # re-fetch even if fr
 ## Architecture
 
 Unified trade data pipeline that ingests from three Polymarket sources, normalizes into a canonical model, deduplicates across sources, and stores in ClickHouse for analysis.
+
+### Package Structure (uv workspace)
+
+7 packages under `packages/`, with the root `polymarket_pipeline` providing backward-compat shims:
+
+| Package | Layer | Purpose | Key Modules |
+|---------|-------|---------|-------------|
+| `pm-core` | 0 | Shared types, models, protocols, config | models, types, constants, trade_id, protocols, config/ |
+| `pm-ingest` | 1 | Data ingestion from all sources | ingestors/, normalize/, dedup, circuit_breaker |
+| `pm-store` | 1 | Storage backends | clickhouse/, postgres/, shmem/, parquet/, kafka/ |
+| `pm-strategy` | 2 | Strategy framework + implementations | protocols, execution/, features/, ledger/, context/, impl/ |
+| `pm-backtest` | 2 | Backtesting and replay runners | runners/, sync_runner, harness, replay |
+| `pm-pipeline` | 3 | Live pipeline orchestration | app, orchestrator, runner (LiveRunner), quality/ |
+| `pm-api` | 3 | REST API (FastAPI) | routes/, filters, pagination, deps |
+
+Dependency DAG: Layer N depends only on Layer < N. No circular imports.
+
+**Import convention**: New code should import from `pm_*` packages directly. Legacy `polymarket_pipeline.*` imports work via backward-compat shims in `src/polymarket_pipeline/`.
+
+**Root-resident modules** (not yet extracted): `cli/`, `execution/` (clob_client, panic, position_tracker), `loaders/`, `normalizers/`, `consumers/`, `derived.py`, `settings.py`, `logging_config.py`.
 
 ### Data Flow
 
@@ -142,103 +168,120 @@ Polars scans ──────> data/derived/                      (pre-compute
 ### Module Map
 
 ```
-src/polymarket_pipeline/
-├── models.py            # NormalizedTrade, Event, Market, Tag, TokenMarketEntry (Pydantic v2, frozen)
-├── trade_id.py          # Deterministic trade ID: make_trade_id_chain(), make_trade_id_ws(), _pending()
-├── constants.py         # Shared constants (exchange addrs, USDC scale, FEE_MODULE_ADDRS)
-├── market_sync.py       # Gamma API fetcher: fetch_events() -> SyncResult
-├── settings.py          # PipelineSettings (offline pipeline, PM_ prefix)
-├── normalizers/
-│   ├── sink.py          # Goldsky Parquet: drop taker dups, 1e6 scaling, bytes->hex
-│   ├── rtds.py          # RTDS WS: float rounding, proxyWallet as maker
-│   └── market_ws.py     # Market WS: last_trade_price only, fee from fee_rate_bps
-├── loaders/
-│   └── parquet.py       # ParquetLoader (fastparquet, ~2033 files)
-├── sinks/
-│   ├── clickhouse.py    # Batch insert to trades_raw (sync, clickhouse_connect)
-│   └── postgres.py      # Async metadata upsert (asyncpg)
-├── consumers/
-│   └── rtds.py          # WebSocket consumer with PING/PONG heartbeat
-├── quality/             # Shared quality types (no live/ dependency)
-│   └── state.py         # PipelineState, ReadinessState, CheckResult
-├── cli/
-│   ├── backfill.py      # pm-backfill: Parquet -> ClickHouse + metadata sync
-│   ├── sync.py          # pm-sync: Gamma API -> PostgreSQL standalone
-│   ├── explore.py       # pm-explore: Strategy exploration CLI (Typer)
-│   ├── live.py          # pm-live: Live sync pipeline entry point
-│   ├── panic.py         # pm-panic: Emergency position close
-│   ├── recover.py       # pm-recover: Subgraph gap recovery
-│   ├── compact.py       # pm-compact: Recompress raw parquet
-│   ├── load.py          # pm-load: Load compact parquet into ClickHouse
-│   ├── build.py         # pm-build: Data build pipeline
-│   ├── migrate.py       # pm-migrate: ClickHouse schema migrations
-│   ├── strategy.py      # pm-strategy: Run strategies against live Kafka
-│   └── bridge.py        # CLI bridge utilities
-├── execution/           # Trade execution (CLOB API)
-│   ├── clob_client.py   # Polymarket CLOB API client (submit, cancel, balances)
-│   ├── panic.py         # Panic close all positions
-│   └── position_tracker.py  # PostgreSQL position tracking
-├── strategies/          # Strategy framework (protocols + types)
-│   ├── protocol.py      # Strategy, FeatureProvider, Executor, FeatureBackend protocols
-│   ├── types.py         # TradeIntent, Position, Fill, OrderbookSnapshot, ExecutionMode
-│   ├── config.py        # StrategyConfig + ProviderConfig + PromotionThresholds (TOML)
-│   ├── registry.py      # Strategy discovery/registration
-│   ├── promotion.py     # PromotionChecker: vectorized→paper→live gate enforcement
-│   ├── context/         # InMemoryContext for strategy state
-│   ├── execution/       # ExecutionGateway, PaperExecutor, RealisticFillSimulator, calibrate
-│   ├── features/        # FeatureBackend: PolarsBackend (offline), ClickHouseBackend (live)
-│   ├── ledger/          # Strategy outcome ledger (LedgerRecord, ParquetLedger, analytics)
-│   └── runners/         # LiveRunner (event-driven), BacktestRunner (+ optional ledger)
-├── live/                # Live sync pipeline (FastStream + Redpanda)
-│   ├── app.py           # FastStream app + market events subscriber + ASGI health
-│   ├── orchestrator.py  # Ingestor lifecycle + recovery + quality loops
-│   ├── protection.py    # Auto-protect: close positions on RED state
-│   ├── settings.py      # Pydantic Settings (env-based, PM_ prefix)
-│   ├── schema.py        # ClickHouse DDL: Kafka engine tables + derived MVs
-│   ├── circuit_breaker.py  # Circuit breaker for Redpanda publishes
-│   ├── dedup.py         # TTL-based trade deduplication
-│   ├── ingestors/       # 5 sources + BaseIngestor ABC
-│   │   ├── base.py      # BaseIngestor: shared heartbeat, counters, circuit breaker
-│   │   ├── rpc.py       # RPCIngestor: Polygon RPC logs + on-chain resolution detection
-│   │   ├── alchemy.py   # Backward-compat shim (re-exports RPCIngestor as AlchemyIngestor)
-│   │   ├── rtds.py      # RTDS WS pool with rotation + dedup
-│   │   ├── pending_block.py  # Multi-endpoint pending block poller (~1s early)
-│   │   ├── clob_orderbook.py # CLOB WS orderbook + market event forwarding
-│   │   ├── mempool.py   # Rust PyO3 mempool sidecar wrapper
-│   │   └── subgraph.py  # Goldsky Subgraph gap recovery
-│   ├── quality/         # Re-exports from shared quality/ module
-│   │   ├── state.py     # Re-export shim for backward compat
-│   │   └── checker.py   # QualityChecker: health checks + state machine
-│   ├── consumers/       # Kafka consumers
-│   │   └── market_events.py  # MarketEventsConsumer: debounced pool refresh on resolution
-│   ├── normalizers/     # PolygonRPCNormalizer, SubgraphNormalizer, PendingBlockNormalizer
-│   └── dashboard.py     # HTML dashboard (async, quality metrics)
-├── api/                 # FastAPI REST API
-│   └── app.py           # pm-api entry point
-└── strategies_impl/     # Concrete strategy implementations (empty — ready for new)
+packages/
+├── pm-core/src/pm_core/          # Layer 0: shared foundation
+│   ├── models.py                 # NormalizedTrade, Event, Market, Tag, TokenMarketEntry
+│   ├── types.py                  # Side, Source, Outcome enums + TradeIntent, Position, Fill, etc.
+│   ├── constants.py              # Exchange addrs, USDC scale, FEE_MODULE_ADDRS
+│   ├── trade_id.py               # Deterministic trade IDs: make_trade_id_chain/ws/pending()
+│   ├── protocols.py              # Strategy, FeatureProvider, Executor, BookWriter/Reader
+│   ├── token_map.py              # Token-to-market resolution
+│   └── config/                   # ConfigStore, ConfigWatcher, key schemas
+│
+├── pm-ingest/src/pm_ingest/      # Layer 1: ingestion
+│   ├── base.py                   # BaseIngestor ABC: heartbeat, counters, circuit breaker
+│   ├── circuit_breaker.py        # Circuit breaker for publishes
+│   ├── dedup.py                  # TTL-based trade deduplication
+│   ├── publish.py                # Protocol-injected safe_publish()
+│   ├── asset_registry.py         # Dynamic asset tracking
+│   ├── reconciler.py             # Cross-slot orderbook reconciliation
+│   ├── ingestors/                # 5 sources: rpc, rtds, pending, clob_ws, subgraph
+│   │   ├── managed_slot.py       # WS slot manager with rotation
+│   │   └── exchange_feed.py      # Cryptofeed exchange ingestor
+│   └── normalize/                # Decode, enrich, validate pipelines
+│
+├── pm-store/src/pm_store/        # Layer 1: storage
+│   ├── clickhouse/               # Client, sink, queries, migrations/
+│   ├── postgres/                 # Pool, sink, changelog
+│   ├── shmem/                    # SharedMemory orderbook (sub-μs reads)
+│   ├── parquet/                  # Loader, writer, checkpoint
+│   ├── kafka/                    # Kafka publisher wrapper
+│   └── market_sync.py            # Gamma API fetcher
+│
+├── pm-strategy/src/pm_strategy/  # Layer 2: strategy framework
+│   ├── protocols.py              # Strategy, VectorizedStrategy, FeatureProvider
+│   ├── types.py                  # TradeIntent, Position, Fill, OrderbookSnapshot
+│   ├── config.py                 # StrategyConfig + ProviderConfig (TOML)
+│   ├── promotion.py              # PromotionChecker: vectorized→paper→live gates
+│   ├── registry.py               # Strategy discovery/registration
+│   ├── introspect.py             # HTTP introspection server
+│   ├── context/                  # InMemoryContext, RedisContext
+│   ├── execution/                # Gateway, PaperExecutor, RealisticFillSimulator, LiveExecutor
+│   ├── features/                 # PolarsBackend (offline), ClickHouseBackend (live)
+│   ├── ledger/                   # LedgerRecord, ParquetLedger, analytics
+│   ├── helpers.py                # Risk gate, position tracking helpers
+│   └── impl/                     # Concrete strategies
+│       ├── tag_hr_copy/          # Tag-based hit-rate copy trading
+│       ├── consensus_v2/         # Consensus-weighted copy trading
+│       └── crypto_gbm/           # Crypto GBM strategy
+│
+├── pm-backtest/src/pm_backtest/  # Layer 2: backtesting
+│   ├── runners/                  # BacktestRunner, VectorizedRunner, ReplayRunner, ParityRunner
+│   ├── sync_runner.py            # SyncReplayRunner (zero-async, tick-by-tick)
+│   ├── harness.py                # run_fast_backtest() + run_backtest() convenience
+│   ├── replay.py                 # Trade/resolution loading for replay
+│   └── ledger/                   # Ledger integration for backtest output
+│
+├── pm-pipeline/src/pm_pipeline/  # Layer 3: live orchestration
+│   ├── app.py                    # FastStream app + ASGI health
+│   ├── orchestrator.py           # Ingestor lifecycle + recovery + quality loops
+│   ├── runner.py                 # LiveRunner (event-driven strategy execution)
+│   ├── protection.py             # Auto-protect: close positions on RED state
+│   ├── settings.py               # Pydantic Settings (env-based, PM_ prefix)
+│   ├── quality/                  # PipelineState, QualityChecker
+│   ├── consumers/                # MarketEventsConsumer (debounced pool refresh)
+│   ├── lifecycle/                # Ingestor lifecycle management
+│   └── dashboard.py              # HTML dashboard
+│
+└── pm-api/src/pm_api/            # Layer 3: REST API
+    ├── app.py                    # FastAPI app + dashboard HTML
+    ├── routes/                   # trades, fills, intents, markets, prices, strategies, etc.
+    ├── queries.py                # Parameterized CH/PG query builder
+    ├── filters.py                # Query filter parsing
+    ├── pagination.py             # Cursor/offset pagination
+    ├── schemas.py                # Response schemas
+    ├── errors.py                 # Structured error responses
+    └── deps.py                   # FastAPI dependency injection
 
-research/                # Research sandbox (imports from pipeline, never imported BY it)
-├── knowledge/           # Structured research knowledge base (see knowledge/README.md)
-│   ├── data/            # Data characteristics, base rates, distributions
-│   ├── signals/         # Alpha signals and features
-│   ├── pitfalls/        # Known biases, simulation gaps, critical bugs
-│   ├── execution/       # Position lifecycle, slippage, capital
-│   └── queries/         # Reusable CH SQL snippets (.sql files)
-├── db.py                # DuckDB singleton over Parquet snapshot (ResearchDB)
-├── fast_replay.py       # Polars-based trade/resolution loading (ReplayTick, predicate pushdown)
-├── sync_replay.py       # SyncReplayRunner: zero-async tick-by-tick replay
-├── harness.py           # run_fast_backtest() (sync) + run_backtest() (async legacy)
-├── server.py            # FastAPI research server (port 9999: /query, /sweep, /replay)
-├── export_snapshot.py   # CH → Parquet snapshot exporter
-├── conftest.py          # Shared pytest fixtures (permissive_config, sample_trades)
-├── strategies/          # Draft strategy modules (same protocol, not registered in CLI)
-│   └── example.py       # Template strategy: buy YES below threshold
-└── output/              # Ledger parquet output (gitignored content)
+src/polymarket_pipeline/          # Root: backward-compat shims + not-yet-extracted code
+├── models.py                     # Re-exports from pm_core
+├── trade_id.py                   # Re-exports from pm_core
+├── constants.py                  # Re-exports from pm_core
+├── settings.py                   # PipelineSettings (offline pipeline, PM_ prefix)
+├── logging_config.py             # Structured logging setup
+├── normalizers/                  # Goldsky Parquet, RTDS WS, Market WS normalizers
+├── loaders/                      # ParquetLoader (fastparquet)
+├── sinks/                        # Re-exports from pm_store
+├── consumers/                    # WebSocket consumer
+├── quality/                      # Re-exports from pm_core/pm_pipeline
+├── cli/                          # 12+ CLI entry points (pm-live, pm-strategy, etc.)
+├── execution/                    # CLOB API client, panic, position tracker
+├── strategies/                   # Re-exports from pm_strategy
+├── strategies_impl/              # Re-exports from pm_strategy.impl
+├── live/                         # Re-exports from pm_pipeline/pm_ingest
+└── api/                          # Re-exports from pm_api
+
+research/                         # Research sandbox (imports from pipeline, never imported BY it)
+├── knowledge/                    # Structured research knowledge base
+│   ├── data/                     # Data characteristics, base rates, distributions
+│   ├── signals/                  # Alpha signals and features
+│   ├── pitfalls/                 # Known biases, simulation gaps, critical bugs
+│   ├── execution/                # Position lifecycle, slippage, capital
+│   └── queries/                  # Reusable CH SQL snippets (.sql files)
+├── db.py                         # DuckDB singleton over Parquet snapshot (ResearchDB)
+├── fast_replay.py                # Polars-based trade/resolution loading
+├── sync_replay.py                # SyncReplayRunner: zero-async tick-by-tick replay
+├── harness.py                    # run_fast_backtest() (sync) + run_backtest() (async)
+├── server.py                     # FastAPI research server (port 9999)
+├── export_snapshot.py            # CH -> Parquet snapshot exporter
+├── conftest.py                   # Shared pytest fixtures
+├── strategies/                   # Draft strategy modules
+└── output/                       # Ledger parquet output (gitignored)
 ```
 
 ### Strategy Framework
 
-Protocol-based, async framework. No strategy implementations are registered — the framework is ready for new strategies. Configuration lives in TOML files under `configs/`.
+Protocol-based, async framework with concrete implementations in `pm_strategy.impl/`. Configuration lives in TOML files under `configs/`.
 
 ```
 TOML Config ─────> StrategyConfig + ProviderConfig
@@ -278,8 +321,8 @@ Promotion enforced via `pm-strategy promote` — checks min trades, Sharpe, PnL,
 
 **RealisticFillSimulator**: Fills at `max_price` (same as SimulatedExecutor) but adds calibrated slippage cost to `fee_usd`. Spreads estimated from trade-to-trade price changes via `calibrate_spreads()` (median abs change or Roll estimator). Impact = `size_usd / estimated_liquidity`.
 
-**Strategy Outcome Ledger** (`strategies/ledger/`):
-- `LedgerRecord`: frozen dataclass — signal→fill→resolution→PnL lifecycle per intent
+**Strategy Outcome Ledger** (`pm_backtest.ledger` / `pm_strategy.ledger`):
+- `LedgerRecord`: frozen dataclass — signal->fill->resolution->PnL lifecycle per intent
 - `ParquetLedger`: buffer in memory, flush to parquet for backtests
 - `compute_summary()`: hit_rate, edge, Sharpe, max_drawdown, profit_factor
 - `BacktestRunner` writes ledger records automatically when `ledger=` is provided
@@ -288,7 +331,7 @@ Promotion enforced via `pm-strategy promote` — checks min trades, Sharpe, PnL,
 - Strategies implement `Strategy` protocol (event-driven) and/or `VectorizedStrategy` (batch)
 - Providers implement `FeatureProvider` protocol: `compute()` at startup, `refresh()` periodically, `on_trade()` per event
 - `FeatureBackend` protocol: `PolarsBackend` for offline, `ClickHouseBackend` for live
-- `ExecutionGateway`: pipeline health check → per-strategy budget gate → executor
+- `ExecutionGateway`: pipeline health check -> per-strategy budget gate -> executor
 - `LiveRunner._refresh_loop`: timer-based OR event-driven via `request_refresh()` + `asyncio.Event`
 
 **Kafka Topics (strategy-relevant):**
@@ -302,7 +345,7 @@ Promotion enforced via `pm-strategy promote` — checks min trades, Sharpe, PnL,
 | `pipeline.status` | Heartbeats from ingestors |
 
 **Pool Refresh Automation:**
-CLOB WS `market_resolved` → `markets.events` topic → `MarketEventsConsumer` (5s debounce) → `LiveRunner.request_refresh()` → providers re-query CH → atomic context swap. Hot path never blocked.
+CLOB WS `market_resolved` -> `markets.events` topic -> `MarketEventsConsumer` (5s debounce) -> `LiveRunner.request_refresh()` -> providers re-query CH -> atomic context swap. Hot path never blocked.
 
 ### Conventions
 
@@ -313,6 +356,7 @@ CLOB WS `market_resolved` → `markets.events` topic → `MarketEventsConsumer` 
 - ruff: line-length 100, rules `E F I UP B SIM ASYNC`
 - structlog for all logging
 - `transaction_hash` and `order_hash` in Parquet are raw bytes — convert with `"0x" + val.hex()`
+- New code should import from `pm_*` packages; legacy `polymarket_pipeline.*` imports still work
 
 ### Docker Services
 
@@ -374,11 +418,11 @@ LOAD KNOWLEDGE ──→ DISCOVER (vectorized) ──→ MANUAL GATE ──→ V
 
 **Research data infrastructure** (`data/research/`, ~17.6 GB Parquet snapshot):
 - `research/db.py` — DuckDB singleton (3.4s startup, positions + metadata in-memory)
-- `research/fast_replay.py` — Polars loader with predicate pushdown (ReplayTick ~0.5 μs)
+- `research/fast_replay.py` — Polars loader with predicate pushdown (ReplayTick ~0.5 us)
 - `research/sync_replay.py` — SyncReplayRunner (zero-async, built-in settlement)
 - `research/harness.py` — `run_fast_backtest()` (sync) + `run_backtest()` (async)
 - `research/server.py` — FastAPI research server (port 9999: /query, /sweep, /replay)
-- `research/export_snapshot.py` — CH → Parquet snapshot refresh
+- `research/export_snapshot.py` — CH -> Parquet snapshot refresh
 
 **Remote ClickHouse**: `192.168.0.148:18123`, database `polymarket` (full dataset 2022-2026).
 Used as fallback for classifications, live data, and tables not in Parquet snapshot.

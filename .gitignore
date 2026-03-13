@@ -6,6 +6,7 @@ __pycache__/
 
 # Logs
 logs/
+feedhandler.log
 
 # Data
 order_filled/
@@ -31,6 +32,7 @@ scripts/_cache/
 
 # IDE / editor
 tmp
+.tmp/
 .claude/worktrees
 
 .serena/

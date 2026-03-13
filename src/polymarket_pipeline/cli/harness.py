@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,8 +30,8 @@ def _parse_period(period: str) -> tuple[float, float]:
     parts = period.split(":")
     if len(parts) != 2:
         raise typer.BadParameter(f"Period must be START:END, got {period!r}")
-    start = datetime.strptime(parts[0].strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    end = datetime.strptime(parts[1].strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    start = datetime.strptime(parts[0].strip(), "%Y-%m-%d").replace(tzinfo=UTC)
+    end = datetime.strptime(parts[1].strip(), "%Y-%m-%d").replace(tzinfo=UTC)
     if end <= start:
         raise typer.BadParameter(f"End must be after start: {period!r}")
     return start.timestamp(), end.timestamp()

@@ -31,7 +31,12 @@ CREATE TABLE IF NOT EXISTS markets (
     winner_outcome TEXT DEFAULT '',
     created_at TIMESTAMPTZ,
     closed_at TIMESTAMPTZ,
+    end_date TIMESTAMPTZ,
     resolved_at TIMESTAMPTZ,
+    description TEXT DEFAULT '',
+    resolution_source TEXT DEFAULT '',
+    outcomes TEXT DEFAULT '',
+    market_volume DOUBLE PRECISION DEFAULT 0,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -13,6 +13,18 @@ resolution-markers = [
     "python_full_version < '3.12' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+members = [
+    "pm-api",
+    "pm-backtest",
+    "pm-core",
+    "pm-ingest",
+    "pm-pipeline",
+    "pm-store",
+    "pm-strategy",
+    "polymarket-pipeline",
+]
+
 [[package]]
 name = "aiodns"
 version = "4.0.0"
@@ -3030,6 +3042,344 @@ wheels = [
 ]
 
 [[package]]
+name = "pm-api"
+version = "0.1.0"
+source = { editable = "packages/pm-api" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "pm-core" },
+    { name = "pm-store" },
+    { name = "structlog" },
+    { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-store", editable = "packages/pm-store" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "structlog", specifier = ">=24.0" },
+    { name = "uvicorn", specifier = ">=0.30" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "pm-backtest"
+version = "0.1.0"
+source = { editable = "packages/pm-backtest" }
+dependencies = [
+    { name = "pm-core" },
+    { name = "pm-strategy" },
+    { name = "polars" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+compact = [
+    { name = "fastparquet" },
+    { name = "pandas" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastparquet", marker = "extra == 'compact'", specifier = ">=2024.0" },
+    { name = "pandas", marker = "extra == 'compact'", specifier = ">=2.0" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-strategy", editable = "packages/pm-strategy" },
+    { name = "polars", specifier = ">=1.15.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "structlog", specifier = ">=24.0" },
+]
+provides-extras = ["compact", "dev"]
+
+[[package]]
+name = "pm-core"
+version = "0.1.0"
+source = { editable = "packages/pm-core" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+config = [
+    { name = "redis" },
+]
+dev = [
+    { name = "fakeredis" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.20" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "redis", marker = "extra == 'config'", specifier = ">=5.0" },
+    { name = "structlog", specifier = ">=24.0" },
+]
+provides-extras = ["config", "dev"]
+
+[[package]]
+name = "pm-ingest"
+version = "0.1.0"
+source = { editable = "packages/pm-ingest" }
+dependencies = [
+    { name = "pm-core" },
+    { name = "structlog" },
+    { name = "websockets" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "clickhouse-connect" },
+    { name = "cryptofeed" },
+    { name = "eth-abi" },
+    { name = "gql", extra = ["aiohttp"] },
+    { name = "httpx" },
+    { name = "msgpack" },
+    { name = "redis" },
+]
+clickhouse = [
+    { name = "clickhouse-connect" },
+]
+dev = [
+    { name = "fakeredis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+exchange = [
+    { name = "cryptofeed" },
+    { name = "httpx" },
+]
+redis = [
+    { name = "msgpack" },
+    { name = "redis" },
+]
+rpc = [
+    { name = "eth-abi" },
+]
+subgraph = [
+    { name = "gql", extra = ["aiohttp"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=0.7" },
+    { name = "cryptofeed", marker = "extra == 'exchange'", specifier = ">=2.4" },
+    { name = "eth-abi", marker = "extra == 'rpc'", specifier = ">=5.0" },
+    { name = "fakeredis", marker = "extra == 'dev'", specifier = ">=2.20" },
+    { name = "gql", extras = ["aiohttp"], marker = "extra == 'subgraph'", specifier = ">=3.5" },
+    { name = "httpx", marker = "extra == 'exchange'", specifier = ">=0.27" },
+    { name = "msgpack", marker = "extra == 'redis'", specifier = ">=1.0" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-ingest", extras = ["rpc", "subgraph", "redis", "exchange", "clickhouse"], marker = "extra == 'all'", editable = "packages/pm-ingest" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0" },
+    { name = "structlog", specifier = ">=24.0" },
+    { name = "websockets", specifier = ">=13.0" },
+]
+provides-extras = ["rpc", "subgraph", "redis", "exchange", "clickhouse", "all", "dev"]
+
+[[package]]
+name = "pm-pipeline"
+version = "0.1.0"
+source = { editable = "packages/pm-pipeline" }
+dependencies = [
+    { name = "pm-backtest" },
+    { name = "pm-core" },
+    { name = "pm-ingest" },
+    { name = "pm-store" },
+    { name = "pm-strategy" },
+    { name = "pydantic-settings" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "asyncpg" },
+    { name = "clickhouse-connect" },
+    { name = "faststream", extra = ["kafka"] },
+    { name = "httpx" },
+    { name = "redis" },
+    { name = "websockets" },
+]
+clickhouse = [
+    { name = "clickhouse-connect" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+execution = [
+    { name = "redis" },
+    { name = "websockets" },
+]
+http = [
+    { name = "httpx" },
+]
+kafka = [
+    { name = "faststream", extra = ["kafka"] },
+]
+postgres = [
+    { name = "asyncpg" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
+    { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=0.7" },
+    { name = "faststream", extras = ["kafka"], marker = "extra == 'kafka'", specifier = ">=0.5" },
+    { name = "httpx", marker = "extra == 'http'", specifier = ">=0.27" },
+    { name = "pm-backtest", editable = "packages/pm-backtest" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-ingest", editable = "packages/pm-ingest" },
+    { name = "pm-pipeline", extras = ["kafka", "postgres", "clickhouse", "http", "execution"], marker = "extra == 'all'", editable = "packages/pm-pipeline" },
+    { name = "pm-store", editable = "packages/pm-store" },
+    { name = "pm-strategy", editable = "packages/pm-strategy" },
+    { name = "pydantic-settings", specifier = ">=2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "redis", marker = "extra == 'execution'", specifier = ">=5.0" },
+    { name = "structlog", specifier = ">=24.0" },
+    { name = "websockets", marker = "extra == 'execution'", specifier = ">=13.0" },
+]
+provides-extras = ["kafka", "postgres", "clickhouse", "http", "execution", "all", "dev"]
+
+[[package]]
+name = "pm-store"
+version = "0.1.0"
+source = { editable = "packages/pm-store" }
+dependencies = [
+    { name = "pm-core" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "asyncpg" },
+    { name = "clickhouse-connect" },
+    { name = "fastparquet" },
+    { name = "faststream", extra = ["kafka"] },
+    { name = "httpx" },
+    { name = "pandas" },
+    { name = "polars" },
+    { name = "pyarrow" },
+]
+clickhouse = [
+    { name = "clickhouse-connect" },
+]
+compact = [
+    { name = "polars" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+http = [
+    { name = "httpx" },
+]
+kafka = [
+    { name = "faststream", extra = ["kafka"] },
+]
+parquet = [
+    { name = "fastparquet" },
+    { name = "pandas" },
+    { name = "pyarrow" },
+]
+postgres = [
+    { name = "asyncpg" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
+    { name = "clickhouse-connect", marker = "extra == 'clickhouse'", specifier = ">=0.7" },
+    { name = "fastparquet", marker = "extra == 'parquet'", specifier = ">=2024.0" },
+    { name = "faststream", extras = ["kafka"], marker = "extra == 'kafka'", specifier = ">=0.5" },
+    { name = "httpx", marker = "extra == 'http'", specifier = ">=0.27" },
+    { name = "pandas", marker = "extra == 'parquet'", specifier = ">=2.0" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-store", extras = ["clickhouse", "postgres", "parquet", "kafka", "http", "compact"], marker = "extra == 'all'", editable = "packages/pm-store" },
+    { name = "polars", marker = "extra == 'compact'", specifier = ">=1.15.0" },
+    { name = "pyarrow", marker = "extra == 'parquet'", specifier = ">=14.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "structlog", specifier = ">=24.0" },
+]
+provides-extras = ["clickhouse", "postgres", "parquet", "kafka", "http", "compact", "all", "dev"]
+
+[[package]]
+name = "pm-strategy"
+version = "0.1.0"
+source = { editable = "packages/pm-strategy" }
+dependencies = [
+    { name = "pm-core" },
+    { name = "polars" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "aiohttp" },
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "redis" },
+    { name = "scipy" },
+]
+clickhouse = [
+    { name = "httpx" },
+]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+gbm = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+live = [
+    { name = "aiohttp" },
+    { name = "httpx" },
+    { name = "redis" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", marker = "extra == 'live'", specifier = ">=3.9" },
+    { name = "httpx", marker = "extra == 'clickhouse'", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'live'", specifier = ">=0.27" },
+    { name = "numpy", marker = "extra == 'gbm'", specifier = ">=2.4" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-strategy", extras = ["clickhouse", "live", "gbm"], marker = "extra == 'all'", editable = "packages/pm-strategy" },
+    { name = "polars", specifier = ">=1.15.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
+    { name = "redis", marker = "extra == 'live'", specifier = ">=5.0" },
+    { name = "scipy", marker = "extra == 'gbm'", specifier = ">=1.17" },
+    { name = "structlog", specifier = ">=24.0" },
+]
+provides-extras = ["clickhouse", "live", "gbm", "dev", "all"]
+
+[[package]]
 name = "polars"
 version = "1.38.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3084,6 +3434,13 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "plotly" },
+    { name = "pm-api" },
+    { name = "pm-backtest" },
+    { name = "pm-core" },
+    { name = "pm-ingest" },
+    { name = "pm-pipeline" },
+    { name = "pm-store" },
+    { name = "pm-strategy" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "scipy" },
@@ -3237,6 +3594,13 @@ requires-dist = [
     { name = "order-book", marker = "extra == 'live'", specifier = ">=0.4" },
     { name = "pandas", marker = "extra == 'sink'", specifier = ">=2.0" },
     { name = "plotly", specifier = ">=6.5.2" },
+    { name = "pm-api", editable = "packages/pm-api" },
+    { name = "pm-backtest", editable = "packages/pm-backtest" },
+    { name = "pm-core", editable = "packages/pm-core" },
+    { name = "pm-ingest", editable = "packages/pm-ingest" },
+    { name = "pm-pipeline", editable = "packages/pm-pipeline" },
+    { name = "pm-store", editable = "packages/pm-store" },
+    { name = "pm-strategy", editable = "packages/pm-strategy" },
     { name = "polars", marker = "extra == 'compact'", specifier = ">=1.15.0" },
     { name = "polars", marker = "extra == 'cryptofeed'", specifier = ">=1.15.0" },
     { name = "polars", marker = "extra == 'exploration'", specifier = ">=1.15.0" },
