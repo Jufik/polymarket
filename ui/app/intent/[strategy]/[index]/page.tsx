@@ -8,6 +8,7 @@ import {
   fetchPriceHistory,
   IntentDetail,
   PricePoint,
+  TradeBubble,
   ZoomLevel,
 } from "@/lib/api";
 
@@ -314,7 +315,24 @@ function ZoomablePriceChart({
     (z: ZoomLevel) => {
       setLoading(true);
       fetchPriceHistory(conditionId, signalTime, z)
-        .then((resp) => setPoints(resp.points))
+        .then((resp) => {
+          // Zoom endpoint returns TradeBubble[] — aggregate to PricePoint[] for this chart
+          const byKey = new Map<string, { sum: number; cnt: number; outcome: string }>();
+          for (const t of resp.points as TradeBubble[]) {
+            const minute = t.ts.slice(0, 16).replace("T", " ");
+            const key = `${minute}|${t.outcome}`;
+            const cur = byKey.get(key);
+            if (cur) { cur.sum += Number(t.price); cur.cnt++; }
+            else byKey.set(key, { sum: Number(t.price), cnt: 1, outcome: t.outcome });
+          }
+          const pts: PricePoint[] = [];
+          for (const [key, v] of byKey) {
+            const minute = key.split("|")[0];
+            pts.push({ minute, outcome: v.outcome, avg_price: v.sum / v.cnt, trades: v.cnt });
+          }
+          pts.sort((a, b) => a.minute.localeCompare(b.minute));
+          setPoints(pts);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     },

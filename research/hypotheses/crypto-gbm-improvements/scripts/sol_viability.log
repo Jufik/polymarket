@@ -1,0 +1,85 @@
+SOL Viability Analysis — 2026-03-10T09:30:22.037379
+
+[09:30:22] Starting SOL GBM viability analysis...
+[09:30:30] === Section 1: Market Structure ===
+[09:30:30] Querying SOL up/down markets from DuckDB...
+[09:30:30]   Total SOL up/down markets: 35,649
+[09:30:31]   Window distribution (minutes):
+window_min
+5.0       15907
+15.0      12379
+60.0       6275
+180.0         1
+240.0       758
+1395.0        1
+Name: count, dtype: int64
+[09:30:31]   Window=5.0min: {'n_total': 15907, 'n_resolved': 2992, 'yes_pct': 50.467914438502675}
+[09:30:31]   Window=15.0min: {'n_total': 12379, 'n_resolved': 11887, 'yes_pct': 49.51627828720451}
+[09:30:31]   Window=60.0min: {'n_total': 6275, 'n_resolved': 6126, 'yes_pct': 51.5181194906954}
+[09:30:31]   Window=180.0min: {'n_total': 1, 'n_resolved': 1, 'yes_pct': 100.0}
+[09:30:31]   Window=240.0min: {'n_total': 758, 'n_resolved': 727, 'yes_pct': 50.0687757909216}
+[09:30:31]   Window=1395.0min: {'n_total': 1, 'n_resolved': 1, 'yes_pct': 0.0}
+[09:30:31]   Date range: 2025-03-31 → 2026-03-05
+[09:30:31]   Resolved: 35,649 (100.0%), Up wins: 11,072 (31.1% if n_resolved > 0 else 'n/a')
+[09:30:31]   Computing aggregate volume per SOL market (maker_positions)...
+[09:30:34]   SOL: {'n_markets_with_pos': 22043.0, 'n_positions': 1812086.0, 'median_vol_per_pos': 6.789999961853027, 'avg_vol_per_pos': 92.25140664511682, 'total_volume': 167167482.46192315}
+[09:30:34]   BTC: {'n_markets_with_pos': 28861.0, 'n_positions': 9311010.0, 'median_vol_per_pos': 9.995415538549423, 'avg_vol_per_pos': 190.69486352967363, 'total_volume': 1775561781.2734263}
+[09:30:35]   Positions/market: avg=82.2, median=76.0, p90=151
+[09:30:35] === Section 2: Volatility Profile (SOL vs BTC) ===
+[09:30:35]   Fetching SOL and BTC per-minute vol stats from CH...
+[09:30:36]   SOL sigma_1m: 0.001133
+[09:30:36]   BTC sigma_1m: 0.000692
+[09:30:36]   SOL/BTC vol ratio: 1.64x
+[09:30:36]   Computing rolling 24h sigma quantiles...
+[09:30:38]   SOL rolling 24h σ (p5/p25/p50/p75/p95): {'p5': 0.0005011226476275993, 'p25': 0.0007859334985242604, 'p50': 0.0009837734293245489, 'p75': 0.0012170731363506744, 'p95': 0.0017396459726021414}
+[09:30:38]   BTC rolling 24h σ (p5/p25/p50/p75/p95): {'p5': 0.00022899680734259206, 'p25': 0.0004315677158856202, 'p50': 0.0005850497362586515, 'p75': 0.0007799134042585974, 'p95': 0.001077663929521506}
+[09:30:38] 
+  GBM signal strength at 10% lag, T=7.5min (midpoint of 15-min window):
+[09:30:38]     SOL (median sigma): sigma=0.000984, d2=37.1, P(Up)=1.0000
+[09:30:38]     BTC (median sigma): sigma=0.000585, d2=62.4, P(Up)=1.0000
+[09:30:38] 
+  GBM signal strength at 10% lag, T=2.5min (midpoint of 5-min window):
+[09:30:38]     SOL (median sigma): sigma=0.000984, d2=64.3, P(Up)=1.0000
+[09:30:38]     BTC (median sigma): sigma=0.000585, d2=108.1, P(Up)=1.0000
+[09:30:38] === Section 3: GBM Signal Quality (Resolved SOL Markets, last 90 days) ===
+[09:30:38]   Fetching resolved SOL markets from last 90 days...
+[09:30:38]   Found 1000 resolved SOL markets in last 90 days
+[09:30:38]   Using SOL sigma_1m: 0.001133
+[09:30:38]   Fetching SOL 1s bars: 2025-12-08 23:00:02 → 2025-12-20 05:19:42
+[09:30:40]   Got 973,181 1s bars for the period
+[09:30:40]   Computing GBM signals for 1000 markets...
+[09:30:40]   Computed 1000 valid signals, skipped 0
+[09:30:40]   Base rate (Up wins): 0.514
+[09:30:40]   Signals Up (p_up>0.60): n=362, HR(Up)=0.735
+[09:30:40]   Signals Dn (p_up<0.40): n=312, HR(Dn)=0.763
+[09:30:40]   thresh=0.05: n=825, HR=0.724
+[09:30:40]   thresh=0.08: n=730, HR=0.733
+[09:30:40]   thresh=0.10: n=674, HR=0.748
+[09:30:40]   thresh=0.12: n=605, HR=0.769
+[09:30:40]   thresh=0.15: n=525, HR=0.771
+[09:30:40]   thresh=0.20: n=403, HR=0.806
+[09:30:40]   Lag distribution: {'p10': 0.03149, 'p25': 0.07027, 'p50': 0.16205, 'p75': 0.28177, 'p90': 0.41946}
+[09:30:40]   Signal frequency (|lag|>=0.1): 67.4%
+[09:30:41] === Section 4: Liquidity Check ===
+[09:30:41]   Volume per market via maker_positions aggregation...
+[09:30:42]   SOL: {'n_positions': 1812086.0, 'n_markets': 22043.0, 'median_pos_vol': 6.789999961853027, 'avg_pos_vol': 92.25140664511663, 'total_vol': 167167482.46192282}
+[09:30:42]   BTC: {'n_positions': 9311010.0, 'n_markets': 28861.0, 'median_pos_vol': 9.995415538549423, 'avg_pos_vol': 190.69486352967252, 'total_vol': 1775561781.273416}
+[09:30:43]   SOL vol/market distribution: {'p10': 1130.9, 'p25': 2414.6, 'p50': 4790.72, 'p75': 8312.65, 'p90': 13772.07}
+[09:30:43]   BTC vol/market distribution: {'p10': 4589.63, 'p25': 22884.77, 'p50': 46640.32, 'p75': 76265.77, 'p90': 124745.82}
+[09:30:43]   Avg positions/market: SOL=82.2, BTC=322.6
+[09:30:43]   SOL/BTC median volume ratio: 0.10x
+[09:30:43] === Section 5: SOL-Specific Risks ===
+[09:30:43]   P(|1m move|>5%): SOL=0.000000, BTC=0.000000
+[09:30:43]   P(|1m move|>10%): SOL=0.000000, BTC=0.000000
+[09:30:43]   BTC d2 at threshold=0.10, T=7.5min: 52.8
+[09:30:43]   SOL threshold for same d2: 0.164
+[09:30:43]   Vol ratio SOL/BTC: 1.64x
+[09:30:43]   → SOL needs threshold ≈ 0.164 to maintain same d2 signal quality
+[09:30:43]   → At SOL threshold=0.164: signal frequency ≈ 1/1.6x vs BTC at 0.10
+[09:30:43]   Computing SOL-BTC 1-minute return correlation...
+[09:30:44]   SOL-BTC 1-minute return correlation: 0.762
+[09:30:44]   With 0.76 correlation: BTC+SOL strategies highly co-fire
+[09:30:44]   Portfolio variance: σ²_portfolio ≈ σ²_btc + σ²_sol + 2*0.76*σ_btc*σ_sol
+[09:30:44]   Diversification benefit is minimal at this correlation level
+[09:30:44] Raw results saved to /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-improvements/discovery/sol_viability_results.json
+[09:30:44] Report written to /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-improvements/discovery/sol_viability.md

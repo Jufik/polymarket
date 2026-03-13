@@ -1,0 +1,335 @@
+{
+  "meta": {
+    "run_date": "2026-03-10T17:22:27.243187",
+    "n_markets_total": 16176,
+    "n_entries": 15889,
+    "duration_min": 15,
+    "sim_params": {
+      "half_spread": 0.01,
+      "fee_pct": 0.03,
+      "base_bet_usd": 50.0,
+      "pm_stale_s": 60.0
+    },
+    "sigma": {
+      "median": 0.00036441055129052524,
+      "t33": 0.0002731763342634672,
+      "t67": 0.0004905708368634072
+    },
+    "note": "TICK-VALIDATED \u2014 slippage + fees applied, PM staleness checked"
+  },
+  "configs": [
+    {
+      "config": "baseline",
+      "label": "Baseline (thr=0.35, delay=1)",
+      "flip_thr": 0.35,
+      "delay": 1,
+      "sigma_cond": false,
+      "n_signals": 15889,
+      "hit_rate": 0.7710995028006797,
+      "avg_pnl_raw": 0.106361003113966,
+      "avg_pnl_net_usd": 3.5753137033507834,
+      "total_pnl_net_usd": 56808.1594325406,
+      "avg_hold_s": 269.668764554094,
+      "avg_hold_days": 0.0031211662564131254,
+      "median_hold_days": 0.0024189814814814816,
+      "sharpe": 43.365493026123616,
+      "max_dd_per_pos": -33.48999877214432,
+      "n_flip_exits": 2251,
+      "flip_exit_pct": 14.167033796966455,
+      "false_stop_pct": 89.51577076854731,
+      "compounding_score": 400.69168563507856,
+      "trades_per_month": 2786.186069167072,
+      "exit_type_distribution": {
+        "trailing_stop": 12810,
+        "flip_stop": 2251,
+        "hold_resolution": 823,
+        "time_stop": 5
+      },
+      "by_sigma_regime": {
+        "low": {
+          "n": 5268,
+          "hit_rate": 0.7562642369020501,
+          "avg_pnl_net_usd": 4.515688078094791,
+          "flip_exits": 621
+        },
+        "mid": {
+          "n": 5423,
+          "hit_rate": 0.7962382445141066,
+          "avg_pnl_net_usd": 3.402586494597657,
+          "flip_exits": 571
+        },
+        "high": {
+          "n": 5198,
+          "hit_rate": 0.7599076567910735,
+          "avg_pnl_net_usd": 2.802479429960396,
+          "flip_exits": 1059
+        }
+      }
+    },
+    {
+      "config": "primary",
+      "label": "Primary (thr=0.25, delay=3)",
+      "flip_thr": 0.25,
+      "delay": 3,
+      "sigma_cond": false,
+      "n_signals": 15889,
+      "hit_rate": 0.8145887091698659,
+      "avg_pnl_raw": 0.10899276082081051,
+      "avg_pnl_net_usd": 3.7068386521538894,
+      "total_pnl_net_usd": 58897.95934407315,
+      "avg_hold_s": 274.7865819120146,
+      "avg_hold_days": 0.00318040025361128,
+      "median_hold_days": 0.002476851851851852,
+      "sharpe": 48.45777560881167,
+      "max_dd_per_pos": -33.48999877214432,
+      "n_flip_exits": 923,
+      "flip_exit_pct": 5.809050286361634,
+      "false_stop_pct": 74.97291440953413,
+      "compounding_score": 470.8111976136906,
+      "trades_per_month": 2786.186069167072,
+      "exit_type_distribution": {
+        "trailing_stop": 14123,
+        "flip_stop": 923,
+        "hold_resolution": 835,
+        "time_stop": 8
+      },
+      "by_sigma_regime": {
+        "low": {
+          "n": 5268,
+          "hit_rate": 0.7649962034927866,
+          "avg_pnl_net_usd": 4.447635687684099,
+          "flip_exits": 312
+        },
+        "mid": {
+          "n": 5423,
+          "hit_rate": 0.8266642080029504,
+          "avg_pnl_net_usd": 3.5230917440479224,
+          "flip_exits": 216
+        },
+        "high": {
+          "n": 5198,
+          "hit_rate": 0.8522508657175837,
+          "avg_pnl_net_usd": 3.1477660664450617,
+          "flip_exits": 395
+        }
+      }
+    },
+    {
+      "config": "aggressive",
+      "label": "Aggressive (thr=0.20, delay=1)",
+      "flip_thr": 0.2,
+      "delay": 1,
+      "sigma_cond": false,
+      "n_signals": 15889,
+      "hit_rate": 0.8108125118006168,
+      "avg_pnl_raw": 0.10872679063519858,
+      "avg_pnl_net_usd": 3.693760421033002,
+      "total_pnl_net_usd": 58690.159329793365,
+      "avg_hold_s": 276.15778211341177,
+      "avg_hold_days": 0.003196270626312636,
+      "median_hold_days": 0.002488425925925926,
+      "sharpe": 49.08495871969522,
+      "max_dd_per_pos": -33.48999877214432,
+      "n_flip_exits": 648,
+      "flip_exit_pct": 4.0782931587891,
+      "false_stop_pct": 70.5246913580247,
+      "compounding_score": 461.36272030029716,
+      "trades_per_month": 2786.186069167072,
+      "exit_type_distribution": {
+        "trailing_stop": 14395,
+        "hold_resolution": 839,
+        "flip_stop": 648,
+        "time_stop": 7
+      },
+      "by_sigma_regime": {
+        "low": {
+          "n": 5268,
+          "hit_rate": 0.7625284738041003,
+          "avg_pnl_net_usd": 4.418117842651236,
+          "flip_exits": 248
+        },
+        "mid": {
+          "n": 5423,
+          "hit_rate": 0.8244514106583072,
+          "avg_pnl_net_usd": 3.4915593819169826,
+          "flip_exits": 142
+        },
+        "high": {
+          "n": 5198,
+          "hit_rate": 0.845517506733359,
+          "avg_pnl_net_usd": 3.170601771175617,
+          "flip_exits": 258
+        }
+      }
+    },
+    {
+      "config": "delay_only",
+      "label": "Delay-only (thr=0.35, delay=5)",
+      "flip_thr": 0.35,
+      "delay": 5,
+      "sigma_cond": false,
+      "n_signals": 15889,
+      "hit_rate": 0.8237774561017056,
+      "avg_pnl_raw": 0.10861646283559317,
+      "avg_pnl_net_usd": 3.6880237527115525,
+      "total_pnl_net_usd": 58599.00940683386,
+      "avg_hold_s": 270.71508590849015,
+      "avg_hold_days": 0.0031332764572741915,
+      "median_hold_days": 0.0024305555555555556,
+      "sharpe": 47.33607114624859,
+      "max_dd_per_pos": -33.48999877214432,
+      "n_flip_exits": 1946,
+      "flip_exit_pct": 12.247466800931463,
+      "false_stop_pct": 84.01849948612538,
+      "compounding_score": 491.2864246061947,
+      "trades_per_month": 2786.186069167072,
+      "exit_type_distribution": {
+        "trailing_stop": 13111,
+        "flip_stop": 1946,
+        "hold_resolution": 827,
+        "time_stop": 5
+      },
+      "by_sigma_regime": {
+        "low": {
+          "n": 5268,
+          "hit_rate": 0.768413059984814,
+          "avg_pnl_net_usd": 4.4625369810274575,
+          "flip_exits": 552
+        },
+        "mid": {
+          "n": 5423,
+          "hit_rate": 0.8316430020283976,
+          "avg_pnl_net_usd": 3.4958005788842548,
+          "flip_exits": 490
+        },
+        "high": {
+          "n": 5198,
+          "hit_rate": 0.8716814159292036,
+          "avg_pnl_net_usd": 3.103624096093093,
+          "flip_exits": 904
+        }
+      }
+    },
+    {
+      "config": "sigma_cond",
+      "label": "Sigma-conditional (delay=2)",
+      "flip_thr": null,
+      "delay": 2,
+      "sigma_cond": true,
+      "n_signals": 15889,
+      "hit_rate": 0.8103090188180502,
+      "avg_pnl_raw": 0.10951161034619994,
+      "avg_pnl_net_usd": 3.732781128428988,
+      "total_pnl_net_usd": 59310.15934960819,
+      "avg_hold_s": 273.59506576877084,
+      "avg_hold_days": 0.0031666095575089218,
+      "median_hold_days": 0.0024652777777777776,
+      "sharpe": 48.20533414468426,
+      "max_dd_per_pos": -33.48999877214432,
+      "n_flip_exits": 1085,
+      "flip_exit_pct": 6.8286235760589085,
+      "false_stop_pct": 75.85253456221199,
+      "compounding_score": 469.85198173872686,
+      "trades_per_month": 2786.186069167072,
+      "exit_type_distribution": {
+        "trailing_stop": 13973,
+        "flip_stop": 1085,
+        "hold_resolution": 826,
+        "time_stop": 5
+      },
+      "by_sigma_regime": {
+        "low": {
+          "n": 5268,
+          "hit_rate": 0.7587319665907365,
+          "avg_pnl_net_usd": 4.507715413682169,
+          "flip_exits": 610
+        },
+        "mid": {
+          "n": 5423,
+          "hit_rate": 0.8220542135349438,
+          "avg_pnl_net_usd": 3.515531355427145,
+          "flip_exits": 227
+        },
+        "high": {
+          "n": 5198,
+          "hit_rate": 0.850327048864948,
+          "avg_pnl_net_usd": 3.1740646421410377,
+          "flip_exits": 248
+        }
+      }
+    }
+  ],
+  "comparison": [
+    {
+      "config": "baseline",
+      "label": "Baseline (thr=0.35, delay=1)",
+      "vec_hr": 0.7985,
+      "tick_hr": 0.7710995028006797,
+      "hr_degradation_pp": -2.740049719932025,
+      "vec_pnl_usd": 5.33,
+      "tick_pnl_usd": 3.5753137033507834,
+      "pnl_degradation_usd": -1.7546862966492167,
+      "flip_exit_pct": 14.167033796966455,
+      "false_stop_pct": 89.51577076854731,
+      "sharpe": 43.365493026123616,
+      "compounding_score": 400.69168563507856
+    },
+    {
+      "config": "primary",
+      "label": "Primary (thr=0.25, delay=3)",
+      "vec_hr": 0.8444,
+      "tick_hr": 0.8145887091698659,
+      "hr_degradation_pp": -2.981129083013412,
+      "vec_pnl_usd": 5.4399999999999995,
+      "tick_pnl_usd": 3.7068386521538894,
+      "pnl_degradation_usd": -1.73316134784611,
+      "flip_exit_pct": 5.809050286361634,
+      "false_stop_pct": 74.97291440953413,
+      "sharpe": 48.45777560881167,
+      "compounding_score": 470.8111976136906
+    },
+    {
+      "config": "aggressive",
+      "label": "Aggressive (thr=0.20, delay=1)",
+      "vec_hr": 0.8368,
+      "tick_hr": 0.8108125118006168,
+      "hr_degradation_pp": -2.5987488199383235,
+      "vec_pnl_usd": 5.425,
+      "tick_pnl_usd": 3.693760421033002,
+      "pnl_degradation_usd": -1.7312395789669979,
+      "flip_exit_pct": 4.0782931587891,
+      "false_stop_pct": 70.5246913580247,
+      "sharpe": 49.08495871969522,
+      "compounding_score": 461.36272030029716
+    },
+    {
+      "config": "delay_only",
+      "label": "Delay-only (thr=0.35, delay=5)",
+      "vec_hr": 0.8544,
+      "tick_hr": 0.8237774561017056,
+      "hr_degradation_pp": -3.062254389829444,
+      "vec_pnl_usd": 5.43,
+      "tick_pnl_usd": 3.6880237527115525,
+      "pnl_degradation_usd": -1.7419762472884472,
+      "flip_exit_pct": 12.247466800931463,
+      "false_stop_pct": 84.01849948612538,
+      "sharpe": 47.33607114624859,
+      "compounding_score": 491.2864246061947
+    },
+    {
+      "config": "sigma_cond",
+      "label": "Sigma-conditional (delay=2)",
+      "vec_hr": null,
+      "tick_hr": 0.8103090188180502,
+      "hr_degradation_pp": null,
+      "vec_pnl_usd": null,
+      "tick_pnl_usd": 3.732781128428988,
+      "pnl_degradation_usd": null,
+      "flip_exit_pct": 6.8286235760589085,
+      "false_stop_pct": 75.85253456221199,
+      "sharpe": 48.20533414468426,
+      "compounding_score": 469.85198173872686
+    }
+  ],
+  "best_config": "aggressive"
+}

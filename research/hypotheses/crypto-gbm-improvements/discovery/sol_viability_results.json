@@ -1,0 +1,200 @@
+{
+  "market_structure": {
+    "n_markets": 35649,
+    "n_resolved": 35649,
+    "n_up_wins": 11072,
+    "up_win_rate_pct": 31.058374708967992,
+    "date_range": {
+      "min": "2025-03-31",
+      "max": "2026-03-05"
+    },
+    "window_distribution_min": {
+      "5.0": 15907,
+      "15.0": 12379,
+      "60.0": 6275,
+      "180.0": 1,
+      "240.0": 758,
+      "1395.0": 1
+    },
+    "yes_base_rates": {
+      "5.0min": {
+        "n_total": 15907,
+        "n_resolved": 2992,
+        "yes_pct": 50.467914438502675
+      },
+      "15.0min": {
+        "n_total": 12379,
+        "n_resolved": 11887,
+        "yes_pct": 49.51627828720451
+      },
+      "60.0min": {
+        "n_total": 6275,
+        "n_resolved": 6126,
+        "yes_pct": 51.5181194906954
+      },
+      "180.0min": {
+        "n_total": 1,
+        "n_resolved": 1,
+        "yes_pct": 100.0
+      },
+      "240.0min": {
+        "n_total": 758,
+        "n_resolved": 727,
+        "yes_pct": 50.0687757909216
+      },
+      "1395.0min": {
+        "n_total": 1,
+        "n_resolved": 1,
+        "yes_pct": 0.0
+      }
+    },
+    "sol_volume_stats": {
+      "n_markets_with_pos": 22043.0,
+      "n_positions": 1812086.0,
+      "median_vol_per_pos": 6.789999961853027,
+      "avg_vol_per_pos": 92.25140664511682,
+      "total_volume": 167167482.46192315
+    },
+    "btc_volume_stats": {
+      "n_markets_with_pos": 28861.0,
+      "n_positions": 9311010.0,
+      "median_vol_per_pos": 9.995415538549423,
+      "avg_vol_per_pos": 190.69486352967363,
+      "total_volume": 1775561781.2734263
+    },
+    "avg_positions_per_market": 82.20686839359433,
+    "median_positions_per_market": 76.0,
+    "p90_positions_per_market": 151.0
+  },
+  "volatility": {
+    "sol": {
+      "p5_abs_ret": 4.437108470743956e-05,
+      "p25_abs_ret": 0.00021468518529364788,
+      "p50_abs_ret": 0.00047295301078554436,
+      "p75_abs_ret": 0.0009201949564257104,
+      "p95_abs_ret": 0.0021566651044993878,
+      "overall_sigma_1m": 0.001133215123460256,
+      "n_minutes": 259200
+    },
+    "btc": {
+      "p5_abs_ret": 1.1040566839630894e-07,
+      "p25_abs_ret": 0.00010441224097576971,
+      "p50_abs_ret": 0.0002660056322451327,
+      "p75_abs_ret": 0.0005506829865569857,
+      "p95_abs_ret": 0.0013999536148367924,
+      "overall_sigma_1m": 0.000691763873997556,
+      "n_minutes": 259767
+    },
+    "vol_ratio": 1.6381530838140583,
+    "sol_rolling_sigma": {
+      "p5": 0.0005011226476275993,
+      "p25": 0.0007859334985242604,
+      "p50": 0.0009837734293245489,
+      "p75": 0.0012170731363506744,
+      "p95": 0.0017396459726021414
+    },
+    "btc_rolling_sigma": {
+      "p5": 0.00022899680734259206,
+      "p25": 0.0004315677158856202,
+      "p50": 0.0005850497362586515,
+      "p75": 0.0007799134042585974,
+      "p95": 0.001077663929521506
+    }
+  },
+  "gbm_signal": {
+    "n_markets_analyzed": 1000,
+    "n_signals": 1000,
+    "n_skipped": 0,
+    "up_base_rate": 0.514,
+    "threshold": 0.1,
+    "n_signal_up": 362,
+    "n_signal_down": 312,
+    "signal_frequency": 0.674,
+    "hr_on_up_signal": 0.7348066298342542,
+    "hr_on_dn_signal": 0.7628205128205128,
+    "lag_distribution": {
+      "p10": 0.03149,
+      "p25": 0.07027,
+      "p50": 0.16205,
+      "p75": 0.28177,
+      "p90": 0.41946
+    },
+    "calibration_sweep": [
+      {
+        "threshold": 0.05,
+        "n": 825,
+        "hr": 0.7236
+      },
+      {
+        "threshold": 0.08,
+        "n": 730,
+        "hr": 0.7329
+      },
+      {
+        "threshold": 0.1,
+        "n": 674,
+        "hr": 0.7478
+      },
+      {
+        "threshold": 0.12,
+        "n": 605,
+        "hr": 0.7686
+      },
+      {
+        "threshold": 0.15,
+        "n": 525,
+        "hr": 0.7714
+      },
+      {
+        "threshold": 0.2,
+        "n": 403,
+        "hr": 0.8065
+      }
+    ]
+  },
+  "liquidity": {
+    "sol_agg": {
+      "n_positions": 1812086.0,
+      "n_markets": 22043.0,
+      "median_pos_vol": 6.789999961853027,
+      "avg_pos_vol": 92.25140664511663,
+      "total_vol": 167167482.46192282
+    },
+    "btc_agg": {
+      "n_positions": 9311010.0,
+      "n_markets": 28861.0,
+      "median_pos_vol": 9.995415538549423,
+      "avg_pos_vol": 190.69486352967252,
+      "total_vol": 1775561781.273416
+    },
+    "sol_vol_per_market_dist": {
+      "p10": 1130.9,
+      "p25": 2414.6,
+      "p50": 4790.72,
+      "p75": 8312.65,
+      "p90": 13772.07
+    },
+    "btc_vol_per_market_dist": {
+      "p10": 4589.63,
+      "p25": 22884.77,
+      "p50": 46640.32,
+      "p75": 76265.77,
+      "p90": 124745.82
+    },
+    "sol_avg_positions_per_market": 82.20686839359433,
+    "btc_avg_positions_per_market": 322.61564048369775,
+    "sol_median_market_volume": 4790.72,
+    "btc_median_market_volume": 46640.32,
+    "sol_btc_volume_ratio": 0.1027162763891843
+  },
+  "sol_risks": {
+    "vol_ratio": 1.6381530838140583,
+    "sol_gap_prob_5pct": 0.0,
+    "btc_gap_prob_5pct": 0.0,
+    "sol_gap_prob_10pct": 0.0,
+    "btc_gap_prob_10pct": 0.0,
+    "sol_btc_correlation": 0.7624557611447844,
+    "sol_equivalent_threshold_15min": 0.16381530838140584,
+    "recommended_threshold": 0.164
+  }
+}

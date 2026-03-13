@@ -1,0 +1,307 @@
+[08:45:07] ======================================================================
+[08:45:07] CRYPTO GBM IMPROVEMENTS — VECTORIZED ANALYSIS
+[08:45:07] ALL RESULTS ARE UPPER BOUNDS
+[08:45:07] ======================================================================
+[08:45:13] 
+=== Step 1: Markets ===
+[08:45:13] Markets: 5-min=4,949, 15-min=16,170
+[08:45:13] YES base rate: 5-min=0.512, 15-min=0.499
+[08:45:13] 
+=== Step 2: BTC 1-min bars ===
+[08:45:14] BTC bars: 260,471 1-min rows, 2025-09-10 11:30:00+00:00 → 2026-03-10 08:45:00+00:00
+[08:45:14] 
+=== Step 3: Sigma ===
+[08:45:14] Sigma (rolling median): 0.000583
+[08:45:14] Sigma (hl60  median):   0.000510
+[08:45:14] Sigma (hl180 median):   0.000559
+[08:45:14] 
+=== Step 4: PM price from trades (per-minute last trade) ===
+[08:45:14] Loading trades for 21,119 BTC up/down markets...
+[08:45:29] Trades loaded (first 5k markets): 29,803,742
+[08:46:42] Trades loaded (remaining 16,119 markets): 97,637,514
+[08:46:46] Total trades: 127,441,256
+[08:47:14] YES-token trades: 63,584,731
+[08:47:35] PM price observations: 570,933 (condition_id × minute)
+[08:47:38] PM price index built for 21,087 markets
+[08:47:38] 
+=== Step 5: Simulate entries per market ===
+[08:47:38] 
+=== Step 6: Baseline simulation ===
+[08:47:38] Running 5-min markets (baseline)...
+[08:47:40]   Progress: 1000/4949 markets, 957 entries so far
+[08:47:41]   Progress: 2000/4949 markets, 1916 entries so far
+[08:47:43]   Progress: 3000/4949 markets, 2862 entries so far
+[08:47:44]   Progress: 4000/4949 markets, 3801 entries so far
+[08:47:45] 5-min entries: 4,694 in 4694 markets
+[08:47:45] Running 15-min markets (baseline)...
+[08:47:48]   Progress: 1000/16170 markets, 961 entries so far
+[08:47:52]   Progress: 2000/16170 markets, 1927 entries so far
+[08:47:55]   Progress: 3000/16170 markets, 2898 entries so far
+[08:47:58]   Progress: 4000/16170 markets, 3862 entries so far
+[08:48:01]   Progress: 5000/16170 markets, 4834 entries so far
+[08:48:04]   Progress: 6000/16170 markets, 5813 entries so far
+[08:48:07]   Progress: 7000/16170 markets, 6786 entries so far
+[08:48:10]   Progress: 8000/16170 markets, 7753 entries so far
+[08:48:13]   Progress: 9000/16170 markets, 8730 entries so far
+[08:48:16]   Progress: 10000/16170 markets, 9692 entries so far
+[08:48:19]   Progress: 11000/16170 markets, 10667 entries so far
+[08:48:22]   Progress: 12000/16170 markets, 11638 entries so far
+[08:48:25]   Progress: 13000/16170 markets, 12611 entries so far
+[08:48:28]   Progress: 14000/16170 markets, 13581 entries so far
+[08:48:31]   Progress: 15000/16170 markets, 14556 entries so far
+[08:48:34]   Progress: 16000/16170 markets, 15526 entries so far
+[08:48:35] 15-min entries: 15,695 in 15695 markets
+[08:48:35] Baseline results:
+[08:48:35]   5-min baseline: n=4694, conv=13.0%, tstop=87.0%, avg_ev=$-9.70, med_hold=4.3min, HR=0.251 (-0.249pp)
+[08:48:35]   15-min baseline: n=15695, conv=33.3%, tstop=66.7%, avg_ev=$-2.99, med_hold=12.3min, HR=0.341 (-0.159pp)
+[08:48:35] 
+=== Step 7: Axis sweeps ===
+[08:48:35] 
+--- Axis 1: Dynamic sizing ---
+[08:48:36]   Progress: 1000/4949 markets, 957 entries so far
+[08:48:37]   Progress: 2000/4949 markets, 1916 entries so far
+[08:48:39]   Progress: 3000/4949 markets, 2862 entries so far
+[08:48:40]   Progress: 4000/4949 markets, 3801 entries so far
+[08:48:41]   dyn_sizing 5min: n=4694, conv=13.0%, tstop=87.0%, avg_ev=$-17.25, med_hold=4.3min, HR=0.251 (-0.249pp)
+[08:48:41]   Avg bet (dyn): $87.3, Max: $100.0
+[08:48:41]   EV by lag bucket:
+[08:48:41]     lag (0.1, 0.12]: n=520, avg_ev=$-9.34, avg_bet=$54.8
+[08:48:41]     lag (0.12, 0.15]: n=688, avg_ev=$-11.72, avg_bet=$67.1
+[08:48:41]     lag (0.15, 0.2]: n=1027, avg_ev=$-15.58, avg_bet=$87.0
+[08:48:41]     lag (0.2, 0.3]: n=1430, avg_ev=$-21.42, avg_bet=$100.0
+[08:48:41]     lag (0.3, 1.0]: n=1029, avg_ev=$-20.80, avg_bet=$100.0
+[08:48:44]   Progress: 1000/16170 markets, 961 entries so far
+[08:48:48]   Progress: 2000/16170 markets, 1927 entries so far
+[08:48:51]   Progress: 3000/16170 markets, 2898 entries so far
+[08:48:54]   Progress: 4000/16170 markets, 3862 entries so far
+[08:48:57]   Progress: 5000/16170 markets, 4834 entries so far
+[08:49:00]   Progress: 6000/16170 markets, 5813 entries so far
+[08:49:03]   Progress: 7000/16170 markets, 6786 entries so far
+[08:49:06]   Progress: 8000/16170 markets, 7753 entries so far
+[08:49:09]   Progress: 9000/16170 markets, 8730 entries so far
+[08:49:12]   Progress: 10000/16170 markets, 9692 entries so far
+[08:49:15]   Progress: 11000/16170 markets, 10667 entries so far
+[08:49:18]   Progress: 12000/16170 markets, 11638 entries so far
+[08:49:21]   Progress: 13000/16170 markets, 12611 entries so far
+[08:49:24]   Progress: 14000/16170 markets, 13581 entries so far
+[08:49:27]   Progress: 15000/16170 markets, 14556 entries so far
+[08:49:30]   Progress: 16000/16170 markets, 15526 entries so far
+[08:49:30]   dyn_sizing 15min: n=15695, conv=33.3%, tstop=66.7%, avg_ev=$-4.86, med_hold=12.3min, HR=0.341 (-0.159pp)
+[08:49:30]   Avg bet (dyn): $78.2, Max: $100.0
+[08:49:30]   EV by lag bucket:
+[08:49:30]     lag (0.1, 0.12]: n=3307, avg_ev=$-2.55, avg_bet=$54.9
+[08:49:30]     lag (0.12, 0.15]: n=4027, avg_ev=$-3.45, avg_bet=$67.1
+[08:49:30]     lag (0.15, 0.2]: n=4356, avg_ev=$-5.45, avg_bet=$86.1
+[08:49:30]     lag (0.2, 0.3]: n=3213, avg_ev=$-7.85, avg_bet=$100.0
+[08:49:30]     lag (0.3, 1.0]: n=792, avg_ev=$-6.22, avg_bet=$100.0
+[08:49:30] 
+--- Axis 2: Re-entry ---
+[08:49:32]   Progress: 1000/4949 markets, 957 entries so far
+[08:49:33]   Progress: 2000/4949 markets, 1916 entries so far
+[08:49:34]   Progress: 3000/4949 markets, 2862 entries so far
+[08:49:36]   Progress: 4000/4949 markets, 3801 entries so far
+[08:49:37]   reentry 5min: n=4694, conv=13.0%, tstop=87.0%, avg_ev=$-9.70, med_hold=4.3min, HR=0.251 (-0.249pp)
+[08:49:37]   1st entries: 4694, Re-entries: 0
+[08:49:40]   Progress: 1000/16170 markets, 961 entries so far
+[08:49:43]   Progress: 2000/16170 markets, 1927 entries so far
+[08:49:46]   Progress: 3000/16170 markets, 2898 entries so far
+[08:49:49]   Progress: 4000/16170 markets, 3862 entries so far
+[08:49:52]   Progress: 5000/16170 markets, 4834 entries so far
+[08:49:55]   Progress: 6000/16170 markets, 5813 entries so far
+[08:49:58]   Progress: 7000/16170 markets, 6786 entries so far
+[08:50:01]   Progress: 8000/16170 markets, 7753 entries so far
+[08:50:04]   Progress: 9000/16170 markets, 8730 entries so far
+[08:50:07]   Progress: 10000/16170 markets, 9692 entries so far
+[08:50:10]   Progress: 11000/16170 markets, 10667 entries so far
+[08:50:13]   Progress: 12000/16170 markets, 11638 entries so far
+[08:50:16]   Progress: 13000/16170 markets, 12611 entries so far
+[08:50:19]   Progress: 14000/16170 markets, 13581 entries so far
+[08:50:22]   Progress: 15000/16170 markets, 14556 entries so far
+[08:50:25]   Progress: 16000/16170 markets, 15526 entries so far
+[08:50:26]   reentry 15min: n=15695, conv=33.3%, tstop=66.7%, avg_ev=$-2.99, med_hold=12.3min, HR=0.341 (-0.159pp)
+[08:50:26]   1st entries: 15695, Re-entries: 0
+[08:50:26] 
+--- Axis 4: Late-entry analysis ---
+[08:50:26]   5min — convergence rate by elapsed fraction:
+[08:50:26]     early: n=3008, conv=14.3%, tstop=85.7%, ev=$-8.91
+[08:50:26]     mid: n=1632, conv=11.0%, tstop=89.0%, ev=$-11.03
+[08:50:26]     late: n=54, conv=3.7%, tstop=96.3%, ev=$-13.84
+[08:50:27]   Progress: 1000/4949 markets, 945 entries so far
+[08:50:29]   Progress: 2000/4949 markets, 1891 entries so far
+[08:50:30]   Progress: 3000/4949 markets, 2831 entries so far
+[08:50:31]   Progress: 4000/4949 markets, 3761 entries so far
+[08:50:32]   late_cutoff_0.67 5min: n=4640, conv=13.1%, tstop=86.9%, avg_ev=$-9.66, med_hold=4.3min, HR=0.252 (-0.248pp)
+[08:50:32]   15min — convergence rate by elapsed fraction:
+[08:50:32]     early: n=13250, conv=34.4%, tstop=65.6%, ev=$-2.62
+[08:50:32]     mid: n=2309, conv=27.5%, tstop=72.5%, ev=$-4.82
+[08:50:32]     late: n=136, conv=17.6%, tstop=82.4%, ev=$-7.57
+[08:50:35]   Progress: 1000/16170 markets, 949 entries so far
+[08:50:38]   Progress: 2000/16170 markets, 1905 entries so far
+[08:50:40]   Progress: 3000/16170 markets, 2870 entries so far
+[08:50:43]   Progress: 4000/16170 markets, 3825 entries so far
+[08:50:46]   Progress: 5000/16170 markets, 4785 entries so far
+[08:50:49]   Progress: 6000/16170 markets, 5760 entries so far
+[08:50:51]   Progress: 7000/16170 markets, 6727 entries so far
+[08:50:54]   Progress: 8000/16170 markets, 7687 entries so far
+[08:50:57]   Progress: 9000/16170 markets, 8653 entries so far
+[08:50:59]   Progress: 10000/16170 markets, 9608 entries so far
+[08:51:02]   Progress: 11000/16170 markets, 10575 entries so far
+[08:51:05]   Progress: 12000/16170 markets, 11541 entries so far
+[08:51:07]   Progress: 13000/16170 markets, 12507 entries so far
+[08:51:10]   Progress: 14000/16170 markets, 13464 entries so far
+[08:51:13]   Progress: 15000/16170 markets, 14428 entries so far
+[08:51:15]   Progress: 16000/16170 markets, 15391 entries so far
+[08:51:16]   late_cutoff_0.67 15min: n=15559, conv=33.4%, tstop=66.6%, avg_ev=$-2.95, med_hold=12.4min, HR=0.342 (-0.158pp)
+[08:51:16] 
+--- Axis 5: EWMA sigma variants ---
+[08:51:17]   Progress: 1000/4949 markets, 957 entries so far
+[08:51:19]   Progress: 2000/4949 markets, 1916 entries so far
+[08:51:20]   Progress: 3000/4949 markets, 2862 entries so far
+[08:51:21]   Progress: 4000/4949 markets, 3801 entries so far
+[08:51:23]   rolling_24h 5min: n=4694, conv=13.0%, tstop=87.0%, avg_ev=$-9.70, med_hold=4.3min, HR=0.251 (-0.249pp)
+[08:51:24]   Progress: 1000/4949 markets, 947 entries so far
+[08:51:25]   Progress: 2000/4949 markets, 1896 entries so far
+[08:51:27]   Progress: 3000/4949 markets, 2852 entries so far
+[08:51:28]   Progress: 4000/4949 markets, 3795 entries so far
+[08:51:30]   ewma_hl60 5min: n=4685, conv=15.1%, tstop=84.9%, avg_ev=$-8.99, med_hold=4.1min, HR=0.252 (-0.248pp)
+[08:51:31]   Progress: 1000/4949 markets, 956 entries so far
+[08:51:32]   Progress: 2000/4949 markets, 1906 entries so far
+[08:51:34]   Progress: 3000/4949 markets, 2858 entries so far
+[08:51:35]   Progress: 4000/4949 markets, 3802 entries so far
+[08:51:37]   ewma_hl180 5min: n=4694, conv=13.8%, tstop=86.2%, avg_ev=$-9.48, med_hold=4.2min, HR=0.250 (-0.250pp)
+[08:51:38]   Progress: 1000/4949 markets, 956 entries so far
+[08:51:39]   Progress: 2000/4949 markets, 1911 entries so far
+[08:51:41]   Progress: 3000/4949 markets, 2860 entries so far
+[08:51:42]   Progress: 4000/4949 markets, 3808 entries so far
+[08:51:43]   ewma_hl360 5min: n=4705, conv=12.9%, tstop=87.1%, avg_ev=$-9.79, med_hold=4.3min, HR=0.249 (-0.251pp)
+[08:51:47]   Progress: 1000/16170 markets, 961 entries so far
+[08:51:50]   Progress: 2000/16170 markets, 1927 entries so far
+[08:51:53]   Progress: 3000/16170 markets, 2898 entries so far
+[08:51:56]   Progress: 4000/16170 markets, 3862 entries so far
+[08:52:01]   Progress: 5000/16170 markets, 4834 entries so far
+[08:52:04]   Progress: 6000/16170 markets, 5813 entries so far
+[08:52:07]   Progress: 7000/16170 markets, 6786 entries so far
+[08:52:12]   Progress: 8000/16170 markets, 7753 entries so far
+[08:52:15]   Progress: 9000/16170 markets, 8730 entries so far
+[08:52:19]   Progress: 10000/16170 markets, 9692 entries so far
+[08:52:23]   Progress: 11000/16170 markets, 10667 entries so far
+[08:52:27]   Progress: 12000/16170 markets, 11638 entries so far
+[08:52:31]   Progress: 13000/16170 markets, 12611 entries so far
+[08:52:34]   Progress: 14000/16170 markets, 13581 entries so far
+[08:52:37]   Progress: 15000/16170 markets, 14556 entries so far
+[08:52:40]   Progress: 16000/16170 markets, 15526 entries so far
+[08:52:41]   rolling_24h 15min: n=15695, conv=33.3%, tstop=66.7%, avg_ev=$-2.99, med_hold=12.3min, HR=0.341 (-0.159pp)
+[08:52:44]   Progress: 1000/16170 markets, 959 entries so far
+[08:52:48]   Progress: 2000/16170 markets, 1925 entries so far
+[08:52:52]   Progress: 3000/16170 markets, 2893 entries so far
+[08:52:55]   Progress: 4000/16170 markets, 3851 entries so far
+[08:52:59]   Progress: 5000/16170 markets, 4813 entries so far
+[08:53:03]   Progress: 6000/16170 markets, 5785 entries so far
+[08:53:06]   Progress: 7000/16170 markets, 6760 entries so far
+[08:53:11]   Progress: 8000/16170 markets, 7726 entries so far
+[08:53:14]   Progress: 9000/16170 markets, 8699 entries so far
+[08:53:18]   Progress: 10000/16170 markets, 9658 entries so far
+[08:53:21]   Progress: 11000/16170 markets, 10629 entries so far
+[08:53:24]   Progress: 12000/16170 markets, 11607 entries so far
+[08:53:27]   Progress: 13000/16170 markets, 12581 entries so far
+[08:53:30]   Progress: 14000/16170 markets, 13553 entries so far
+[08:53:34]   Progress: 15000/16170 markets, 14530 entries so far
+[08:53:38]   Progress: 16000/16170 markets, 15502 entries so far
+[08:53:39]   ewma_hl60 15min: n=15671, conv=33.4%, tstop=66.6%, avg_ev=$-3.53, med_hold=11.9min, HR=0.340 (-0.160pp)
+[08:53:42]   Progress: 1000/16170 markets, 961 entries so far
+[08:53:46]   Progress: 2000/16170 markets, 1930 entries so far
+[08:53:50]   Progress: 3000/16170 markets, 2907 entries so far
+[08:53:53]   Progress: 4000/16170 markets, 3871 entries so far
+[08:53:57]   Progress: 5000/16170 markets, 4842 entries so far
+[08:54:01]   Progress: 6000/16170 markets, 5816 entries so far
+[08:54:05]   Progress: 7000/16170 markets, 6792 entries so far
+[08:54:08]   Progress: 8000/16170 markets, 7761 entries so far
+[08:54:11]   Progress: 9000/16170 markets, 8733 entries so far
+[08:54:14]   Progress: 10000/16170 markets, 9693 entries so far
+[08:54:17]   Progress: 11000/16170 markets, 10669 entries so far
+[08:54:20]   Progress: 12000/16170 markets, 11645 entries so far
+[08:54:23]   Progress: 13000/16170 markets, 12619 entries so far
+[08:54:26]   Progress: 14000/16170 markets, 13594 entries so far
+[08:54:29]   Progress: 15000/16170 markets, 14572 entries so far
+[08:54:32]   Progress: 16000/16170 markets, 15551 entries so far
+[08:54:33]   ewma_hl180 15min: n=15720, conv=33.1%, tstop=66.9%, avg_ev=$-3.42, med_hold=12.1min, HR=0.337 (-0.163pp)
+[08:54:36]   Progress: 1000/16170 markets, 962 entries so far
+[08:54:39]   Progress: 2000/16170 markets, 1931 entries so far
+[08:54:42]   Progress: 3000/16170 markets, 2909 entries so far
+[08:54:45]   Progress: 4000/16170 markets, 3876 entries so far
+[08:54:48]   Progress: 5000/16170 markets, 4851 entries so far
+[08:54:51]   Progress: 6000/16170 markets, 5827 entries so far
+[08:54:53]   Progress: 7000/16170 markets, 6802 entries so far
+[08:54:56]   Progress: 8000/16170 markets, 7768 entries so far
+[08:54:59]   Progress: 9000/16170 markets, 8743 entries so far
+[08:55:02]   Progress: 10000/16170 markets, 9707 entries so far
+[08:55:05]   Progress: 11000/16170 markets, 10682 entries so far
+[08:55:08]   Progress: 12000/16170 markets, 11657 entries so far
+[08:55:11]   Progress: 13000/16170 markets, 12633 entries so far
+[08:55:14]   Progress: 14000/16170 markets, 13609 entries so far
+[08:55:17]   Progress: 15000/16170 markets, 14585 entries so far
+[08:55:20]   Progress: 16000/16170 markets, 15557 entries so far
+[08:55:21]   ewma_hl360 15min: n=15725, conv=33.4%, tstop=66.6%, avg_ev=$-3.14, med_hold=12.1min, HR=0.335 (-0.165pp)
+[08:55:21] 
+--- Axis 3: Fee-aware threshold (analytical) ---
+[08:55:22]   Progress: 1000/4949 markets, 957 entries so far
+[08:55:23]   Progress: 2000/4949 markets, 1916 entries so far
+[08:55:25]   Progress: 3000/4949 markets, 2862 entries so far
+[08:55:26]   Progress: 4000/4949 markets, 3801 entries so far
+[08:55:27]   5min: fee-aware n=4391 vs flat n=4694 (93.5% kept)
+[08:55:27]     convergence delta: -0.003
+[08:55:30]   Progress: 1000/16170 markets, 961 entries so far
+[08:55:34]   Progress: 2000/16170 markets, 1927 entries so far
+[08:55:37]   Progress: 3000/16170 markets, 2898 entries so far
+[08:55:40]   Progress: 4000/16170 markets, 3862 entries so far
+[08:55:43]   Progress: 5000/16170 markets, 4834 entries so far
+[08:55:46]   Progress: 6000/16170 markets, 5813 entries so far
+[08:55:50]   Progress: 7000/16170 markets, 6786 entries so far
+[08:55:53]   Progress: 8000/16170 markets, 7753 entries so far
+[08:55:56]   Progress: 9000/16170 markets, 8730 entries so far
+[08:55:59]   Progress: 10000/16170 markets, 9692 entries so far
+[08:56:02]   Progress: 11000/16170 markets, 10667 entries so far
+[08:56:05]   Progress: 12000/16170 markets, 11638 entries so far
+[08:56:08]   Progress: 13000/16170 markets, 12611 entries so far
+[08:56:11]   Progress: 14000/16170 markets, 13581 entries so far
+[08:56:14]   Progress: 15000/16170 markets, 14556 entries so far
+[08:56:17]   Progress: 16000/16170 markets, 15526 entries so far
+[08:56:18]   15min: fee-aware n=13615 vs flat n=15695 (86.7% kept)
+[08:56:18]     convergence delta: -0.014
+[08:56:18] 
+=== Step 8: Vol regime ===
+[08:56:18]   15-min Q1_low: n=3924, conv=32.6%, ev=$-2.21, HR=0.354
+[08:56:18]   15-min Q2: n=3924, conv=33.7%, ev=$-2.53, HR=0.340
+[08:56:18]   15-min Q3: n=3923, conv=33.4%, ev=$-3.72, HR=0.340
+[08:56:18]   15-min Q4_high: n=3924, conv=33.2%, ev=$-3.48, HR=0.332
+[08:56:18] 
+=== Step 9: Best combination ===
+[08:56:19]   Progress: 1000/4949 markets, 944 entries so far
+[08:56:20]   Progress: 2000/4949 markets, 1881 entries so far
+[08:56:22]   Progress: 3000/4949 markets, 2825 entries so far
+[08:56:23]   Progress: 4000/4949 markets, 3757 entries so far
+[08:56:24]   BEST_COMBO 5min: n=4634, conv=13.9%, tstop=86.1%, avg_ev=$-16.78, med_hold=4.3min, HR=0.251 (-0.249pp)
+[08:56:27]   Progress: 1000/16170 markets, 947 entries so far
+[08:56:30]   Progress: 2000/16170 markets, 1904 entries so far
+[08:56:32]   Progress: 3000/16170 markets, 2873 entries so far
+[08:56:35]   Progress: 4000/16170 markets, 3828 entries so far
+[08:56:37]   Progress: 5000/16170 markets, 4789 entries so far
+[08:56:40]   Progress: 6000/16170 markets, 5759 entries so far
+[08:56:43]   Progress: 7000/16170 markets, 6728 entries so far
+[08:56:45]   Progress: 8000/16170 markets, 7687 entries so far
+[08:56:48]   Progress: 9000/16170 markets, 8650 entries so far
+[08:56:50]   Progress: 10000/16170 markets, 9603 entries so far
+[08:56:53]   Progress: 11000/16170 markets, 10568 entries so far
+[08:56:56]   Progress: 12000/16170 markets, 11539 entries so far
+[08:56:58]   Progress: 13000/16170 markets, 12504 entries so far
+[08:57:01]   Progress: 14000/16170 markets, 13465 entries so far
+[08:57:03]   Progress: 15000/16170 markets, 14430 entries so far
+[08:57:06]   Progress: 16000/16170 markets, 15401 entries so far
+[08:57:07]   BEST_COMBO 15min: n=15569, conv=33.3%, tstop=66.7%, avg_ev=$-5.55, med_hold=12.3min, HR=0.338 (-0.162pp)
+[08:57:07] 
+=== Step 10: Write results ===
+[08:57:07] Saved results.json
+[08:57:07] Saved entry parquets
+[08:57:07] 
+=== DONE ===
+[08:57:07] Outputs: research/hypotheses/crypto-gbm-improvements/discovery

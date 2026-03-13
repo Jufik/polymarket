@@ -1,0 +1,61 @@
+[analysis started 2026-03-10T16:48:32.156171]
+[16:48:32] GBM flip stop optimization — baseline analysis
+[16:48:32] ============================================================
+[16:48:32] Computing sigma per market (30min pre-window bars)...
+[16:48:37] Sigma computed for 16176 markets
+[16:48:37] Computing S0 (first bar in window)...
+[16:48:39] S0 computed for 16176 markets
+[16:48:39] Building full bar-level table with PM prices (ASOF JOIN)...
+[16:50:51] Bar table: 14,574,576 rows
+[16:50:52] Markets with valid sigma + s0: 16176
+[16:50:52] Running per-market simulation...
+[16:50:52] Grouping bars by condition_id...
+[16:50:57] Grouped 16176 markets
+[16:53:35] Simulation done:
+[16:53:35]   Entries: 15934
+[16:53:35]   Skipped no_sigma: 0
+[16:53:35]   Skipped no_bars:  0
+[16:53:35]   Skipped no_signal:242
+[16:53:35] Sigma: median=0.000363, t33=0.000273, t67=0.000489
+[16:53:35] Re-computing sigma_adaptive with correct sigma median...
+[16:53:53] 
+============================================================
+[16:53:53] BASELINE ANALYSIS (flip_threshold=0.35, delay=1)
+[16:53:53] ============================================================
+[16:53:53] Total signals:         15934
+[16:53:53] Overall hit rate:      0.799
+[16:53:53] Avg PnL per trade:     +0.1066
+[16:53:53] Total PnL (relative):  +1698.34
+[16:53:53] 
+[16:53:53] Exit type breakdown:
+[16:53:53]   trailing_stop       : 12900 (81.0%)
+[16:53:53]   flip_stop           :  2215 (13.9%)
+[16:53:53]   hold_resolution     :   814 (5.1%)
+[16:53:53]   time_stop           :     5 (0.0%)
+[16:53:53] 
+[16:53:53] Flip-stop exits:       2215 (13.9%)
+[16:53:53]   False stops:         1302 (58.8% of flips)
+[16:53:53]   True stops:          913 (41.2% of flips)
+[16:53:53]   Avg PnL lost/false:  +0.0816
+[16:53:53]   Avg PnL saved/true:  +0.1219
+[16:53:53]   Net flip stop value: +5.04 (units of pnl per trade × count)
+[16:53:53] 
+[16:53:53] --- By sigma regime ---
+[16:53:53]   low : n=5258 flips=602 (11%) HR_bl=0.785 HR_cf=0.778 PnL_bl=+0.1259 PnL_cf=+0.1168
+[16:53:53]   mid : n=5418 flips=544 (10%) HR_bl=0.829 HR_cf=0.858 PnL_bl=+0.1044 PnL_cf=+0.1054
+[16:53:53]   high: n=5258 flips=1069 (20%) HR_bl=0.780 HR_cf=0.877 PnL_bl=+0.0895 PnL_cf=+0.0966
+[16:53:53] 
+============================================================
+[16:53:53] SWEEP RESULTS (sorted by avg_pnl)
+[16:53:53] ============================================================
+[16:53:53] 
+Top 3 variants (vs. baseline):
+[16:53:53]   thr=0.25,delay=3              : HR=0.844 avgPnL=+0.1088 delta=+0.0022 flips=907
+[16:53:53]   thr=0.35,delay=5              : HR=0.854 avgPnL=+0.1086 delta=+0.0020 flips=1914
+[16:53:53]   thr=0.20,delay=1              : HR=0.837 avgPnL=+0.1085 delta=+0.0019 flips=646
+[16:53:53] 
+Artifacts saved:
+[16:53:53]   /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-flip-stop/discovery/results.json
+[16:53:53]   /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-flip-stop/discovery/sweep_table.csv
+[16:53:53]   /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-flip-stop/discovery/analysis.log
+[16:53:53] Done.

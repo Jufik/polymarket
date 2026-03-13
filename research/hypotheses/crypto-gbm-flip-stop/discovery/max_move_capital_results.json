@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "run_date": "2026-03-11",
+    "hypothesis": "max_move entry filter for crypto GBM strategy",
+    "verdict": "reject_filter",
+    "note": "UPPER BOUNDS — vectorized sim, PM prices from ASOF-joined trade data"
+  },
+  "capital_saturation": {
+    "max_concurrent_positions": 1,
+    "saturation_rate_pct": 0.0,
+    "entries_missed_due_to_capital": 0,
+    "median_market_gap_s": 900,
+    "markets_with_concurrent_overlap": 0,
+    "total_markets": 16176,
+    "conclusion": "Capital is NEVER a binding constraint. BTC Up/Down markets are strictly sequential. Capital recycling argument is invalid."
+  },
+  "baseline": {
+    "n_signals": 15929,
+    "hit_rate_v1": 0.799,
+    "hit_rate_v5": 0.856,
+    "avg_pnl_pertrade_v1": 0.1076,
+    "avg_pnl_pertrade_v5": 0.1098,
+    "total_pnl_v1": 1713.8,
+    "total_pnl_v5": 1748.4,
+    "median_hold_s_v1": 41,
+    "median_hold_s_v5": 41
+  },
+  "hold_time_by_move_bucket": [
+    {"bucket": "<0.05%", "n": 8123, "hr_v1": 0.823, "hr_v5": 0.834, "hold_s_v1": 54, "hold_s_v5": 55, "pnl_v1": 0.1244, "flip_pct_v1": 11.3},
+    {"bucket": "0.05-0.10%", "n": 4617, "hr_v1": 0.803, "hr_v5": 0.869, "hold_s_v1": 34, "hold_s_v5": 34, "pnl_v1": 0.0975, "flip_pct_v1": 13.1},
+    {"bucket": "0.10-0.15%", "n": 1785, "hr_v1": 0.771, "hr_v5": 0.892, "hold_s_v1": 27, "hold_s_v5": 28, "pnl_v1": 0.0850, "flip_pct_v1": 18.2},
+    {"bucket": "0.15-0.20%", "n": 674, "hr_v1": 0.700, "hr_v5": 0.899, "hold_s_v1": 24, "hold_s_v5": 24, "pnl_v1": 0.0729, "flip_pct_v1": 24.5},
+    {"bucket": "0.20-0.30%", "n": 493, "hr_v1": 0.690, "hr_v5": 0.901, "hold_s_v1": 28, "hold_s_v5": 29, "pnl_v1": 0.0738, "flip_pct_v1": 26.2},
+    {"bucket": "0.30-0.50%", "n": 198, "hr_v1": 0.641, "hr_v5": 0.894, "hold_s_v1": 29.5, "hold_s_v5": 29.5, "pnl_v1": 0.0693, "flip_pct_v1": 29.3},
+    {"bucket": ">0.50%", "n": 39, "hr_v1": 0.538, "hr_v5": 0.821, "hold_s_v1": 35, "hold_s_v5": 36, "pnl_v1": 0.0484, "flip_pct_v1": 35.9}
+  ],
+  "key_hold_time_finding": "Large-move entries are held SHORTER than small-move entries (24-35s vs 54s), not longer. This further invalidates the capital recycling argument.",
+  "threshold_sweep_v1": [
+    {"threshold": 0.0005, "n_allowed": 8123, "pct_suppressed": 49.0, "hr_allowed": 0.823, "hr_delta": 0.024, "pnl_pertrade": 0.1244, "pnl_delta": 0.0168, "total_pnl_delta": -703.0, "hold_s": 54, "compounding_score": 2894.8},
+    {"threshold": 0.0008, "n_allowed": 11407, "pct_suppressed": 28.4, "hr_allowed": 0.819, "hr_delta": 0.020, "pnl_pertrade": 0.1175, "pnl_delta": 0.0099, "total_pnl_delta": -374.0, "hold_s": 47, "compounding_score": 2701.1},
+    {"threshold": 0.0010, "n_allowed": 12740, "pct_suppressed": 20.0, "hr_allowed": 0.816, "hr_delta": 0.017, "pnl_pertrade": 0.1147, "pnl_delta": 0.0071, "total_pnl_delta": -252.9, "hold_s": 45, "compounding_score": 2608.5},
+    {"threshold": 0.0012, "n_allowed": 13675, "pct_suppressed": 14.2, "hr_allowed": 0.814, "hr_delta": 0.015, "pnl_pertrade": 0.1129, "pnl_delta": 0.0053, "total_pnl_delta": -169.6, "hold_s": 43, "compounding_score": 2552.1},
+    {"threshold": 0.0015, "n_allowed": 14525, "pct_suppressed": 8.8, "hr_allowed": 0.810, "hr_delta": 0.011, "pnl_pertrade": 0.1110, "pnl_delta": 0.0034, "total_pnl_delta": -101.1, "hold_s": 42, "compounding_score": 2481.3},
+    {"threshold": 0.0020, "n_allowed": 15199, "pct_suppressed": 4.6, "hr_allowed": 0.806, "hr_delta": 0.006, "pnl_pertrade": 0.1093, "pnl_delta": 0.0017, "total_pnl_delta": -52.0, "hold_s": 41, "compounding_score": 2405.1},
+    {"threshold": 0.0030, "n_allowed": 15692, "pct_suppressed": 1.5, "hr_allowed": 0.802, "hr_delta": 0.003, "pnl_pertrade": 0.1082, "pnl_delta": 0.0006, "total_pnl_delta": -15.6, "hold_s": 41, "compounding_score": 2352.1}
+  ],
+  "flip_confirm_interaction": {
+    "no_filter_v1": {"hr": 0.799, "pnl_total": 1713.8, "flip_pct": 13.9},
+    "no_filter_v5": {"hr": 0.856, "pnl_total": 1748.4, "flip_pct": 12.0},
+    "max_move_0.001_v1": {"hr": 0.816, "pnl_total": 1460.9, "flip_pct": 11.9},
+    "max_move_0.001_v5": {"hr": 0.847, "pnl_total": 1470.0, "flip_pct": 10.0},
+    "conclusion": "flip_confirm=5 strictly dominates max_move filter: +34.6 PnL vs -252.9 PnL. Combining them loses volume with no capital benefit."
+  },
+  "time_of_window_finding": {
+    "large_move_pct_in_first_60s": 20.3,
+    "hr_large_move_early_0_60s": 0.883,
+    "hr_large_move_late_300_600s": 0.446,
+    "hr_small_move_late_300_600s": 0.710,
+    "insight": "Large-move entries at 0-60s have BETTER HR than small-move entries (88.3% vs 83.1%). The problem is concentrated at 300-600s elapsed, where large-move HR collapses to 44.6%. A time cutoff (no_entry_within_s) may be a cleaner alternative filter."
+  },
+  "recommendation": {
+    "implement_max_move_filter": false,
+    "reason": "Capital saturation is 0% (markets are sequential, never concurrent). Capital recycling argument is invalid. Filter reduces total PnL by $253 at 0.10% threshold with no compensating benefit. flip_confirm=5 already deployed solves the same problem with +$35 PnL improvement.",
+    "spawned_ideas": [
+      "Test reducing no_entry_within_s from 90s to 300s — addresses the 300-600s collapse for all entries without price filter",
+      "Investigate why large-move entries at 0-60s have better HR than small-move entries (unexpected, opposite of hypothesis)"
+    ]
+  }
+}

@@ -146,6 +146,20 @@ export interface PricePoint {
   trades: number;
 }
 
+export interface TradeBubble {
+  ts: string;
+  outcome: string;
+  price: number;
+  size_usd: number;
+  side: string;
+}
+
+export interface OBPoint {
+  ts: string;
+  bid: number;
+  ask: number;
+}
+
 export interface TradeRow {
   price: number;
   side: string;
@@ -249,7 +263,8 @@ export interface RoundTripDetail {
   buy_fill: FillRecord | null;
   sell_fill: FillRecord | null;
   market: MarketInfo | null;
-  price_history: PricePoint[];
+  price_history: TradeBubble[];
+  ob_series: OBPoint[];
   ob_at_entry: OrderbookSnapshot | null;
   ob_at_exit: OrderbookSnapshot | null;
   pnl: number | null;
@@ -260,12 +275,13 @@ export interface RoundTripDetail {
 export const fetchRoundTripDetail = (config: string, conditionId: string) =>
   get<RoundTripDetail>(`/api/roundtrip/${config}/${conditionId}`);
 
-export type ZoomLevel = "1h" | "6h" | "24h" | "7d" | "30d" | "all";
+export type ZoomLevel = "1m" | "2m" | "5m" | "15m" | "30m" | "1h" | "6h" | "24h" | "7d" | "30d" | "all";
 
 export interface PriceHistoryResponse {
   zoom: string;
   signal_time: number;
-  points: PricePoint[];
+  points: TradeBubble[];
+  ob_series: OBPoint[];
 }
 
 export const fetchPriceHistory = (

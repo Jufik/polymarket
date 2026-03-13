@@ -1,0 +1,65 @@
+# Hypothesis configuration — drives pm-harness and pm-strategy
+# Copy to research/hypotheses/{slug}/config.toml and fill in values.
+
+[strategy.crypto_gbm_improved]
+enabled = true
+mode = "replay"
+capital_usd = 2000
+max_position_usd = 100          # increased from 50 to support dynamic sizing
+max_open_positions = 20
+cooldown_s = 0
+features = ["crypto_windows", "exchange_prices"]
+
+[strategy.crypto_gbm_improved.params]
+# Entry (unchanged from baseline)
+threshold = 0.10
+min_sigma = 1e-7
+max_spread = 0.04
+min_time_remaining_min = 1.5
+skip_minute_zero = true
+min_gbm_deviation = 0.05
+primary_exchange = "BINANCE"
+primary_symbol = "BTC-USDT"
+# Axis 1: Dynamic sizing (NEW — scale bet with lag magnitude, cap at $100)
+dynamic_sizing = true
+dynamic_sizing_base = 50.0      # base bet at lag=threshold
+dynamic_sizing_max = 100.0      # cap
+# Axis 5: EWMA sigma (NEW — faster vol regime adaptation vs 24h rolling)
+use_ewma_sigma = true
+ewma_sigma_span = 1440          # span in minutes (same lookback as rolling)
+sigma_lookback_min = 1440
+# Exit (unchanged from baseline — already optimal per FINDINGS.md)
+scalp_enabled = true
+exit_threshold = 0.02
+exit_min_time_remaining_s = 30.0
+no_entry_within_s = 90.0
+trailing_stop_gap = 0.05
+gbm_flip_threshold = 0.35
+hold_to_resolution_threshold = 0.65  # axis 6 already implemented
+# Pool filter
+min_book_ratio = 0.3
+
+[provider.crypto_windows]
+enabled = true
+refresh_interval_s = 60
+
+[provider.exchange_prices]
+enabled = true
+refresh_interval_s = 3600
+
+[provider.exchange_prices.params]
+primary_exchange = "BINANCE"
+primary_symbol = "BTC-USDT"
+sigma_lookback_min = 1440
+
+[harness]
+executor = "realistic"               # "realistic" | "simulated"
+fill_model = "calibrated_slippage"   # "calibrated_slippage" | "instant"
+bootstrap_hours = 168
+pre_filter_makers = true
+settlement_enabled = true
+resolution_source = "asset_id"
+
+[harness.walk_forward]
+train_months = 12
+test_months = 1

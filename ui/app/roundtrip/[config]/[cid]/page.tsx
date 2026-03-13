@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   fetchRoundTripDetail,
   fetchPriceHistory,
   RoundTripDetail,
-  PricePoint,
+  TradeBubble,
+  OBPoint,
   ZoomLevel,
 } from "@/lib/api";
 
@@ -58,6 +59,12 @@ function usdFmt(v: number | null | undefined) {
   return `$${Number(v).toFixed(2)}`;
 }
 
+/** Parse a ClickHouse timestamp string to epoch ms */
+function parseTs(s: string): number {
+  if (!s.includes("T") && !s.endsWith("Z")) s += "Z";
+  return new Date(s).getTime();
+}
+
 // ---------------------------------------------------------------------------
 // Info Row
 // ---------------------------------------------------------------------------
@@ -72,87 +79,147 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
 }
 
 // ---------------------------------------------------------------------------
-// Price Chart (SVG) — shows entry + exit markers
+// Aggregate trades by (price, outcome) for bubble chart
+// ---------------------------------------------------------------------------
+
+interface AggBubble {
+  price: number;
+  outcome: string;
+  size_usd: number;
+  minTs: number; // earliest trade ms — for x position
+  maxTs: number;
+  count: number;
+}
+
+function aggregateTrades(trades: TradeBubble[]): AggBubble[] {
+  const map = new Map<string, AggBubble>();
+  for (const t of trades) {
+    const p = Number(t.price);
+    const key = `${p}|${t.outcome}`;
+    const ms = parseTs(t.ts);
+    const cur = map.get(key);
+    if (cur) {
+      cur.size_usd += t.size_usd;
+      cur.count++;
+      if (ms < cur.minTs) cur.minTs = ms;
+      if (ms > cur.maxTs) cur.maxTs = ms;
+    } else {
+      map.set(key, { price: p, outcome: t.outcome, size_usd: t.size_usd, minTs: ms, maxTs: ms, count: 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
+// ---------------------------------------------------------------------------
+// Chart — BBA lines + aggregated trade bubbles + entry/exit diamonds
 // ---------------------------------------------------------------------------
 
 function RoundTripChart({
-  points,
+  trades,
+  obSeries,
   entryTime,
   exitTime,
   entryPrice,
   exitPrice,
-  outcome,
 }: {
-  points: PricePoint[];
+  trades: TradeBubble[];
+  obSeries: OBPoint[];
   entryTime: number;
   exitTime: number | null;
   entryPrice: number | null;
   exitPrice: number | null;
-  outcome: string;
 }) {
-  if (points.length === 0)
+  if (trades.length === 0 && obSeries.length === 0)
     return <div className="text-sm text-gray-600 p-4">No price data</div>;
 
-  const W = 700, H = 220, PL = 55, PR = 10, PT = 15, PB = 30;
+  const W = 700, H = 260, PL = 55, PR = 10, PT = 15, PB = 30;
   const cw = W - PL - PR, ch = H - PT - PB;
 
-  const yesByMin = new Map<string, number>();
-  const noByMin = new Map<string, number>();
-  const allMinutes = new Set<string>();
-  for (const p of points) {
-    allMinutes.add(p.minute);
-    const v = Number(p.avg_price);
-    if (p.outcome === "YES") yesByMin.set(p.minute, v);
-    else if (p.outcome === "NO") noByMin.set(p.minute, v);
-    else if (!yesByMin.has(p.minute)) yesByMin.set(p.minute, v);
-  }
-  const minutes = Array.from(allMinutes).sort();
-  const hasYes = yesByMin.size > 0;
-  const hasNo = noByMin.size > 0;
+  // Aggregate trades by price
+  const bubbles = aggregateTrades(trades);
 
+  // Collect all timestamps and prices — always include entry/exit
+  const allTsMs: number[] = [entryTime * 1000];
   const allPrices: number[] = [];
-  for (const v of yesByMin.values()) allPrices.push(v);
-  for (const v of noByMin.values()) allPrices.push(v);
+
+  if (exitTime) allTsMs.push(exitTime * 1000);
   if (entryPrice != null) allPrices.push(entryPrice);
   if (exitPrice != null) allPrices.push(exitPrice);
-  const minP = Math.min(...allPrices) * 0.995;
-  const maxP = Math.max(...allPrices) * 1.005;
-  const range = maxP - minP || 0.01;
 
-  const xPos = (i: number) => PL + (i / Math.max(minutes.length - 1, 1)) * cw;
-  const yPos = (v: number) => PT + ch - ((v - minP) / range) * ch;
-
-  const buildLine = (byMin: Map<string, number>) => {
-    const segs: string[] = [];
-    minutes.forEach((m, i) => {
-      const v = byMin.get(m);
-      if (v != null) segs.push(`${xPos(i)},${yPos(v)}`);
-    });
-    return segs.join(" ");
-  };
-
-  // Find minute indices for entry/exit
-  const entryDt = new Date(entryTime * 1000).toISOString().slice(0, 16).replace("T", " ");
-  const exitDt = exitTime
-    ? new Date(exitTime * 1000).toISOString().slice(0, 16).replace("T", " ")
-    : null;
-
-  let entryIdx = -1, exitIdx = -1;
-  for (let i = 0; i < minutes.length; i++) {
-    if (entryIdx < 0 && minutes[i] >= entryDt) entryIdx = i;
-    if (exitDt && exitIdx < 0 && minutes[i] >= exitDt) exitIdx = i;
+  for (const b of bubbles) {
+    allTsMs.push(b.minTs, b.maxTs);
+    allPrices.push(b.price);
+  }
+  for (const ob of obSeries) {
+    const ms = parseTs(ob.ts);
+    allTsMs.push(ms);
+    allPrices.push(Number(ob.bid), Number(ob.ask));
   }
 
-  const yesStroke = outcome === "NO" ? 0.8 : 1.8;
-  const noStroke = outcome === "YES" ? 0.8 : 1.8;
-  const yesOpacity = outcome === "NO" ? 0.4 : 1;
-  const noOpacity = outcome === "YES" ? 0.4 : 1;
+  if (allPrices.length === 0) return <div className="text-sm text-gray-600 p-4">No data</div>;
+
+  const rawMinTs = Math.min(...allTsMs);
+  const rawMaxTs = Math.max(...allTsMs);
+  const rawRange = rawMaxTs - rawMinTs || 60_000;
+  // Add 5% padding so entry/exit are never at the very edge
+  const pad = rawRange * 0.05;
+  const minTs = rawMinTs - pad;
+  const maxTs = rawMaxTs + pad;
+  const tsRange = maxTs - minTs;
+
+  const minP = Math.min(...allPrices) * 0.995;
+  const maxP = Math.max(...allPrices) * 1.005;
+  const pRange = maxP - minP || 0.01;
+
+  const xPos = (ms: number) => PL + ((ms - minTs) / tsRange) * cw;
+  const yPos = (v: number) => PT + ch - ((v - minP) / pRange) * ch;
+
+  // BBA lines
+  const bidPts = obSeries
+    .map((ob) => ({ x: xPos(parseTs(ob.ts)), y: yPos(Number(ob.bid)) }))
+    .filter((p) => isFinite(p.x) && isFinite(p.y));
+  const askPts = obSeries
+    .map((ob) => ({ x: xPos(parseTs(ob.ts)), y: yPos(Number(ob.ask)) }))
+    .filter((p) => isFinite(p.x) && isFinite(p.y));
+
+  const toPolyline = (pts: { x: number; y: number }[]) =>
+    pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+
+  const entryMs = entryTime * 1000;
+  const exitMs = exitTime ? exitTime * 1000 : null;
+
+  // Bubble radius: scale by size_usd, clamp [2.5, 10]
+  const maxSize = Math.max(...bubbles.map((b) => b.size_usd), 1);
+  const bubbleR = (size: number) => Math.max(2.5, Math.min(10, 2.5 + (size / maxSize) * 7.5));
+
+  const bubbleColor = (outcome: string) => {
+    if (outcome === "YES") return "#22c55e";
+    if (outcome === "NO") return "#ef4444";
+    return "#94a3b8";
+  };
+
+  // X position for a bubble: midpoint of its time range
+  const bubbleX = (b: AggBubble) => xPos((b.minTs + b.maxTs) / 2);
+
+  // X-axis time labels
+  const nLabels = 7;
+  const labelStep = tsRange / nLabels;
+  const timeLabels: { ms: number; label: string }[] = [];
+  for (let i = 0; i <= nLabels; i++) {
+    const ms = minTs + i * labelStep;
+    const d = new Date(ms);
+    const hh = d.getUTCHours().toString().padStart(2, "0");
+    const mm = d.getUTCMinutes().toString().padStart(2, "0");
+    const ss = d.getUTCSeconds().toString().padStart(2, "0");
+    // Show seconds for short windows
+    timeLabels.push({ ms, label: tsRange < 120_000 ? `${hh}:${mm}:${ss}` : `${hh}:${mm}` });
+  }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
       {/* Grid */}
       {[0, 0.25, 0.5, 0.75, 1].map((f) => {
-        const val = minP + range * f;
+        const val = minP + pRange * f;
         const yy = yPos(val);
         return (
           <g key={f}>
@@ -165,117 +232,199 @@ function RoundTripChart({
       })}
 
       {/* Shade the hold region */}
-      {entryIdx >= 0 && exitIdx >= 0 && (
+      {exitMs != null && (
         <rect
-          x={xPos(entryIdx)}
+          x={xPos(entryMs)}
           y={PT}
-          width={xPos(exitIdx) - xPos(entryIdx)}
+          width={Math.max(0, xPos(exitMs) - xPos(entryMs))}
           height={ch}
           fill="#38bdf8"
           opacity={0.05}
         />
       )}
 
-      {/* Price lines */}
-      {hasYes && (
-        <polyline points={buildLine(yesByMin)} fill="none" stroke="#22c55e"
-          strokeWidth={yesStroke} strokeLinejoin="round" opacity={yesOpacity} />
-      )}
-      {hasNo && (
-        <polyline points={buildLine(noByMin)} fill="none" stroke="#ef4444"
-          strokeWidth={noStroke} strokeLinejoin="round" opacity={noOpacity} />
-      )}
-
-      {/* Entry vertical */}
-      {entryIdx >= 0 && (
-        <>
-          <line x1={xPos(entryIdx)} x2={xPos(entryIdx)} y1={PT} y2={H - PB}
-            stroke="#22c55e" strokeWidth="1.5" strokeDasharray="4,3" />
-          <text x={xPos(entryIdx) + 4} y={PT + 10} fill="#22c55e" fontSize="9" fontWeight="bold">
-            BUY
-          </text>
-        </>
+      {/* BBA bid line */}
+      {bidPts.length > 1 && (
+        <polyline
+          points={toPolyline(bidPts)}
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth="1.2"
+          strokeOpacity="0.6"
+        />
       )}
 
-      {/* Exit vertical */}
-      {exitIdx >= 0 && (
+      {/* BBA ask line */}
+      {askPts.length > 1 && (
+        <polyline
+          points={toPolyline(askPts)}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth="1.2"
+          strokeOpacity="0.6"
+        />
+      )}
+
+      {/* Aggregated trade bubbles */}
+      {bubbles.map((b, i) => {
+        const cx = bubbleX(b);
+        const cy = yPos(b.price);
+        if (!isFinite(cx) || !isFinite(cy)) return null;
+        const color = bubbleColor(b.outcome);
+        return (
+          <circle
+            key={i}
+            cx={cx}
+            cy={cy}
+            r={bubbleR(b.size_usd)}
+            fill={color}
+            fillOpacity={0.5}
+            stroke={color}
+            strokeWidth="0.6"
+          >
+            <title>{b.outcome} @ {b.price.toFixed(4)} — ${b.size_usd.toFixed(2)} ({b.count} trades)</title>
+          </circle>
+        );
+      })}
+
+      {/* Entry vertical line */}
+      <line
+        x1={xPos(entryMs)}
+        x2={xPos(entryMs)}
+        y1={PT}
+        y2={H - PB}
+        stroke="#38bdf8"
+        strokeWidth="1.5"
+        strokeDasharray="4,3"
+      />
+      <text x={xPos(entryMs) + 4} y={PT + 10} fill="#38bdf8" fontSize="9" fontWeight="bold">
+        BUY
+      </text>
+
+      {/* Exit vertical line */}
+      {exitMs != null && (
         <>
-          <line x1={xPos(exitIdx)} x2={xPos(exitIdx)} y1={PT} y2={H - PB}
-            stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4,3" />
-          <text x={xPos(exitIdx) + 4} y={PT + 10} fill="#ef4444" fontSize="9" fontWeight="bold">
+          <line
+            x1={xPos(exitMs)}
+            x2={xPos(exitMs)}
+            y1={PT}
+            y2={H - PB}
+            stroke="#a78bfa"
+            strokeWidth="1.5"
+            strokeDasharray="4,3"
+          />
+          <text x={xPos(exitMs) + 4} y={PT + 10} fill="#a78bfa" fontSize="9" fontWeight="bold">
             SELL
           </text>
         </>
       )}
 
+      {/* Entry diamond */}
+      {entryPrice != null && (() => {
+        const cx = xPos(entryMs);
+        const cy = yPos(entryPrice);
+        const s = 6;
+        const d = `M${cx},${cy - s} L${cx + s},${cy} L${cx},${cy + s} L${cx - s},${cy} Z`;
+        return <path d={d} fill="#38bdf8" stroke="#fff" strokeWidth="0.8" />;
+      })()}
+
+      {/* Exit diamond */}
+      {exitPrice != null && exitMs != null && (() => {
+        const cx = xPos(exitMs);
+        const cy = yPos(exitPrice);
+        const s = 6;
+        const d = `M${cx},${cy - s} L${cx + s},${cy} L${cx},${cy + s} L${cx - s},${cy} Z`;
+        return <path d={d} fill="#a78bfa" stroke="#fff" strokeWidth="0.8" />;
+      })()}
+
       {/* Entry price horizontal */}
       {entryPrice != null && (
-        <line x1={PL} x2={W - PR} y1={yPos(entryPrice)} y2={yPos(entryPrice)}
-          stroke="#38bdf8" strokeWidth="1" strokeDasharray="3,3" />
+        <line
+          x1={PL}
+          x2={W - PR}
+          y1={yPos(entryPrice)}
+          y2={yPos(entryPrice)}
+          stroke="#38bdf8"
+          strokeWidth="0.8"
+          strokeDasharray="3,3"
+          opacity={0.5}
+        />
       )}
 
       {/* Exit price horizontal */}
       {exitPrice != null && (
-        <line x1={PL} x2={W - PR} y1={yPos(exitPrice)} y2={yPos(exitPrice)}
-          stroke="#a78bfa" strokeWidth="1" strokeDasharray="3,3" />
+        <line
+          x1={PL}
+          x2={W - PR}
+          y1={yPos(exitPrice)}
+          y2={yPos(exitPrice)}
+          stroke="#a78bfa"
+          strokeWidth="0.8"
+          strokeDasharray="3,3"
+          opacity={0.5}
+        />
       )}
 
-      {/* X labels */}
-      {minutes.map((m, i) => {
-        if (minutes.length > 30 && i % 5 !== 0) return null;
-        if (minutes.length > 15 && minutes.length <= 30 && i % 3 !== 0) return null;
-        return (
-          <text key={i} x={xPos(i)} y={H - 4} textAnchor="middle" fill="#64748b" fontSize="8">
-            {m.slice(11, 16)}
-          </text>
-        );
-      })}
+      {/* X-axis time labels */}
+      {timeLabels.map((tl, i) => (
+        <text
+          key={i}
+          x={xPos(tl.ms)}
+          y={H - 4}
+          textAnchor="middle"
+          fill="#64748b"
+          fontSize="8"
+        >
+          {tl.label}
+        </text>
+      ))}
 
       {/* Legend */}
-      {hasYes && (
-        <>
-          <line x1={W - PR - 80} x2={W - PR - 65} y1={PT + 6} y2={PT + 6} stroke="#22c55e" strokeWidth="2" />
-          <text x={W - PR - 62} y={PT + 9} fill="#22c55e" fontSize="9">YES</text>
-        </>
-      )}
-      {hasNo && (
-        <>
-          <line x1={W - PR - 80} x2={W - PR - 65} y1={PT + 18} y2={PT + 18} stroke="#ef4444" strokeWidth="2" />
-          <text x={W - PR - 62} y={PT + 21} fill="#ef4444" fontSize="9">NO</text>
-        </>
-      )}
+      <line x1={W - PR - 130} x2={W - PR - 115} y1={PT + 6} y2={PT + 6} stroke="#22c55e" strokeWidth="1.2" strokeOpacity="0.6" />
+      <text x={W - PR - 112} y={PT + 9} fill="#22c55e" fontSize="8">Bid</text>
+
+      <line x1={W - PR - 130} x2={W - PR - 115} y1={PT + 16} y2={PT + 16} stroke="#ef4444" strokeWidth="1.2" strokeOpacity="0.6" />
+      <text x={W - PR - 112} y={PT + 19} fill="#ef4444" fontSize="8">Ask</text>
+
+      <circle cx={W - PR - 76} cy={PT + 6} r={3} fill="#22c55e" fillOpacity={0.5} />
+      <text x={W - PR - 70} y={PT + 9} fill="#22c55e" fontSize="8">YES</text>
+
+      <circle cx={W - PR - 76} cy={PT + 16} r={3} fill="#ef4444" fillOpacity={0.5} />
+      <text x={W - PR - 70} y={PT + 19} fill="#ef4444" fontSize="8">NO</text>
+
+      <path d={`M${W - PR - 32},${PT + 3} L${W - PR - 28},${PT + 6} L${W - PR - 32},${PT + 9} L${W - PR - 36},${PT + 6} Z`}
+        fill="#38bdf8" stroke="#fff" strokeWidth="0.5" />
+      <text x={W - PR - 24} y={PT + 9} fill="#38bdf8" fontSize="8">Entry</text>
     </svg>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Zoomable wrapper
+// Zoomable wrapper — minute-based for round trips
 // ---------------------------------------------------------------------------
 
 const ZOOM_LEVELS: { label: string; value: ZoomLevel }[] = [
-  { label: "1h", value: "1h" },
-  { label: "6h", value: "6h" },
-  { label: "24h", value: "24h" },
-  { label: "7d", value: "7d" },
-  { label: "All", value: "all" },
+  { label: "1m", value: "1m" },
+  { label: "2m", value: "2m" },
+  { label: "5m", value: "5m" },
+  { label: "15m", value: "15m" },
+  { label: "30m", value: "30m" },
 ];
 
-function ZoomableChart({
-  data,
-  initialPoints,
-}: {
-  data: RoundTripDetail;
-  initialPoints: PricePoint[];
-}) {
-  const [zoom, setZoom] = useState<ZoomLevel>("6h");
-  const [points, setPoints] = useState<PricePoint[]>(initialPoints);
+function ZoomableChart({ data }: { data: RoundTripDetail }) {
+  const [zoom, setZoom] = useState<ZoomLevel>("5m");
+  const [trades, setTrades] = useState<TradeBubble[]>(data.price_history);
+  const [obSeries, setObSeries] = useState<OBPoint[]>(data.ob_series);
   const [loading, setLoading] = useState(false);
 
   const handleZoom = (z: ZoomLevel) => {
     setZoom(z);
     setLoading(true);
     fetchPriceHistory(data.condition_id, data.buy_intent.signal_time, z)
-      .then((resp) => setPoints(resp.points))
+      .then((resp) => {
+        setTrades(resp.points);
+        setObSeries(resp.ob_series);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -284,7 +433,7 @@ function ZoomableChart({
     <div className="bg-gray-900 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Price History
+          Price &amp; Orderbook
         </h3>
         <div className="flex gap-1">
           {ZOOM_LEVELS.map((z) => (
@@ -306,12 +455,12 @@ function ZoomableChart({
         <div className="text-sm text-gray-500 py-8 text-center">Loading...</div>
       ) : (
         <RoundTripChart
-          points={points}
+          trades={trades}
+          obSeries={obSeries}
           entryTime={data.buy_intent.signal_time}
           exitTime={data.sell_intent?.signal_time ?? null}
           entryPrice={data.buy_fill?.filled_price ?? null}
           exitPrice={data.sell_fill?.filled_price ?? null}
-          outcome={data.outcome}
         />
       )}
     </div>
@@ -534,7 +683,7 @@ export default function RoundTripDetailPage() {
         </div>
 
         {/* Price chart */}
-        <ZoomableChart data={data} initialPoints={data.price_history} />
+        <ZoomableChart data={data} />
 
         {/* IDs */}
         <div className="bg-gray-900 rounded-lg p-4 text-xs text-gray-500 font-mono space-y-1">

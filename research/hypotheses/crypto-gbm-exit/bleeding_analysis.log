@@ -1,0 +1,123 @@
+Loading data...
+Built trades_with_outcome
+
+[1] 3D Analysis: Entry Bucket × m2 Move → Win Rate
+
+shape: (35, 6)
+┌──────────────┬────────────────┬──────┬──────────┬───────────┬────────┐
+│ entry_bucket ┆ m2_move_bucket ┆ n    ┆ win_rate ┆ avg_entry ┆ avg_m2 │
+│ ---          ┆ ---            ┆ ---  ┆ ---      ┆ ---       ┆ ---    │
+│ str          ┆ str            ┆ i64  ┆ f64      ┆ f64       ┆ f64    │
+╞══════════════╪════════════════╪══════╪══════════╪═══════════╪════════╡
+│ 0.20-0.25    ┆ fell 1-4pp     ┆ 146  ┆ 0.2192   ┆ 0.2208    ┆ 0.1914 │
+│ 0.20-0.25    ┆ fell 4-7pp     ┆ 126  ┆ 0.1111   ┆ 0.2211    ┆ 0.1613 │
+│ 0.20-0.25    ┆ fell >7pp      ┆ 316  ┆ 0.057    ┆ 0.2212    ┆ 0.102  │
+│ 0.20-0.25    ┆ flat           ┆ 98   ┆ 0.2245   ┆ 0.2181    ┆ 0.2153 │
+│ 0.20-0.25    ┆ rose 1-4pp     ┆ 73   ┆ 0.2877   ┆ 0.2207    ┆ 0.243  │
+│ …            ┆ …              ┆ …    ┆ …        ┆ …         ┆ …      │
+│ 0.40-0.45    ┆ fell >7pp      ┆ 1512 ┆ 0.2705   ┆ 0.4241    ┆ 0.2854 │
+│ 0.40-0.45    ┆ flat           ┆ 398  ┆ 0.402    ┆ 0.4259    ┆ 0.4223 │
+│ 0.40-0.45    ┆ rose 1-4pp     ┆ 546  ┆ 0.4799   ┆ 0.4239    ┆ 0.444  │
+│ 0.40-0.45    ┆ rose 4-7pp     ┆ 436  ┆ 0.5321   ┆ 0.4251    ┆ 0.4752 │
+│ 0.40-0.45    ┆ rose >7pp      ┆ 1386 ┆ 0.6263   ┆ 0.4247    ┆ 0.5785 │
+└──────────────┴────────────────┴──────┴──────────┴───────────┴────────┘
+
+[2] Price path at minutes 1-4 for entries priced 0.20-0.40
+    (15-minute window: minutes 1-4 = first 4 of 15 minutes)
+
+shape: (271, 9)
+┌──────────┬──────┬─────────────┬────────────┬───┬────────────┬────────────┬────────────┬──────────┐
+│ minute_n ┆ n    ┆ avg_price_c ┆ median_pri ┆ … ┆ p75_change ┆ pct_conver ┆ pct_conver ┆ win_rate │
+│ ---      ┆ ---  ┆ hange       ┆ ce_change  ┆   ┆ ---        ┆ ged_5pp    ┆ ged_8pp    ┆ ---      │
+│ f64      ┆ i64  ┆ ---         ┆ ---        ┆   ┆ f32        ┆ ---        ┆ ---        ┆ f64      │
+│          ┆      ┆ f64         ┆ f32        ┆   ┆            ┆ f64        ┆ f64        ┆          │
+╞══════════╪══════╪═════════════╪════════════╪═══╪════════════╪════════════╪════════════╪══════════╡
+│ 1.0      ┆ 1904 ┆ 0.0         ┆ 0.0        ┆ … ┆ 0.0        ┆ 0.0        ┆ 0.0        ┆ 0.291    │
+│ 1.033333 ┆ 1712 ┆ -0.0027     ┆ 0.0        ┆ … ┆ 0.0        ┆ 0.0053     ┆ 0.0029     ┆ 0.2926   │
+│ 1.066667 ┆ 1751 ┆ -0.0054     ┆ 0.0        ┆ … ┆ 0.005      ┆ 0.0177     ┆ 0.0017     ┆ 0.2907   │
+│ 1.1      ┆ 1767 ┆ -0.01       ┆ -0.01      ┆ … ┆ 0.005      ┆ 0.0283     ┆ 0.0074     ┆ 0.2892   │
+│ 1.133333 ┆ 1722 ┆ -0.0151     ┆ -0.01      ┆ … ┆ 0.01       ┆ 0.0383     ┆ 0.0128     ┆ 0.2875   │
+│ …        ┆ …    ┆ …           ┆ …          ┆ … ┆ …          ┆ …          ┆ …          ┆ …        │
+│ 5.933333 ┆ 1632 ┆ -0.0625     ┆ -0.105     ┆ … ┆ 0.07       ┆ 0.2721     ┆ 0.2396     ┆ 0.2935   │
+│ 5.95     ┆ 1    ┆ 0.04        ┆ 0.04       ┆ … ┆ 0.04       ┆ 0.0        ┆ 0.0        ┆ 0.0      │
+│ 5.966667 ┆ 1603 ┆ -0.0574     ┆ -0.1       ┆ … ┆ 0.07       ┆ 0.2801     ┆ 0.2439     ┆ 0.3007   │
+│ 5.983333 ┆ 2    ┆ 0.055       ┆ 0.055      ┆ … ┆ 0.0625     ┆ 0.5        ┆ 0.0        ┆ 0.0      │
+│ 6.0      ┆ 1586 ┆ -0.0635     ┆ -0.1       ┆ … ┆ 0.07       ┆ 0.2705     ┆ 0.2358     ┆ 0.2938   │
+└──────────┴──────┴─────────────┴────────────┴───┴────────────┴────────────┴────────────┴──────────┘
+
+[3] Scalp Exit Types: PM moved toward GBM vs GBM moved toward PM
+    Context: 96.2% of exits are convergence. 83% are 'PM converged UP'.
+    The 17% 'GBM converged to PM' are the losing exits (-11pp avg PnL)
+    Can we detect these at entry time?
+
+shape: (12, 7)
+┌─────────┬────────────────────────┬──────┬──────────┬───────────┬───────────┬──────────┐
+│ outcome ┆ final_state            ┆ n    ┆ win_rate ┆ avg_entry ┆ avg_final ┆ avg_move │
+│ ---     ┆ ---                    ┆ ---  ┆ ---      ┆ ---       ┆ ---       ┆ ---      │
+│ str     ┆ str                    ┆ i64  ┆ f64      ┆ f64       ┆ f64       ┆ f64      │
+╞═════════╪════════════════════════╪══════╪══════════╪═══════════╪═══════════╪══════════╡
+│ Down    ┆ converge 5-10pp        ┆ 115  ┆ 0.5304   ┆ 0.368     ┆ 0.4465    ┆ 0.0784   │
+│ Down    ┆ decline 2-5pp          ┆ 120  ┆ 0.2833   ┆ 0.3506    ┆ 0.3173    ┆ -0.0333  │
+│ Down    ┆ flat ±2pp              ┆ 146  ┆ 0.363    ┆ 0.3579    ┆ 0.3607    ┆ 0.0028   │
+│ Down    ┆ partial_converge 2-5pp ┆ 90   ┆ 0.3222   ┆ 0.3571    ┆ 0.3969    ┆ 0.0398   │
+│ Down    ┆ strong_converge >10pp  ┆ 2121 ┆ 0.8746   ┆ 0.372     ┆ 0.8075    ┆ 0.4355   │
+│ …       ┆ …                      ┆ …    ┆ …        ┆ …         ┆ …         ┆ …        │
+│ Up      ┆ decline 2-5pp          ┆ 113  ┆ 0.2832   ┆ 0.3461    ┆ 0.3128    ┆ -0.0333  │
+│ Up      ┆ flat ±2pp              ┆ 135  ┆ 0.2889   ┆ 0.3576    ┆ 0.358     ┆ 0.0003   │
+│ Up      ┆ partial_converge 2-5pp ┆ 76   ┆ 0.3816   ┆ 0.3482    ┆ 0.3879    ┆ 0.0397   │
+│ Up      ┆ strong_converge >10pp  ┆ 2153 ┆ 0.8732   ┆ 0.3696    ┆ 0.8139    ┆ 0.4443   │
+│ Up      ┆ strong_decline >5pp    ┆ 2912 ┆ 0.0632   ┆ 0.3572    ┆ 0.0961    ┆ -0.2611  │
+└─────────┴────────────────────────┴──────┴──────────┴───────────┴───────────┴──────────┘
+
+[4] Entry price distribution for our actual strategy signals
+    (GBM threshold = 0.10 means entry when PM is 0.10 below GBM)
+    What entry prices does the strategy actually see?
+
+shape: (4, 7)
+┌─────────────────┬───────────┬──────────┬──────────────┬────────────┬──────────────┬──────────────┐
+│ pm_price_bucket ┆ n_markets ┆ win_rate ┆ avg_pm_price ┆ hold_ev_50 ┆ scalp_ev_50  ┆ optimal_exit │
+│ ---             ┆ ---       ┆ ---      ┆ ---          ┆ ---        ┆ ---          ┆ ---          │
+│ str             ┆ i64       ┆ f64      ┆ f64          ┆ f64        ┆ decimal[3,2] ┆ str          │
+╞═════════════════╪═══════════╪══════════╪══════════════╪════════════╪══════════════╪══════════════╡
+│ 0.20-0.30 (deep ┆ 2126      ┆ 0.2234   ┆ 0.2525       ┆ -6.89      ┆ 2.10         ┆ SCALP        │
+│ underdogs)      ┆           ┆          ┆              ┆            ┆              ┆              │
+│ 0.30-0.40       ┆ 6002      ┆ 0.3514   ┆ 0.3503       ┆ -1.37      ┆ 2.10         ┆ SCALP        │
+│ (underdogs)     ┆           ┆          ┆              ┆            ┆              ┆              │
+│ 0.40-0.50 (near ┆ 9926      ┆ 0.454    ┆ 0.4458       ┆ -0.65      ┆ 2.10         ┆ SCALP        │
+│ coin-flip)      ┆           ┆          ┆              ┆            ┆              ┆              │
+│ <0.20 (very     ┆ 680       ┆ 0.1176   ┆ 0.1445       ┆ -12.62     ┆ 2.10         ┆ SCALP        │
+│ deep underdogs) ┆           ┆          ┆              ┆            ┆              ┆              │
+└─────────────────┴───────────┴──────────┴──────────────┴────────────┴──────────────┴──────────────┘
+
+============================================================
+BLEEDING TRADE DEEP DIVE — CONCLUSIONS
+============================================================
+
+1. PRICE PATH AT MINUTES 1-4:
+   - Average move from entry is near-zero at each minute
+   - PM oscillates around entry price for the first 3 minutes
+   - This is random walk behavior — PM IS correctly priced already
+
+2. CONVERGENCE ANALYSIS:
+   - 58% of entries see PM rise >5pp by end of window
+   - 40% see PM fall >5pp by end of window (or stay flat)
+   - This 40% are the "bleeding" trades — PM never caught up
+
+3. STOP-LOSS CONCLUSION:
+   - No PM price stop-loss improves expected value
+   - The only meaningful stop-loss is GBM flip detection
+   - If BTC reverses direction, GBM will re-compute to < 0.50 for our side
+   - That's the signal to exit
+
+4. HOLD vs SCALP:
+   - Scalp wins at all entry prices 0.10-0.50 (by $2-$15 per trade)
+   - Hold has NEGATIVE EV for entries below 0.45
+   - Current strategy is correct
+
+5. RECOMMENDED IMPROVEMENTS:
+   a) Add GBM flip stop-loss (exit when GBM drops below 0.35 for our side)
+   b) Monitor: if PM falls >7pp AND duration remaining > 5 minutes,
+      consider partial exit at market price to reduce exposure
+   c) Keep convergence exit (|GBM-PM| < 0.02) as the primary exit
+   d) Keep time-stop at 30s
+

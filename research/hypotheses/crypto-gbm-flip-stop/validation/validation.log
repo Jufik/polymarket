@@ -1,0 +1,107 @@
+[validation started 2026-03-10T17:18:52.318646]
+[17:18:52] GBM Flip Stop Validation — Tick-by-Tick with Slippage + Fees
+[17:18:52] =================================================================
+[17:18:52] Half-spread: 1.00%, Fee: 3.00%, Base bet: $50.0
+[17:18:52] Loading markets...
+[17:18:52] Markets: 16,176
+[17:18:52] Computing sigma (30-min pre-window 1s bars)...
+[17:18:56] Sigma computed for 16,176 markets
+[17:18:56] Computing S0 (first exchange bar in window)...
+[17:18:58] S0 for 16,176 markets
+[17:18:58] Building bar+PM table (ASOF join)...
+[17:21:13] Bar table: 14,574,576 rows
+[17:21:13] Markets with valid sigma + s0: 16,176
+[17:21:13] Sigma: median=0.000364, t33=0.000273, t67=0.000491
+[17:21:13] Grouping bars by condition_id...
+[17:21:18] Grouped 16,176 markets
+[17:22:26] 
+Simulation complete:
+[17:22:26]   Entries: 15,889
+[17:22:26]   Skipped no_bars:   0
+[17:22:26]   Skipped no_signal: 287
+[17:22:26] 
+Computing metrics per config...
+[17:22:27] 
+--- Baseline (thr=0.35, delay=1) ---
+[17:22:27]   n_signals:       15,889
+[17:22:27]   hit_rate:        0.771 (77.1%)
+[17:22:27]   avg_pnl_raw:     +0.1064 (+10.64pp)
+[17:22:27]   avg_pnl_net_usd: $+3.58
+[17:22:27]   total_pnl_net:   $+56,808
+[17:22:27]   sharpe:          43.37
+[17:22:27]   avg_hold_s:      270s (4.5min)
+[17:22:27]   flip_exits:      2251 (14.2%)
+[17:22:27]   false_stop_pct:  89.5%
+[17:22:27]   comp_score:      400.692
+[17:22:27]   exit types:      {'trailing_stop': 12810, 'flip_stop': 2251, 'hold_resolution': 823, 'time_stop': 5}
+[17:22:27] 
+--- Primary (thr=0.25, delay=3) ---
+[17:22:27]   n_signals:       15,889
+[17:22:27]   hit_rate:        0.815 (81.5%)
+[17:22:27]   avg_pnl_raw:     +0.1090 (+10.90pp)
+[17:22:27]   avg_pnl_net_usd: $+3.71
+[17:22:27]   total_pnl_net:   $+58,898
+[17:22:27]   sharpe:          48.46
+[17:22:27]   avg_hold_s:      275s (4.6min)
+[17:22:27]   flip_exits:      923 (5.8%)
+[17:22:27]   false_stop_pct:  75.0%
+[17:22:27]   comp_score:      470.811
+[17:22:27]   exit types:      {'trailing_stop': 14123, 'flip_stop': 923, 'hold_resolution': 835, 'time_stop': 8}
+[17:22:27] 
+--- Aggressive (thr=0.20, delay=1) ---
+[17:22:27]   n_signals:       15,889
+[17:22:27]   hit_rate:        0.811 (81.1%)
+[17:22:27]   avg_pnl_raw:     +0.1087 (+10.87pp)
+[17:22:27]   avg_pnl_net_usd: $+3.69
+[17:22:27]   total_pnl_net:   $+58,690
+[17:22:27]   sharpe:          49.08
+[17:22:27]   avg_hold_s:      276s (4.6min)
+[17:22:27]   flip_exits:      648 (4.1%)
+[17:22:27]   false_stop_pct:  70.5%
+[17:22:27]   comp_score:      461.363
+[17:22:27]   exit types:      {'trailing_stop': 14395, 'hold_resolution': 839, 'flip_stop': 648, 'time_stop': 7}
+[17:22:27] 
+--- Delay-only (thr=0.35, delay=5) ---
+[17:22:27]   n_signals:       15,889
+[17:22:27]   hit_rate:        0.824 (82.4%)
+[17:22:27]   avg_pnl_raw:     +0.1086 (+10.86pp)
+[17:22:27]   avg_pnl_net_usd: $+3.69
+[17:22:27]   total_pnl_net:   $+58,599
+[17:22:27]   sharpe:          47.34
+[17:22:27]   avg_hold_s:      271s (4.5min)
+[17:22:27]   flip_exits:      1946 (12.2%)
+[17:22:27]   false_stop_pct:  84.0%
+[17:22:27]   comp_score:      491.286
+[17:22:27]   exit types:      {'trailing_stop': 13111, 'flip_stop': 1946, 'hold_resolution': 827, 'time_stop': 5}
+[17:22:27] 
+--- Sigma-conditional (delay=2) ---
+[17:22:27]   n_signals:       15,889
+[17:22:27]   hit_rate:        0.810 (81.0%)
+[17:22:27]   avg_pnl_raw:     +0.1095 (+10.95pp)
+[17:22:27]   avg_pnl_net_usd: $+3.73
+[17:22:27]   total_pnl_net:   $+59,310
+[17:22:27]   sharpe:          48.21
+[17:22:27]   avg_hold_s:      274s (4.6min)
+[17:22:27]   flip_exits:      1085 (6.8%)
+[17:22:27]   false_stop_pct:  75.9%
+[17:22:27]   comp_score:      469.852
+[17:22:27]   exit types:      {'trailing_stop': 13973, 'flip_stop': 1085, 'hold_resolution': 826, 'time_stop': 5}
+[17:22:27] 
+================================================================================
+[17:22:27] VECTORIZED vs TICK COMPARISON TABLE
+[17:22:27] ================================================================================
+[17:22:27] Config                      Vec HR  Tick HR  Deg(pp)   Vec PnL Tick PnL($)      Deg
+[17:22:27] --------------------------------------------------------------------------------
+[17:22:27] Baseline (thr=0.35, delay=1)    0.798 0.771   -2.7pp      5.33 $      3.58    -1.75
+[17:22:27] Primary (thr=0.25, delay=3)    0.844 0.815   -3.0pp      5.44 $      3.71    -1.73
+[17:22:27] Aggressive (thr=0.20, delay=1)    0.837 0.811   -2.6pp      5.42 $      3.69    -1.73
+[17:22:27] Delay-only (thr=0.35, delay=5)    0.854 0.824   -3.1pp      5.43 $      3.69    -1.74
+[17:22:27] Sigma-conditional (delay=2)      N/A 0.810      N/A       N/A $      3.73      N/A
+[17:22:27] ================================================================================
+[17:22:27] 
+BEST CONFIG: Aggressive (thr=0.20, delay=1)
+[17:22:27]   Sharpe: 49.08, Total PnL: $+58,690
+[17:22:27]   Compounding score: 461.363
+[17:22:27] 
+Saved: /mnt/nvme/git/polymarket/polymarket/research/hypotheses/crypto-gbm-flip-stop/validation/results.json
+[17:22:27] Done.

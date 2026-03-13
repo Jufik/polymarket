@@ -1,0 +1,77 @@
+# Score-Axis Pool Construction — Strategy Configuration
+# Status: DISCOVERY PHASE — not validated yet
+# Best vectorized combo: K=50, N_a=1, N_b=1, directional
+# NOTE: All metrics are UPPER BOUNDS. Expected tick degradation 20-40pp.
+# CAUTION: Price-level-adjusted excess = +8.2pp only. Likely negative after tick degradation.
+
+[strategy.score_axis_pool]
+enabled = true
+mode = "replay"
+capital_usd = 1000
+max_position_usd = 100
+max_open_positions = 20
+cooldown_s = 0
+features = ["score_axis_pool_provider"]
+
+[strategy.score_axis_pool.params]
+# Pool construction
+k_each = 50                  # Top-K traders per axis
+n_a = 1                      # Min traders from Pool A (excess_hr axis)
+n_b = 1                      # Min traders from Pool B (consistency_sharpe axis)
+tag = "Sports"               # Primary tag (Politics dropped — near-collinear axes)
+direction = "YES"            # Signal direction
+
+# Signal filters
+hold_min_hours = 4           # MANDATORY: hold >= 4h (in-play contamination guard)
+max_price = 0.80             # Soft cap — fires mostly at 0.60-0.75 anyway
+
+# SELL mode: directional (includes SELL NO = bullish via maker_positions net)
+# BUY-only collapses to 2 signals — not viable
+sell_mode = "directional"
+
+# Pool qualification thresholds (training window)
+min_markets = 20             # Min Sports YES markets in training
+min_conviction = 0.90        # USDC conviction (exclude MMs)
+max_positions_per_trader = 10000  # Bot guard
+train_months = 12            # Training window length
+
+[provider.score_axis_pool_provider]
+enabled = true
+refresh_interval_s = 3600    # Re-score hourly
+
+[provider.score_axis_pool_provider.params]
+k_each = 50
+tag = "Sports"
+direction = "YES"
+min_markets = 20
+min_conviction = 0.90
+
+[harness]
+executor = "realistic"
+fill_model = "calibrated_slippage"
+bootstrap_hours = 168
+pre_filter_makers = true
+settlement_enabled = true
+resolution_source = "asset_id"
+
+[harness.walk_forward]
+train_months = 12
+test_months = 1
+
+# ─── Vectorized Discovery Results (UPPER BOUNDS) ───────────────────────────
+# Best combo: K=50, N_a=1, N_b=1, directional
+#   N signals (8mo): 65
+#   Signals/month: 8.1
+#   HR: 70.8% (UPPER BOUND)
+#   Tag excess HR: +37.5pp (UPPER BOUND)
+#   Price-level-adjusted excess HR: +8.2pp (UPPER BOUND — this is the REAL metric)
+#   Avg entry price: 0.674
+#   Med hold time: 5.2h
+#   Compounding score: 0.059 (UPPER BOUND)
+#   Fragile: YES (K-25 → 0 signals, K+25 → -7pp HR)
+#
+# WARNING: After 20-40pp vectorized-to-tick degradation, expected tick excess:
+#   Price-level excess: +8.2pp - 20pp to 40pp → -12pp to -32pp
+#   Strategy likely NEGATIVE at tick level.
+#
+# Recommendation: DO NOT validate without addressing price ceiling (max_price=0.55).
