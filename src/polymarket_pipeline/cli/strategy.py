@@ -192,11 +192,30 @@ def _build_runner(
     exec_raw = load_execution_config(config_path)
     order_config = OrderConfig(**exec_raw) if exec_raw else OrderConfig()
 
-    # Assemble — optionally use Redis-backed context for orderbook reads
+    # Assemble — optionally use shmem or Redis-backed context for orderbook reads
+    from pm_pipeline.settings import Settings as _PipelineSettings
+
+    _pipeline_settings = _PipelineSettings()
+
     from polymarket_pipeline.live.settings import Settings as _LiveSettings
 
     _live_settings = _LiveSettings()
-    if _live_settings.redis_orderbook_enabled:
+
+    if _pipeline_settings.shmem_enabled:
+        from pm_core.token_map import TokenMap
+        from pm_store.shmem import BookReaderImpl, BookRegion, SlotIndex
+
+        _shmem_region = BookRegion.attach(name="pm_orderbook")
+        _shmem_index = SlotIndex(capacity=_pipeline_settings.shmem_slots)
+        _book_reader = BookReaderImpl(_shmem_region, _shmem_index)
+        # TokenMap built from a flat dict — will be populated at runtime
+        _token_map_obj = TokenMap({})
+
+        from pm_strategy.context.shmem import SharedMemoryContext
+
+        ctx = SharedMemoryContext(book_reader=_book_reader, token_map=_token_map_obj)
+        logger.warning("context.shmem", slots=_pipeline_settings.shmem_slots)
+    elif _live_settings.redis_orderbook_enabled:
         import redis.asyncio as aioredis
 
         from polymarket_pipeline.strategies.context.redis import RedisContext
@@ -347,6 +366,17 @@ def run(
 
         # Wire token_map into executor
         runner.gateway.executor._token_map = token_map  # type: ignore[attr-defined]
+
+        # Populate shmem TokenMap (if shmem context is active)
+        if hasattr(runner.ctx, "_token_map"):
+            from pm_core.token_map import TokenMap as _TM
+
+            flat: dict[str, tuple[str, str]] = {}
+            for cid, outcomes in token_map.items():
+                for outcome, aid in outcomes.items():
+                    flat[aid] = (cid, outcome)
+            runner.ctx._token_map = _TM(flat)  # type: ignore[attr-defined]
+            logger.warning("shmem.token_map_populated", entries=len(flat))
 
         # Wire intent capture → Kafka topic + PostgreSQL
         async def _publish_intent(record: dict[str, Any]) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from collections.abc import Callable
@@ -26,6 +27,15 @@ try:
 except ImportError:
     _HAS_REDIS = False
     _Redis = None  # type: ignore[assignment,misc]
+
+# Async Redis for Pub/Sub listener
+try:
+    from redis.asyncio import Redis as _AsyncRedis
+
+    _HAS_ASYNC_REDIS = True
+except ImportError:
+    _HAS_ASYNC_REDIS = False
+    _AsyncRedis = None  # type: ignore[assignment,misc]
 
 
 @dataclass
@@ -200,3 +210,90 @@ class ConfigStore:
         if section not in self._subscribers:
             self._subscribers[section] = []
         self._subscribers[section].append(callback)
+
+    def changelog(self, section: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """Read recent entries from the Redis changelog stream.
+
+        Returns a list of dicts with keys: id, section, key, value, action.
+        """
+        if self._redis is None:
+            return []
+        changelog_stream = f"{self._prefix}:changelog"
+        try:
+            # XREVRANGE returns newest first
+            entries = self._redis.xrevrange(changelog_stream, count=limit * 3 if section else limit)
+            result: list[dict[str, Any]] = []
+            for entry_id, fields in entries:
+                eid = entry_id.decode() if isinstance(entry_id, bytes) else entry_id
+                record: dict[str, Any] = {"id": eid}
+                for k, v in fields.items():
+                    key = k.decode() if isinstance(k, bytes) else k
+                    val = v.decode() if isinstance(v, bytes) else v
+                    record[key] = val
+                if section is not None and record.get("section") != section:
+                    continue
+                result.append(record)
+                if len(result) >= limit:
+                    break
+            return result
+        except Exception:
+            log.warning("changelog_read_failed", exc_info=True)
+            return []
+
+    # ------------------------------------------------------------------
+    # Async Pub/Sub listener
+    # ------------------------------------------------------------------
+
+    async def listen(self) -> None:
+        """Subscribe to Redis ``pm:config:changed`` and dispatch to subscribers.
+
+        Runs indefinitely — designed to be used with ``asyncio.create_task``.
+        No-ops gracefully if Redis is not configured or the async redis package
+        is not installed.
+        """
+        if self._redis is None or not _HAS_ASYNC_REDIS:
+            log.info("config_store.listen_skipped", reason="no redis or no async redis")
+            return
+
+        changed_channel = f"{self._prefix}:changed"
+        # Build an async Redis client from the sync client's connection info
+        conn_kwargs = self._redis.connection_pool.connection_kwargs
+        host = conn_kwargs.get("host", "localhost")
+        port = conn_kwargs.get("port", 6379)
+        db = conn_kwargs.get("db", 0)
+
+        while True:
+            try:
+                async_redis = _AsyncRedis(host=host, port=port, db=db)
+                pubsub = async_redis.pubsub()
+                await pubsub.subscribe(changed_channel)
+                log.info("config_store.listen_started", channel=changed_channel)
+
+                async for message in pubsub.listen():
+                    if message["type"] != "message":
+                        continue
+                    try:
+                        data = json.loads(message["data"])
+                        section = data.get("section", "")
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+                    callbacks = self._subscribers.get(section, [])
+                    for cb in callbacks:
+                        try:
+                            result = cb()
+                            # Support async callbacks
+                            if asyncio.iscoroutine(result):
+                                await result
+                        except Exception:
+                            log.warning(
+                                "config_store.callback_error",
+                                section=section,
+                                exc_info=True,
+                            )
+            except asyncio.CancelledError:
+                log.info("config_store.listen_cancelled")
+                return
+            except Exception:
+                log.warning("config_store.listen_reconnecting", exc_info=True)
+                await asyncio.sleep(2.0)

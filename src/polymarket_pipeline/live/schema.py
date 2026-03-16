@@ -73,6 +73,11 @@ from pm_store.clickhouse.migrations.versions.v007_kafka_engines import (
     _up as _kafka_up,  # noqa: F401
 )
 
+# v008: markets_active view
+from pm_store.clickhouse.migrations.versions.v008_markets_active import (
+    _MARKETS_ACTIVE_VIEW as MARKETS_ACTIVE_VIEW,  # noqa: F401
+)
+
 # Kafka engine DDL constants (for backward compat with code reading them directly)
 # These were previously string constants with {broker_list} placeholder.
 TRADES_KAFKA_TABLE = """
@@ -238,3 +243,6 @@ def apply_schema(clickhouse: object, broker_list: str = "localhost:19092") -> No
     clickhouse.execute(TRADER_MARKET_POSITIONS_TABLE)  # type: ignore[attr-defined]
     clickhouse.execute(TRADER_MARKET_POSITIONS_MV)  # type: ignore[attr-defined]
     clickhouse.execute(TRADER_POSITIONS_RESOLVED_VIEW)  # type: ignore[attr-defined]
+
+    # Filtered view excluding zombie/draft markets
+    clickhouse.execute(MARKETS_ACTIVE_VIEW)  # type: ignore[attr-defined]

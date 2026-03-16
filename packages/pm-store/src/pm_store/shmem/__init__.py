@@ -52,7 +52,7 @@ class BookWriterImpl:
         3. Write seq = even (signals "write complete")
         Readers check seq before and after reading — mismatch means torn read.
         """
-        slot = self._index.insert(asset_id)
+        slot = self._index.insert_deterministic(asset_id)
         offset = self._region.slot_offset(slot)
         buf = self._region.buf
 

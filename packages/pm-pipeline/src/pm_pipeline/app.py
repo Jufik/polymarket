@@ -5,15 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from pathlib import Path
 from typing import Any
 
 import structlog
 from faststream import ContextRepo, FastStream
 from faststream.kafka import KafkaBroker
+from pm_core.config import ConfigStore
 
 from pm_pipeline.consumers.market_events import MarketEventsConsumer, ResolutionPoller
 from pm_pipeline.orchestrator import (
     check_and_recover,
+    create_config_watchers,
     create_ingestors,
     load_token_map,
     periodic_quality_check,
@@ -80,15 +83,41 @@ asgi_app = app.as_asgi(
 _quality_checker: QualityChecker | None = None
 _ingestor_tasks: list[asyncio.Task[Any]] = []
 _market_events_consumer: MarketEventsConsumer | None = None
+_config_store: ConfigStore | None = None
+_shmem_region: Any = None  # BookRegion, cleaned up on shutdown
 
 
 @app.on_startup
 async def on_startup(context: ContextRepo) -> None:
     """Initialize ingestors and quality checker."""
-    global _quality_checker
+    global _quality_checker, _config_store
 
     log.info("live_pipeline.starting", redpanda=settings.redpanda_url)
     context.set_global("settings", settings)
+
+    # ── Dynamic config store (TOML + ENV + Redis layers) ──────────────
+    redis_client = None
+    try:
+        from redis import Redis
+
+        redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
+        redis_client.ping()
+        log.info("config_store.redis_connected", url=settings.redis_url)
+    except Exception:
+        log.info("config_store.redis_unavailable", url=settings.redis_url)
+        redis_client = None
+
+    # Look for pipeline TOML config (PM_CONFIG_PATH env or default)
+    import os
+
+    toml_path_str = os.environ.get("PM_CONFIG_PATH", "")
+    toml_path = Path(toml_path_str) if toml_path_str else None
+
+    _config_store = ConfigStore(toml_path=toml_path, redis=redis_client)
+    context.set_global("config_store", _config_store)
+
+    # Start Pub/Sub listener as background task
+    _ingestor_tasks.append(asyncio.create_task(_config_store.listen()))
 
     # Load token_map from PostgreSQL (fast — uses whatever pm-sync last wrote)
     token_map = await load_token_map(settings.pg_dsn)
@@ -116,6 +145,11 @@ async def on_startup(context: ContextRepo) -> None:
     _quality_checker = QualityChecker(settings=settings, clickhouse=ch, pg_pool=pg_pool)
     context.set_global("quality_checker", _quality_checker)
 
+    # ── Dynamic config watchers (auto-update quality/execution thresholds) ─
+    if _config_store is not None:
+        config_watchers = create_config_watchers(_config_store, checker=_quality_checker)
+        context.set_global("config_watchers", config_watchers)
+
     global _market_events_consumer
     _market_events_consumer = MarketEventsConsumer(
         pg_pool=pg_pool,
@@ -139,8 +173,12 @@ async def on_startup(context: ContextRepo) -> None:
     )
 
     # Launch ingestors as background tasks
+    global _shmem_region
     ingestor_tasks, clob_ingestor = await create_ingestors(broker, settings, token_map)
     _ingestor_tasks.extend(ingestor_tasks)
+    # Capture shmem region reference for shutdown cleanup
+    if clob_ingestor is not None:
+        _shmem_region = getattr(clob_ingestor, "_shmem_region", None)
 
     # Periodic token_map refresh (re-sync APIs -> PG -> shared dict)
     # Pass clob_ingestor so new markets get subscribed to orderbook listeners
@@ -179,6 +217,16 @@ async def on_shutdown() -> None:
                 task.cancel()
 
     _ingestor_tasks.clear()
+
+    # Clean up shared memory region
+    if _shmem_region is not None:
+        try:
+            _shmem_region.close()
+            _shmem_region.unlink()
+            log.info("shmem.region_unlinked")
+        except Exception:
+            log.warning("shmem.unlink_error")
+
     log.info("live_pipeline.stopped")
 
 

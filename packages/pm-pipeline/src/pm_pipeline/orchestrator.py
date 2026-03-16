@@ -8,6 +8,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from pm_core.config import ConfigStore, ConfigWatcher, ExecutionConfig, QualityConfig
 
 from pm_pipeline.quality.state import PipelineState
 from polymarket_pipeline.live.ingestors._publish import safe_publish
@@ -35,6 +36,66 @@ async def load_token_map(pg_dsn: str) -> dict[str, tuple[str, str]]:
     return token_map
 
 
+def create_config_watchers(
+    config_store: ConfigStore,
+    checker: QualityChecker | None = None,
+) -> dict[str, ConfigWatcher[Any]]:
+    """Create typed ConfigWatcher instances for orchestrator-level subsystems.
+
+    Watchers auto-subscribe to the ConfigStore and validate overrides against
+    schemas. Bad values are rejected and logged — the previous valid config is
+    retained.
+
+    Returns a dict of section_name -> watcher for caller to stash/use.
+    """
+    watchers: dict[str, ConfigWatcher[Any]] = {}
+
+    # ── Quality ──────────────────────────────────────────────────────────
+    quality_watcher: ConfigWatcher[QualityConfig] = ConfigWatcher(
+        config_store, "quality", QualityConfig
+    )
+
+    if checker is not None:
+
+        def _on_quality_change(old: QualityConfig, new: QualityConfig) -> None:
+            log.info(
+                "config.quality_updated",
+                source_liveness_timeout_s=new.source_liveness_timeout_s,
+                volume_drop_red_pct=new.volume_drop_red_pct,
+                degraded_grace_s=new.degraded_grace_s,
+            )
+            # Update the Settings-backed thresholds that QualityChecker reads.
+            # QualityChecker accesses self._settings.* so we patch those attrs.
+            checker._settings.source_liveness_timeout_s = int(new.source_liveness_timeout_s)
+            checker._settings.volume_drop_red_pct = new.volume_drop_red_pct
+            checker._settings.enrichment_ratio_min = new.enrichment_ratio_min
+            checker._settings.degraded_grace_s = new.degraded_grace_s
+            checker._state._degraded_grace_s = new.degraded_grace_s
+
+        quality_watcher.on_change(_on_quality_change)
+
+    watchers["quality"] = quality_watcher
+
+    # ── Execution ────────────────────────────────────────────────────────
+    execution_watcher: ConfigWatcher[ExecutionConfig] = ConfigWatcher(
+        config_store, "execution", ExecutionConfig
+    )
+
+    def _on_execution_change(old: ExecutionConfig, new: ExecutionConfig) -> None:
+        log.info(
+            "config.execution_updated",
+            max_total_exposure_usd=new.max_total_exposure_usd,
+            patient_timeout_s=new.patient_timeout_s,
+            fee_pct=new.fee_pct,
+        )
+
+    execution_watcher.on_change(_on_execution_change)
+    watchers["execution"] = execution_watcher
+
+    log.info("config_watchers.created", sections=list(watchers.keys()))
+    return watchers
+
+
 async def create_ingestors(
     broker: KafkaBroker,
     settings: Settings,
@@ -46,6 +107,23 @@ async def create_ingestors(
     """
     tasks: list[asyncio.Task[Any]] = []
     clob_ingestor = None
+
+    # Shared memory orderbook region (writer side)
+    book_writer = None
+    _shmem_region = None
+    if settings.shmem_enabled:
+        from pm_store.shmem import BookRegion, BookWriterImpl, SlotIndex
+
+        _shmem_region = BookRegion.create(
+            name="pm_orderbook", max_slots=settings.shmem_slots
+        )
+        _shmem_index = SlotIndex(capacity=settings.shmem_slots)
+        book_writer = BookWriterImpl(_shmem_region, _shmem_index)
+        log.info(
+            "shmem.region_created",
+            name=_shmem_region.name,
+            slots=settings.shmem_slots,
+        )
 
     rtds = RTDSIngestor(
         broker=broker,
@@ -132,8 +210,12 @@ async def create_ingestors(
             max_slots=settings.clob_orderbook_max_connections,
             redis_client=redis_client,
             redis_orderbook_ttl_s=settings.redis_orderbook_ttl_s,
+            book_writer=book_writer,
         )
         clob_ingestor = clob_ob
+        # Attach shmem region for shutdown cleanup
+        if _shmem_region is not None:
+            clob_ob._shmem_region = _shmem_region  # type: ignore[attr-defined]
         tasks.append(asyncio.create_task(clob_ob.run()))
 
     if settings.exchange_feed_enabled:

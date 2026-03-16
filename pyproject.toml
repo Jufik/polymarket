@@ -120,6 +120,7 @@ pm-harness = "polymarket_pipeline.cli.harness:app"
 pm-clob = "polymarket_pipeline.cli.clob:main"
 pm-exchange = "polymarket_pipeline.cli.exchange:main"
 pm-ctf-recover = "polymarket_pipeline.cli.ctf_recover:main"
+pm-config = "pm_pipeline.cli.config:main"
 
 [tool.uv.workspace]
 members = ["packages/*"]

@@ -29,7 +29,17 @@ class SharedMemoryContext(InMemoryContext):
         raw = self._book.get(asset_id)
         if raw is None:
             return super().get_orderbook_by_asset(asset_id)
-        return OrderbookSnapshot(**raw)
+        # Map shmem field names to OrderbookSnapshot fields
+        return OrderbookSnapshot(
+            condition_id=raw.get("asset_id", asset_id),
+            best_bid=raw["best_bid"],
+            best_ask=raw["best_ask"],
+            bid_depth=raw.get("bid_depth_usd", 0.0),
+            ask_depth=raw.get("ask_depth_usd", 0.0),
+            timestamp=raw.get("timestamp_ns", 0) / 1e9,
+            bids=tuple(tuple(lvl) for lvl in raw.get("bids", ())),
+            asks=tuple(tuple(lvl) for lvl in raw.get("asks", ())),
+        )
 
     async def get_orderbook(self, condition_id: str) -> OrderbookSnapshot | None:
         yes_asset = self._token_map.lookup_yes_asset(condition_id)

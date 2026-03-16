@@ -17,7 +17,7 @@ import asyncio
 import json
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 import websockets
@@ -27,6 +27,9 @@ from pm_ingest.base import BaseIngestor
 from pm_ingest.ingestors.managed_slot import ManagedSlot
 from pm_ingest.publish import safe_publish
 from pm_ingest.reconciler import Reconciler
+
+if TYPE_CHECKING:
+    from pm_core.protocols import BookWriter
 
 log = structlog.get_logger()
 
@@ -61,6 +64,7 @@ class CLOBOrderbookIngestor(BaseIngestor):
         reconcile_registry: Any | None = None,
         redundancy: int = 1,
         flush_interval_s: float = 0.01,
+        book_writer: BookWriter | None = None,
         *,
         broker: Any = None,
     ) -> None:
@@ -106,6 +110,9 @@ class CLOBOrderbookIngestor(BaseIngestor):
         self._asset_owner_at: dict[str, float] = {}
         self._ownership_transfers: int = 0
         self._ownership_drops: int = 0
+        # Shared memory orderbook writer (optional, additive to Redis)
+        self._book_writer = book_writer
+        self._shmem_writes: int = 0
 
     def wake_reconciler(self) -> None:
         """Trigger immediate reconciliation from external callers."""
@@ -448,6 +455,22 @@ class CLOBOrderbookIngestor(BaseIngestor):
         if self._redis is not None:
             self._dirty_obs[asset_id] = (condition_id, snapshot)
 
+        # Shared memory write — ~0.1ms sync, does NOT starve the event loop
+        if self._book_writer is not None:
+            try:
+                self._book_writer.update(
+                    asset_id,
+                    best_bid,
+                    best_ask,
+                    [(p, s) for p, s in bids],
+                    [(p, s) for p, s in asks],
+                    bid_depth_usd,
+                    ask_depth_usd,
+                )
+                self._shmem_writes += 1
+            except Exception:
+                log.warning("shmem.write_error", asset_id=asset_id[:12])
+
         fingerprint = (
             tuple(tuple(lvl) for lvl in bids),
             tuple(tuple(lvl) for lvl in asks),
@@ -650,6 +673,7 @@ class CLOBOrderbookIngestor(BaseIngestor):
             "ownership_transfers": self._ownership_transfers,
             "ownership_drops": self._ownership_drops,
             "owned_assets": len(self._asset_owner),
+            "shmem_writes": self._shmem_writes,
             **reconciler_stats,
         }
 

@@ -15,6 +15,7 @@ Serves:
   /api/v1/roundtrips      -- round trip list + detail
   /api/v1/prices/{cid}    -- zoomable price history
   /api/v1/introspect      -- strategy introspect proxy
+  /api/v1/config          -- dynamic config management
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from fastapi.responses import HTMLResponse
 from pm_api.deps import request_times
 from pm_api.errors import APIError, api_error_handler
 from pm_api.routes.compat import compat
+from pm_api.routes.config import router as config_router
 from pm_api.routes.fills import router as fills_router
 from pm_api.routes.health import router as health_router
 from pm_api.routes.ingestion import router as ingestion_router
@@ -75,6 +77,7 @@ def create_app() -> FastAPI:
     application.include_router(roundtrips_router)
     application.include_router(prices_router)
     application.include_router(introspect_router)
+    application.include_router(config_router)
 
     # -- Backward-compat /api/* routes --
     application.include_router(compat)

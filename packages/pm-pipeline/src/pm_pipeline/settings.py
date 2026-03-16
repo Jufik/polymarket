@@ -118,5 +118,9 @@ class Settings(BaseSettings):
     max_position_usd: float = 100.0
     max_total_exposure_usd: float = 500.0
 
+    # Shared memory orderbook (zero-copy hot path for strategy reads)
+    shmem_enabled: bool = False
+    shmem_slots: int = 4096
+
     # Logging
     log_file: str = ""  # Empty means console only, e.g. "logs/pipeline.jsonl"
